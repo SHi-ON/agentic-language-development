@@ -6,18 +6,8 @@
     "rootDir": "./src",
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },
-  "include": [
-    "src/**/*.ts"
-  ],
+  "include": ["src/**/*.ts"],
   "references": [
-    {
-      "path": "../config"
-    },
-    {
-      "path": "../types"
-    },
-    {
-      "path": "../hashing"
-    }
+    { "path": "../types" }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@ald/evidence",
+  "name": "@ald/anchor",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,13 +15,8 @@
     "build": "tsc --build"
   },
   "dependencies": {
-    "@ald/config": "*",
     "@ald/types": "*",
-    "better-sqlite3": "^12.4.1",
-    "canonicalize": "^4.0.0",
-    "@ald/hashing": "*"
-  },
-  "devDependencies": {
-    "@types/better-sqlite3": "^9.6.0"
+    "@ald/hashing": "*",
+    "@ald/evidence": "*"
   }
 }
