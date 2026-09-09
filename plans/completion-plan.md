@@ -24,7 +24,7 @@ required evidence.
    -> **Check:** fixed-seed tests reproduce identical output, cover every
    sample-size/SD row, and fail if a row falls below the registered 90% power
    floor.
-3. [ ] **Compile canonical E03 preregistration artifacts.** Produce a validated,
+3. [x] **Compile canonical E03 preregistration artifacts.** Produce a validated,
    canonical `PreRegistrationArtifact`, its domain-separated hash, the complete
    primary/reserve seed manifest, and run-config templates that all carry that
    exact hash.
