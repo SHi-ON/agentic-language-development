@@ -17,7 +17,7 @@ required evidence.
    -> **Check:** `npm ci` succeeds from the lockfile, `npm audit
    --audit-level=high` exits zero, and the workflow uploads the audit JSON even
    when another check fails.
-2. [ ] **Make the E03 design calculation reproducible.** Implement the
+2. [x] **Make the E03 design calculation reproducible.** Implement the
    deterministic Monte Carlo calculation and seed/reserve manifest described by
    `RESEARCH.md` Appendix D rather than leaving its reported power values as
    prose-only calculations.
