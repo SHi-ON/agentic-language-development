@@ -1,6 +1,6 @@
 # Verifiable-Core Completion Plan
 
-**Status:** In progress  
+**Status:** Local execution complete; external evidence gates remain
 **Scope:** `agentic-language-development` only  
 **Starting commit:** `a2a11453e4d4e1c384993b6541ad9c61da13ee90`
 
@@ -46,7 +46,7 @@ required evidence.
    a public 3B-8B open-weight model completes the qualification locally; the
    report is explicitly labeled non-confirmatory and contains no model prompt or
    private output.
-6. [ ] **Synchronize the public project state and regenerate derived artifacts.**
+6. [x] **Synchronize the public project state and regenerate derived artifacts.**
    Correct stale implementation claims in `README.md` and `RESEARCH.md`, add a
    drift check for plan/version/status surfaces, and regenerate the research
    book after the manuscript change.
@@ -73,6 +73,6 @@ code or by substituting simulated evidence:
 ## Completion rule
 
 Each implementation step receives its own logical commit and patch-version bump.
-The branch is pushed only after its local checks pass. The final exact commit must
-also pass the hosted consolidated and Mode R jobs before this plan is marked
-complete.
+The branch is pushed only after its local checks pass. Hosted consolidated and Mode R
+results are reported against the exact pushed commit rather than written back into
+that commit, which would create a self-referential verification loop.
