@@ -38,7 +38,7 @@ required evidence.
    -> **Check:** qualification/confirmatory class, immutable commit, non-placeholder
    hashes, Mode R, independent learners, seed count, external registration, and
    confirmed matching pre-run anchor are each independently exercised by tests.
-5. [ ] **Exercise the frozen-LLM path with real open weights.** Add an operator
+5. [x] **Exercise the frozen-LLM path with real open weights.** Add an operator
    command for a loopback OpenAI-compatible server, hash the local weight file,
    run both Baby roles through the shared learner contract, and retain a
    qualification report carrying the exact provenance.
