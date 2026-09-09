@@ -32,7 +32,7 @@ required evidence.
    repeat; changing a registered field changes the hash; run IDs, realized
    random seeds, and the hash itself are excluded from the hashed parameter
    template.
-4. [ ] **Add a fail-closed research preflight.** Evaluate an artifact and its
+4. [x] **Add a fail-closed research preflight.** Evaluate an artifact and its
    execution binding before confirmatory collection, reporting every blocker in
    both JSON and human-readable form.
    -> **Check:** qualification/confirmatory class, immutable commit, non-placeholder
