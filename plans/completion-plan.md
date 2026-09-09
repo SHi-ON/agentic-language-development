@@ -11,7 +11,7 @@ required evidence.
 
 ## Execution sequence
 
-1. [ ] **Close the dependency-integrity gap.** Remove all high/critical npm
+1. [x] **Close the dependency-integrity gap.** Remove all high/critical npm
    advisories from the locked graph and make the audit a blocking consolidated
    CI step with a retained machine-readable report.
    -> **Check:** `npm ci` succeeds from the lockfile, `npm audit
