@@ -1,0 +1,126 @@
+{
+ "inventoryVersion": "v1",
+ "studyId": "ALA-LV",
+ "date": "2026-10-09",
+ "note": "Read-only inventory of retained originals backing feasibility statements. Small canonical files are hashed exactly; large bundle dirs are recorded by byte count and bound to the dyad receipt (V2 byte check).",
+ "files": [
+  {
+   "path": "evidence/ala-lv/journal.jsonl",
+   "sha256": "sha256:a9f60a06ef48cdef3668c4b8c24e30ba72d8bc5190aff0f560aeac48fb40caf1",
+   "bytes": 1867
+  },
+  {
+   "path": "evidence/ala-lv/cal-0000-stdout.log",
+   "sha256": "sha256:578aa6fbb282eeeb933b7a3a92b7c435473599a1c338de6eab4ad71bf7361ad5",
+   "bytes": 2718
+  },
+  {
+   "path": "evidence/ala-lv/cal-0001-stdout.log",
+   "sha256": "sha256:20a3a1352a6e3584f03c597c5fdc96a42027ded92553067afb8fcaf3e732a5e2",
+   "bytes": 2587
+  },
+  {
+   "path": "evidence/ala-lv/cal-0002-stdout.log",
+   "sha256": "sha256:7cf3f217604171f669f3d9f701f9fcfd62b4d8bffda5e0a0e146b013cf0c9bf2",
+   "bytes": 2702
+  },
+  {
+   "path": "evidence/ala-lv/cal-0002-resume-stdout.log",
+   "sha256": "sha256:449c233b9425190b014bad835345ff8bcd49f4114bad7e4ffa27cbfd0739ed11",
+   "bytes": 211
+  },
+  {
+   "path": "evidence/ala-lv/p4-benchmark-rehearsal.json",
+   "sha256": "sha256:142b763ce4e2192fa7936900c48faa60e0cdaecc4b1158ba96f270d88c113e9f",
+   "bytes": 653
+  },
+  {
+   "path": "evidence/ala-lv/calibration/primary-0002/dyad-receipt.json",
+   "sha256": "sha256:10255b764300b3e2781fb6cd7545caa09227b6d830931799d06b2278680d9f4e",
+   "bytes": 19987
+  },
+  {
+   "path": "reports/research/ala-p4-qualification-receipt.v1.json",
+   "sha256": "sha256:fbe92dfea3ae8a8bb9dbe616da53dd6f0dfbd146271981190b56901ae606ba21",
+   "bytes": 4737
+  },
+  {
+   "path": "reports/research/ala-p5-admission-decision.v1.json",
+   "sha256": "sha256:3c0aaaf97d214f7711524de3fad1d16a7716b2c10cfccdc848234b14c6533b2e",
+   "bytes": 3355
+  },
+  {
+   "path": "reports/research/ala-p6-feasibility-verification.v1.json",
+   "sha256": "sha256:69c14a6a4c8b874c21aa6fa8acbffc246817d62894c77f4268623d68a6a0a049",
+   "bytes": 2043
+  },
+  {
+   "path": "reports/research/ala-attempt-accounting-correction.v1.json",
+   "sha256": "sha256:61c8ef063e97cbf500269ad3423df14ed2efad9b620da07c3bf2d7892ad2073c",
+   "bytes": 2075
+  },
+  {
+   "path": "docs/ala-implementation-discrepancy-record.md",
+   "sha256": "sha256:030965f5433237de0443770c9b2ab3b0432425ca615e986286e87f4c5b0f1cb4",
+   "bytes": 5663
+  },
+  {
+   "path": "protocols/ala-lv-study.v1.json",
+   "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
+   "bytes": 13660
+  },
+  {
+   "path": "protocols/ala-lv-analysis.v1.json",
+   "sha256": "sha256:e78dad109ea5eac3a54c08d62098ce03dd3712a1e9c96b794579e3fc5205d83f",
+   "bytes": 9380
+  },
+  {
+   "path": "protocols/ala-lv-scope-and-resource-amendment.v1.json",
+   "sha256": "sha256:dc94f8cd84e46f40e68683044da0011aeaedf36fe24566b984e9ae239e7c1e18",
+   "bytes": 3092
+  },
+  {
+   "path": "protocols/ala-lv-execution-manifest.v1.json",
+   "sha256": "sha256:1eab5fd22965fa63e01fe37f483fc170bb5903da56f74aaa98ec46035eb1d799",
+   "bytes": 17612
+  },
+  {
+   "path": "worksheets/ala-qualification.py",
+   "sha256": "sha256:f0a6af00accb6696d31f764ef36f030c6f4e9dde8a4ea57cfb37ee09ecd7f2cf",
+   "bytes": 10477
+  },
+  {
+   "path": "worksheets/ala-feasibility-verify.py",
+   "sha256": "sha256:ad30c9e5fd4bbfb8a00a42d55fb187a8454949d29e469d94ebf73c22fa1f49d8",
+   "bytes": 6700
+  },
+  {
+   "path": "package.json",
+   "sha256": "sha256:61e1beab9186166020b35228d6bf087198e0c14a215c40ab9fdf13648e2773e8",
+   "bytes": 4112
+  }
+ ],
+ "bundleDirs": [
+  {
+   "path": "evidence/ala-lv/calibration/primary-0000",
+   "bytes": 114393333,
+   "binding": "training-only parent of aborted slot; no receipt"
+  },
+  {
+   "path": "evidence/ala-lv/calibration/primary-0002",
+   "bytes": 4625608420,
+   "binding": "dyad-receipt.json evidenceBytes + receipt file = on-disk total (V2)"
+  }
+ ],
+ "unavailable": [
+  "calibration/primary/1 parent bundle (removed during re-attempt prep; journal + stdout log retained)",
+  "calibration/primary/2 first-attempt partial dyad dir (wiped by deterministic resume; journal + stdout log retained)",
+  "per-invocation CPU/RSS/byte charges for cal-0000, cal-0001, cal-0002a (no receipts; unknown)",
+  "historical E03/LV01 originals (never on this host)",
+  "live weight/optimizer/hidden-state/PRNG restoration comparisons (never captured)"
+ ],
+ "limits": [
+  "File-size/byte evidence alone cannot reauthenticate all original contents.",
+  "Recorded timers are measurements from the executing process, not independently remeasured historical CPU."
+ ]
+}
