@@ -36,18 +36,23 @@ export function alaStudyCounts(studyProtocolPath: string): AlaStudyCounts {
 
 export interface AlaCollectionWorkload {
   readonly profile: 'prototype';
+  /** Total training turns (roles alternate inside the run). */
   readonly trainingTurns: number;
+  /** Per-receiver-role scheduled cases (halves of the study totals). */
   readonly validationFitCases: number;
   readonly validationSelectionCases: number;
   readonly withinSupportTestCases: number;
 }
 
 export function alaPrototypeWorkload(studyCounts: AlaStudyCounts): AlaCollectionWorkload {
+  for (const [name, value] of Object.entries(studyCounts)) {
+    if (value % 2 !== 0) throw new Error(`ALA workload: study ${name} is not evenly split across roles`);
+  }
   return {
     profile: 'prototype',
     trainingTurns: studyCounts.trainingCases,
-    validationFitCases: studyCounts.validationFitCases,
-    validationSelectionCases: studyCounts.validationSelectionCases,
-    withinSupportTestCases: studyCounts.withinSupportTestCases,
+    validationFitCases: studyCounts.validationFitCases / 2,
+    validationSelectionCases: studyCounts.validationSelectionCases / 2,
+    withinSupportTestCases: studyCounts.withinSupportTestCases / 2,
   };
 }

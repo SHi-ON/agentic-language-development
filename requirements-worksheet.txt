@@ -1,0 +1,31 @@
+# Pinned worksheet env (P4 Marimo qualification + P6 analysis). Sync with:
+#   uv venv .venv-worksheet --python 3.13
+#   uv pip install --python .venv-worksheet/bin/python -r requirements-worksheet.txt
+# numpy/scipy match the pinned statistics stack; marimo pinned 2026-10-09.
+anyio==4.15.1
+click==8.5.0
+docutils==0.23
+h11==0.16.0
+idna==3.20
+itsdangerous==2.2.0
+jedi==0.20.0
+loro==1.16.2
+marimo==0.25.1
+markdown==3.11
+msgspec==0.22.0
+narwhals==2.26.0
+numpy==2.5.3
+packaging==26.3
+parso==0.8.7
+psutil==7.2.2
+pygments==2.21.0
+pymdown-extensions==11.0.2
+python-multipart==0.0.32
+pyyaml==6.0.3
+pyzmq==27.2.0
+scipy==1.18.1
+starlette==1.7.0
+tomlkit==0.15.1
+typing-extensions==4.16.0
+uvicorn==0.54.0
+websockets==17.2

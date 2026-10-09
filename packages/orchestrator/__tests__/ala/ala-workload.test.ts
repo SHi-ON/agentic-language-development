@@ -21,6 +21,9 @@ describe('ALA workload resolution', () => {
     const workload = alaPrototypeWorkload(counts);
     expect(workload.profile).toBe('prototype');
     expect(workload.trainingTurns).toBe(3000);
+    expect(workload.validationFitCases).toBe(120);
+    expect(workload.validationSelectionCases).toBe(120);
+    expect(workload.withinSupportTestCases).toBe(120);
   });
 
   it('rejects missing or non-positive partition counts', () => {

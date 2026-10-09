@@ -316,7 +316,7 @@ export async function runAlaDyad(input: {
     const caseCommitments: string[] = [];
     let verificationMilliseconds = 0;
     let peakBytes = Math.max(rssStart, process.memoryUsage().rss);
-    const slotCount = workload.withinSupportTestCases;
+    const slotCount = 2 * workload.withinSupportTestCases;
     for (let slot = 1; slot <= slotCount; slot += 1) {
       const receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a';
       const caseIndex = (slot - 1) % workload.withinSupportTestCases;
