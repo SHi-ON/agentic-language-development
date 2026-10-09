@@ -1,0 +1,254 @@
+{
+ "censusVersion": "v1",
+ "studyId": "ALA-LV",
+ "method": "Read-only joins over retained bundles; training tokens from parent-ledger intention.recorded symbols joined to turn scenario hashes; test tokens from treatment-batch.json selectedToken, spot-checked against branch intention records.",
+ "limits": [
+  "Turn records and transcripts carry hashes only; plaintext comes from ledger intention events.",
+  "Candidate-type overlap for training turns is proxied by scenario-hash (dis)equality.",
+  "primary-0000 is an aborted training-only run; pooled numbers would mix policies, so dyads stay separate."
+ ],
+ "training": {
+  "primary-0002": {
+   "n": 3000,
+   "distinctTokens": 32,
+   "top5": [
+    [
+     "S02",
+     1177
+    ],
+    [
+     "S03",
+     693
+    ],
+    [
+     "S09",
+     452
+    ],
+    [
+     "S01",
+     197
+    ],
+    [
+     "S16",
+     91
+    ]
+   ],
+   "top1Share": 0.3923333333333333,
+   "adjacentRepeatRate": 0.009336445481827277,
+   "sameTokenDifferentScenario": 2968,
+   "sameTokenDifferentScenarioRate": 0.9893333333333333,
+   "bySender": {
+    "baby-a": {
+     "n": 1500,
+     "distinct": 30,
+     "top1": [
+      "S02",
+      1172
+     ]
+    },
+    "baby-b": {
+     "n": 1500,
+     "distinct": 32,
+     "top1": [
+      "S03",
+      689
+     ]
+    }
+   }
+  },
+  "primary-0000": {
+   "n": 3000,
+   "distinctTokens": 32,
+   "top5": [
+    [
+     "S20",
+     896
+    ],
+    [
+     "S10",
+     879
+    ],
+    [
+     "S15",
+     443
+    ],
+    [
+     "S22",
+     327
+    ],
+    [
+     "S31",
+     100
+    ]
+   ],
+   "top1Share": 0.2986666666666667,
+   "adjacentRepeatRate": 0.004334778259419807,
+   "sameTokenDifferentScenario": 2968,
+   "sameTokenDifferentScenarioRate": 0.9893333333333333,
+   "bySender": {
+    "baby-a": {
+     "n": 1500,
+     "distinct": 32,
+     "top1": [
+      "S10",
+      875
+     ]
+    },
+    "baby-b": {
+     "n": 1500,
+     "distinct": 30,
+     "top1": [
+      "S20",
+      890
+     ]
+    }
+   }
+  }
+ },
+ "test": {
+  "cases": 240,
+  "perTreatment": {
+   "constant": {
+    "distinct": 1,
+    "n": 240,
+    "top3": [
+     [
+      "S01",
+      240
+     ]
+    ],
+    "nulls": 0
+   },
+   "disabled": {
+    "distinct": 1,
+    "n": 240,
+    "top3": [
+     [
+      "NULL",
+      240
+     ]
+    ],
+    "nulls": 240
+   },
+   "ledger-consistent": {
+    "distinct": 24,
+    "n": 240,
+    "top3": [
+     [
+      "S29",
+      36
+     ],
+     [
+      "S03",
+      32
+     ],
+     [
+      "S02",
+      28
+     ]
+    ],
+    "nulls": 0
+   },
+   "ledger-shuffled": {
+    "distinct": 24,
+    "n": 240,
+    "top3": [
+     [
+      "S29",
+      36
+     ],
+     [
+      "S03",
+      32
+     ],
+     [
+      "S02",
+      28
+     ]
+    ],
+    "nulls": 0
+   },
+   "normal": {
+    "distinct": 2,
+    "n": 240,
+    "top3": [
+     [
+      "S02",
+      120
+     ],
+     [
+      "S09",
+      120
+     ]
+    ],
+    "nulls": 0
+   },
+   "random": {
+    "distinct": 1,
+    "n": 240,
+    "top3": [
+     [
+      "S12",
+      240
+     ]
+    ],
+    "nulls": 0
+   },
+   "shuffled": {
+    "distinct": 2,
+    "n": 240,
+    "top3": [
+     [
+      "S02",
+      120
+     ],
+     [
+      "S09",
+      120
+     ]
+    ],
+    "nulls": 0
+   }
+  },
+  "casesWithWithinCaseDuplicate": 240,
+  "distinctCandidateSets": 107,
+  "maxCandidateSetReuse": 4,
+  "topCoincidentPairs": [
+   [
+    "ledger-consistent==ledger-shuffled",
+    240
+   ],
+   [
+    "normal==shuffled",
+    240
+   ],
+   [
+    "ledger-consistent==normal",
+    30
+   ],
+   [
+    "ledger-consistent==shuffled",
+    30
+   ],
+   [
+    "ledger-shuffled==normal",
+    30
+   ],
+   [
+    "ledger-shuffled==shuffled",
+    30
+   ],
+   [
+    "constant==ledger-consistent",
+    20
+   ],
+   [
+    "constant==ledger-shuffled",
+    20
+   ]
+  ],
+  "missingIntention": []
+ },
+ "interpretation": "Exact-duplicate messages across different scenarios are pervasive (32 fixed symbols over thousands of turns); the retained analysis keeps the uniform-null ordinary with no repetition-sensitive modeling, and the old repetition claim is replaced by this census.",
+ "selectedOption": "D2 (ratified): keep uniform-null ordinary, no repetition-sensitive modeling; duplication is reported as this census. Poisoning question resolved as: benign structural duplication (32 fixed symbols; top-1 39.2% training share) with no fitted ordinary to poison; repetition-sensitive modeling stays an open future question requiring new dev samples."
+}
