@@ -47,8 +47,8 @@ of the v1 campaign.
 
 - `pnpm run paper:validate` — secrets + frozen claim boundary + protocol
   binding.
-- `pnpm run paper:audit` — claim boundary only; reports PARTIAL. There is
-  no sealed study-evidence audit (no study ran).
+- `pnpm run paper:audit` — claim boundary only; reports PARTIAL and exits
+  2. There is no sealed study-evidence audit (no study ran).
 - Every manuscript measurement traces to the sealed export via
   `docs/claims.tsv` in the paper repo; protocol design constants cite
   the frozen contracts digested in the export manifest. No console

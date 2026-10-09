@@ -14,9 +14,9 @@
    "detail": "receipt=4625588433 +receipt_file=19987 disk=4625608420"
   },
   {
-   "name": "V3 arithmetic",
+   "name": "V3 cost-fields",
    "pass": true,
-   "detail": "cpu_h=0.539653 wall_min=33.6613"
+   "detail": "keys=['cpuMicroseconds', 'evidenceBytes', 'peakBytes', 'unresolved', 'verificationMilliseconds', 'wallMilliseconds'] unresolved=[] cpu_h=0.539653 wall_min=33.6613"
   },
   {
    "name": "V4 counts",
@@ -36,10 +36,10 @@
   {
    "name": "V7 nogo",
    "pass": true,
-   "detail": "44slot=50.5h 24slot=28.9h 20slot@1x=13.8h (cap 12.0h); 24slot storage=207GiB (cap 10GiB)"
+   "detail": "44slot=50.5h 24slot=28.9h 20slot@1x=13.8h (cap 12.0h); 24slot storage=207GiB (cap 10GiB); dev0-robust=True guard-violated=True"
   },
   {
-   "name": "V8 benchmark",
+   "name": "V8 benchmark rehearsal (no signing-isolation conclusion)",
    "pass": true,
    "detail": "12.4s < 360s cap"
   },
@@ -57,6 +57,18 @@
  "values": {
   "evidenceBytes": 4625608420,
   "receiptEvidenceBytes": 4625588433,
+  "primitives": {
+   "cpuMicroseconds": 1942750502,
+   "evidenceBytes": 4625588433,
+   "peakBytes": 952872960,
+   "unresolved": [],
+   "verificationMilliseconds": 139499,
+   "wallMilliseconds": 2019678
+  },
+  "derived": {
+   "cpuHours": 0.5396529172222222,
+   "wallMinutes": 33.6613
+  },
   "cpuHours": 0.5396529172222222,
   "wallMinutes": 33.6613,
   "peakBytes": 952872960,
@@ -81,7 +93,10 @@
    "need44CpuH": 50.489456715555555,
    "need24CpuH": 28.903340026666665,
    "need20at1xCpuH": 13.793058344444443,
-   "need24StorageGiB": 206.7808100581169
+   "need24StorageGiB": 206.7808100581169,
+   "capsFrom": "protocols/ala-lv-scope-and-resource-amendment.v1.json",
+   "devAssumptionHistorical": 1.0,
+   "nogoAtDev0": true
   },
   "benchmarkCpuSeconds": 12.39889,
   "worksheetExit": 0

@@ -39,6 +39,7 @@ switch (verb) {
       "paper:audit PARTIAL: frozen claim boundary verified; " +
         "study-evidence audit pending P6 sealed export."
     );
+    process.exit(2);
     break;
   case "qualify":
     notImplemented("P4");

@@ -6,11 +6,14 @@ TypeScript scorer or trusting console summaries:
 
   V1  dyad receipt present, valid, 240/240 cases
   V2  receipt evidenceBytes == bytes on disk (exact)
-  V3  derived CPU-h / wall-min arithmetic (1e-9 relative)
+  V3  all six cost fields present/sane; unit conversion pinned (primitives
+      vs derived recorded separately; no independent CPU remeasurement)
   V4  240 slot dirs / 1680 branch dirs on disk
   V5  journal accounts 3/3 dev slots with terminal states
   V6  P4 receipt cost fields match dyad receipt (exact)
-  V7  P5 reservation math recomputed; NO-GO decision reproduced
+  V7  caps parsed from the frozen amendment + P5 record (no hardcoded
+      constants); reservation math recomputed; NO-GO reproduced at the
+      historical dev assumption AND at dev=0 (consumed cost unknown)
   V8  benchmark rehearsal under its 0.1 CPU-h cap
   V9  no admission.json exists (collection disabled)
   V10 qualification worksheet reruns green (subprocess, exit 0)
@@ -74,8 +77,15 @@ def main() -> int:
 
     cpu_h = cost["cpuMicroseconds"] / 3.6e9
     wall_min = cost["wallMilliseconds"] / 60000.0
-    check("V3 arithmetic", rel_close(cpu_h, cost["cpuMicroseconds"] / 3600000000.0) and wall_min > 0,
-          f"cpu_h={cpu_h:.6f} wall_min={wall_min:.4f}")
+    expected_keys = {"cpuMicroseconds", "wallMilliseconds", "peakBytes",
+                     "evidenceBytes", "verificationMilliseconds", "unresolved"}
+    keys_ok = set(cost) == expected_keys
+    sane_ok = all(cost[k] >= 0 for k in expected_keys - {"unresolved"}) and cost["unresolved"] == []
+    conv_ok = rel_close(cpu_h * 3.6e9, cost["cpuMicroseconds"]) and rel_close(wall_min * 60000.0, cost["wallMilliseconds"])
+    check("V3 cost-fields", keys_ok and sane_ok and conv_ok,
+          f"keys={sorted(cost)} unresolved={cost['unresolved']} cpu_h={cpu_h:.6f} wall_min={wall_min:.4f}")
+    values["primitives"] = {k: cost[k] for k in sorted(expected_keys)}
+    values["derived"] = {"cpuHours": cpu_h, "wallMinutes": wall_min}
     values["cpuHours"] = cpu_h
     values["wallMinutes"] = wall_min
     values["peakBytes"] = cost["peakBytes"]
@@ -102,20 +112,38 @@ def main() -> int:
           and p4c["cpuMicroseconds"] == cost["cpuMicroseconds"],
           "P4 receipt cost fields match dyad receipt + disk exactly")
 
-    # V7: reservation math from first principles.
-    cap_h, cap_b = 12.0, 10 * 1024**3
-    analysis_h, dev_h = 2.0, 1.0
+    # V7: reservation math from the frozen contract (no hardcoded constants).
+    amend = json.loads((ROOT / "protocols/ala-lv-scope-and-resource-amendment.v1.json").read_text())
+    p5 = json.loads((ROOT / "reports/research/ala-p5-admission-decision.v1.json").read_text())
+    cap_h = amend["newAllowance"]["campaignCpuHoursMax"]
+    per_h_cap = amend["newAllowance"]["perDyadCpuHoursMax"]
+    per_w_cap = amend["newAllowance"]["perDyadWallMinutesMax"]
+    analysis_h = amend["newCaps"]["analysisReproductionCpuHoursReserved"]
+    cap_b = amend["newCaps"]["additionalRetainedWorkingBytesMax"]
+    assert p5["campaignCapCpuHours"] == cap_h, "P5/amendment cap mismatch"
+    assert p5["analysisReservedCpuHours"] == analysis_h, "P5/amendment analysis mismatch"
+    assert p5["workingCapBytes"] == cap_b, "P5/amendment storage mismatch"
+    assert "Twice the maximum" in p5["provisioningRule"], "provisioning rule changed"
+    # dev=1.0 is the P5 historical assumption, NOT a measurement: the attempt
+    # accounting correction withdrew the bound (crashed-run costs unknown).
+    dev_h = p5["devConsumedCpuHoursUpperBound"]
     per_h, per_b = 2 * cpu_h, 2 * on_disk
     need_44 = 44 * per_h + analysis_h + dev_h
     need_24 = 24 * per_h + analysis_h + dev_h
     need_20_1x = 20 * cpu_h + analysis_h + dev_h
     stor_24 = 24 * per_b
-    nogo = need_44 > cap_h and need_24 > cap_h and need_20_1x > cap_h and stor_24 > cap_b
-    check("V7 nogo", nogo,
+    nogo_hist = need_44 > cap_h and need_24 > cap_h and need_20_1x > cap_h and stor_24 > cap_b
+    nogo_0 = (44 * per_h + analysis_h) > cap_h and (24 * per_h + analysis_h) > cap_h \
+        and (20 * cpu_h + analysis_h) > cap_h and stor_24 > cap_b
+    guard_viol = cpu_h > per_h_cap and wall_min > per_w_cap
+    check("V7 nogo", nogo_hist and nogo_0 and guard_viol,
           f"44slot={need_44:.1f}h 24slot={need_24:.1f}h 20slot@1x={need_20_1x:.1f}h (cap {cap_h}h); "
-          f"24slot storage={stor_24 / 1024**3:.0f}GiB (cap 10GiB)")
+          f"24slot storage={stor_24 / 1024**3:.0f}GiB (cap {cap_b / 1024**3:.0f}GiB); "
+          f"dev0-robust={nogo_0} guard-violated={guard_viol}")
     values["reservation"] = {"need44CpuH": need_44, "need24CpuH": need_24,
-                             "need20at1xCpuH": need_20_1x, "need24StorageGiB": stor_24 / 1024**3}
+                             "need20at1xCpuH": need_20_1x, "need24StorageGiB": stor_24 / 1024**3,
+                             "capsFrom": "protocols/ala-lv-scope-and-resource-amendment.v1.json",
+                             "devAssumptionHistorical": dev_h, "nogoAtDev0": nogo_0}
 
     bench = json.loads((ROOT / "evidence/ala-lv/p4-benchmark-rehearsal.json").read_text())
     check("V8 benchmark rehearsal (no signing-isolation conclusion)", bench["cpuSeconds"] < bench["capCpuSeconds"],
