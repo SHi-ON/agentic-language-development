@@ -2,8 +2,8 @@
   "manifestVersion": "ala-lv-execution-manifest/v1",
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
-  "sourceTree": "d1b24f1773408aaea8efc8ada9a5a810d7099aa8",
-  "createdAtUtc": "2026-10-09T04:24:55.217Z",
+  "sourceTree": "f968a8f1d65562555a092c4d4f56fea0e8f3e291",
+  "createdAtUtc": "2026-10-09T04:36:05.702Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -19,8 +19,8 @@
     }
   },
   "executionClosure": {
-    "fileCount": 357,
-    "sha256": "sha256:3b73205a48c27f97d6e632a871216e77fe315f3b8eeb23692c1cacecb39fe7ae"
+    "fileCount": 358,
+    "sha256": "sha256:5478559c2718cbef116d883b3b3955aeb1ae1f3c4fcd99bc964afe5a48a7a178"
   },
   "closureFiles": [
     "package.json",
@@ -328,6 +328,7 @@
     "protocols/schemas/ala-lv-analysis.schema.json",
     "protocols/schemas/ala-lv-study.schema.json",
     "scripts/admit-lv01-stage.mjs",
+    "scripts/ala-overhead-benchmark.ts",
     "scripts/ala-run-entry.ts",
     "scripts/ala-run.mjs",
     "scripts/anchor-faucet-watch.mjs",
@@ -384,7 +385,7 @@
   "dependencies": {
     "node": "v24.21.0",
     "lockfileSha256": "sha256:d1fa42e14d66df92cd916b38bef1ea075c7e2ba001a2ecf4dfc3aa075377661a",
-    "packageJsonSha256": "sha256:30d211a2455d50f87466204d45ff7951c703034fcaad41704c07c18fe6cbb41b"
+    "packageJsonSha256": "sha256:ce0b4d1b9816ce36eeb0902f8d7fc1088797b311714b1620167a16e245d5421c"
   },
   "workload": {
     "trainingCases": 3000,

@@ -2,7 +2,7 @@
  * ALA-LV thin Prototype runner (P3).
  *
  * One dyad end to end: disposable worker, parent training, freeze
- * verification, fitted ordinary providers, 240 scheduled paired cases
+ * verification, uniform collection-time ordinary, 240 scheduled paired cases
  * with committed treatment batches, branch execution from restored
  * pre-states, and independent per-case audit. Reuses the LV01 engine
  * family (schedule, training, ordinary wiring, treatments, executor,
@@ -47,7 +47,6 @@ import {
   readLv01BundleDocs,
   scheduledLv01BranchTarget,
 } from '../experiments/lv01-collector.js';
-import { composeLv01OrdinaryProvidersFromParent } from '../experiments/lv01-ordinary-wiring.js';
 import {
   deriveLv01LedgerCutoff,
   mapLv01LedgerAssociations,
@@ -305,12 +304,11 @@ export async function runAlaDyad(input: {
       receiverRoles: ['baby-a', 'baby-b'],
     });
     const inventory = fixedTokenInventory(32);
-    const composed = composeLv01OrdinaryProvidersFromParent({ parentDocs, schedule, inventory });
-    const providerA = composed.byRole['baby-a'];
-    const providerB = composed.byRole['baby-b'];
-    if (providerA === undefined || providerB === undefined) {
-      fail('ordinary composition is missing a receiver role');
-    }
+    // Collection-time ordinary is the uniform null (same as the production
+    // collect-lv01-stage path): ordinary fitting and BIC selection are
+    // analysis-time operations on the sealed packets, never fitted from
+    // the parent at collection time.
+    const uniformOrdinary = { ordinaryId: 'uniform', ordinaryFit: { kind: 'uniform' } } as const;
 
     // 8. Paired cases: rotation serves 120 cases per role over 240 slots.
     const caseCommitments: string[] = [];
@@ -368,12 +366,11 @@ export async function runAlaDyad(input: {
         `${JSON.stringify({ commitment: schedule.commitment, executedCaseId: scheduled.scheduledCaseId }, null, 2)}\n`,
         'utf8',
       );
-      const roleProvider = receiver === 'baby-a' ? providerA : providerB;
       const harness = await createLv01CollectorHarness({
         root: dyadDir,
         databasePath: dbPath,
         softwareCommit: manifest.protocolCommit,
-        ordinary: roleProvider.provider,
+        ordinary: uniformOrdinary,
       });
       try {
         await executeLv01PairedCaseBranches({ plan, harness, caseDir, softwareCommit: manifest.protocolCommit });
