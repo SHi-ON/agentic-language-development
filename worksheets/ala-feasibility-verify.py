@@ -118,7 +118,7 @@ def main() -> int:
                              "need20at1xCpuH": need_20_1x, "need24StorageGiB": stor_24 / 1024**3}
 
     bench = json.loads((ROOT / "evidence/ala-lv/p4-benchmark-rehearsal.json").read_text())
-    check("V8 benchmark", bench["cpuSeconds"] < bench["capCpuSeconds"],
+    check("V8 benchmark rehearsal (no signing-isolation conclusion)", bench["cpuSeconds"] < bench["capCpuSeconds"],
           f"{bench['cpuSeconds']:.1f}s < {bench['capCpuSeconds']:.0f}s cap")
     values["benchmarkCpuSeconds"] = bench["cpuSeconds"]
 

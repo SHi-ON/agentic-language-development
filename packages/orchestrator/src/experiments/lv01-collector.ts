@@ -1111,6 +1111,26 @@ export function rebuildLv01CasePlan(input: {
  * contracted seven exactly — no missing, no extras. Order-insensitive;
  * the caller enumerates the raw branches directory.
  */
+/**
+ * Public audit entry for a collected case's treatment batch: missing file
+ * and malformed JSON fail with named reasons instead of raw I/O or
+ * SyntaxError text.
+ */
+export async function readLv01TreatmentBatch(caseDir: string): Promise<Lv01LedgerTreatmentBatch> {
+  const path = join(caseDir, 'treatment-batch.json');
+  let raw: string;
+  try {
+    raw = await readFile(path, 'utf8');
+  } catch {
+    fail(`treatment batch ${path} is missing`);
+  }
+  try {
+    return JSON.parse(raw) as Lv01LedgerTreatmentBatch;
+  } catch {
+    fail(`treatment batch ${path} is not valid JSON`);
+  }
+}
+
 export function assertLv01SlotBranchCensus(slot: number, served: readonly string[], expected: readonly string[]): void {
   const actual = [...served].sort();
   const wanted = [...expected].sort();
@@ -1197,7 +1217,7 @@ export async function auditLv01Stage(input: {
     const auditParent = typedParentConfig(parentDocs);
     const slotLabel = String(slot.index).padStart(4, '0');
     const caseDir = join(input.stageDir, `slot-${slotLabel}`);
-    const batch = JSON.parse(await readFile(join(caseDir, 'treatment-batch.json'), 'utf8')) as Lv01LedgerTreatmentBatch;
+    const batch = await readLv01TreatmentBatch(caseDir);
     const branchDocs: Lv01BundleDocs[] = [];
     const branchesDir = join(caseDir, 'branches');
     assertLv01SlotBranchCensus(

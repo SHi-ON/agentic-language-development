@@ -6,6 +6,25 @@
  * exact loader/auditor check that detects it. No tampered copy ever
  * enters analysis; the matrix proves tampering fails closed, never that
  * tampered data is usable.
+ *
+ * Requirement-to-test mapping (R03.4). Detection classes:
+ * (S)emantic detection, (P)arsing rejection, (C)ensus assertion.
+ * - M0 positive control (S): staged case self-audits via collectLv01Slot.
+ * - M1 edited outcome (S): loadLv01AuditedBranch /intention selection/.
+ * - M2 deleted branch (C): assertLv01SlotBranchCensus /seven-branch contract/.
+ * - M3 reordered commitments (S): loadLv01AuditedBranch /causal order/.
+ * - M4 duplicated ledger event (S): indexLv01TrainingLedger /duplicate sequence/.
+ * - M5 forged signature (S): mapLv01LedgerAssociations flags
+ *   unauthenticated + indexLv01TrainingLedger /unauthenticated/.
+ * - M6 truncated batch (P): readLv01TreatmentBatch /not valid JSON/
+ *   (same public entry the stage audit uses; exit via thrown error).
+ * - M7 test episode in ordinary input (S): extractLv01OrdinaryRecords
+ *   /never ordinary/.
+ * Reused (not re-tested here): forged vectors + tampered fit
+ * (lv01-paired-predictions.test.ts), missing native tokens as uniform
+ * (ledger-value-prediction.test.ts), schedule coverage/lookup
+ * (lv01-schedule.test.ts), branch restoration chronology
+ * (ledger-value.test.ts verifyLv01PairedCase).
  */
 import { cp, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -33,7 +52,11 @@ import {
   fixtureParent,
   packetInputWithAllocation,
 } from '../experiments/lv01-collector-fixtures.js';
-import { readLv01BundleDocs } from '../../src/experiments/lv01-collector.js';
+import {
+  assertLv01SlotBranchCensus,
+  readLv01BundleDocs,
+  readLv01TreatmentBatch,
+} from '../../src/experiments/lv01-collector.js';
 
 describe('ALA mutation matrix', () => {
   let harness: Harness | undefined;
@@ -124,11 +147,14 @@ describe('ALA mutation matrix', () => {
   it('M2 rejects a deleted branch bundle (census)', async () => {
     await stage();
     const copy = await tamperedCase();
+    const expected = (await readdir(join(copy, 'branches'))).sort();
+    expect(expected.length).toBe(7);
     const branchDir = await firstBranchDir(copy);
     await rm(branchDir, { recursive: true, force: true });
     const remaining = await readdir(join(copy, 'branches'));
-    expect(remaining.length).toBe(6);
-    expect(remaining.length).not.toBe(7);
+    expect(() => assertLv01SlotBranchCensus(1, remaining, expected)).toThrowError(
+      /branch census disagrees with the seven-branch contract/,
+    );
   });
 
   it('M3 rejects reordered intervention commitments', async () => {
@@ -197,7 +223,7 @@ describe('ALA mutation matrix', () => {
     const path = join(copy, 'treatment-batch.json');
     const text = await readFile(path, 'utf8');
     await writeFile(path, text.slice(0, Math.floor(text.length / 2)), 'utf8');
-    await expect(readFile(path, 'utf8').then((t) => JSON.parse(t))).rejects.toThrow();
+    await expect(readLv01TreatmentBatch(copy)).rejects.toThrowError(/not valid JSON/);
   });
 
   it('M7 rejects a test episode injected into ordinary input', async () => {

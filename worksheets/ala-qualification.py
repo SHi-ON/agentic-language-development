@@ -3,16 +3,20 @@
 Evaluates one dyad directory against the P4 qualification checks that need a
 real executed dyad (the `test:paper` suite covers the fixture-level checks):
 
-  Q1  turn chain integrity (hash links, 3000 training turns, both roles)
-  Q2  learning curve captured (per-block success, training turns only)
-  Q3  genuine policy updates during training (updateCount, optimizer state)
-  Q4  ledger learning activity (hypothesis/term events, both roles)
-  Q5  collection completeness (240 cases x 7 branches, paired scenarios match)
-  Q6  evaluation freeze (branch policies identical to final training policies)
+  Q0  receipt present and valid [structural: retained summary]
+  Q1  turn chain integrity (hash links, counts, roles) [structural]
+  Q2  learning curve recomputed from retained outcomes [observed behavior]
+  Q3  update counters consistent (updateCount, optimizer, checkpoints)
+      [structural: cached counters, not a live-update proof]
+  Q4  ledger event counts recomputed [observed behavior]
+  Q5  collection census + paired-scenario match [structural]
+  Q6  freeze config flags set [configurational: flags only, no live
+      weight/optimizer/hidden-state comparison]
 
 Fail-closed: any FAIL verdict raises at the end. No test-effect labels are
 read or reported here (P5 blinding): branch checks use scenario hashes and
-policy digests only, never outcomes.
+config flags only, never outcomes. Every verdict carries the run
+timestamp; cached outputs must never be presented as fresh observations.
 
 Run headless:
   .venv-worksheet/bin/python worksheets/ala-qualification.py \
@@ -37,6 +41,7 @@ def _(mo):
     import json
     import os
     import sys
+    from datetime import datetime, timezone
     from pathlib import Path
 
     argv = sys.argv[1:]
@@ -52,6 +57,8 @@ def _(mo):
         raise SystemExit(f"no parent-bundle under {DYAD}")
 
     verdicts: list[tuple[str, bool, str]] = []
+    RUN_AT = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    print(f"worksheet run at {RUN_AT} on {DYAD}", flush=True)
 
     def check(name: str, ok: bool, detail: str) -> str:
         verdicts.append((name, ok, detail))
@@ -59,8 +66,8 @@ def _(mo):
         print(line, flush=True)
         return line
 
-    mo.md(f"## ALA-LV P4 qualification: `{DYAD}`")
-    return DYAD, PARENT, check, hashlib, json, os, sys, verdicts
+    mo.md(f"## ALA-LV P4 qualification: `{DYAD}`\n\nRun at {RUN_AT}.")
+    return DYAD, PARENT, check, hashlib, json, os, sys, verdicts, RUN_AT
 
 
 @app.cell
@@ -69,7 +76,7 @@ def _(DYAD, check, json, mo):
     q0_receipt = json.loads(q0_receipt_path.read_text()) if q0_receipt_path.exists() else None
     q0_ok = q0_receipt is not None and q0_receipt.get("state") == "valid"
     q0_msg = check(
-        "Q0 receipt",
+        "Q0 receipt [structural]",
         q0_ok,
         f"state={None if q0_receipt is None else q0_receipt.get('state')}, "
         f"casesValid={None if q0_receipt is None else q0_receipt.get('casesValid')}",
@@ -89,7 +96,7 @@ def _(PARENT, check, json, mo):
     )
     q1_roles = sorted({str((qt.get("roles") or {}).get("receiver")) for qt in q1_running})
     q1_msg = check(
-        "Q1 turn chain",
+        "Q1 turn chain [structural]",
         q1_chain_ok and len(q1_running) == 3000,
         f"{len(q1_turns)} turns, {len(q1_running)} running, chain-linked={q1_chain_ok}, receivers={q1_roles}",
     )
@@ -107,7 +114,7 @@ def _(check, mo, q1_running):
         q2_ok_a = sum(1 for qt in q2_recv_a if (qt.get("outcome") or {}).get("success") is True)
         q2_rows.append((q2_start, len(q2_block), q2_ok / len(q2_block), (q2_ok_a / len(q2_recv_a)) if q2_recv_a else float("nan")))
     q2_msg = check(
-        "Q2 learning curve",
+        "Q2 learning curve [observed]",
         len(q2_rows) == 30,
         f"30x100-turn blocks, first={q2_rows[0][2]:.2f}, last={q2_rows[-1][2]:.2f}, chance=0.25 (curve captured; no threshold)",
     )
@@ -134,7 +141,7 @@ def _(PARENT, check, json, mo):
     q3_roots = {qc["babyA"]["merkleRoot"] for qc in q3_chain} | {qc["babyB"]["merkleRoot"] for qc in q3_chain}
     q3_ok = all(qu[0] == 3000 and qu[2] > 0 and qu[3] for qu in q3_upd.values()) and q3_links_ok and len(q3_roots) > 10
     q3_msg = check(
-        "Q3 genuine updates",
+        "Q3 update counters [structural]",
         q3_ok,
         f"updateCount={ {qb: qu[0] for qb, qu in q3_upd.items()} }, params={ {qb: qu[1] for qb, qu in q3_upd.items()} }, "
         f"optSteps={ {qb: qu[2] for qb, qu in q3_upd.items()} }, {len(q3_ckpts)} checkpoints linked={q3_links_ok}, "
@@ -155,7 +162,7 @@ def _(PARENT, check, json, mo):
     q4_total = sum(sum(qc.values()) for qc in q4_counts.values())
     q4_has_hyp = any(any("hypothesis" in str(qk) or "term" in str(qk) for qk in qc) for qc in q4_counts.values())
     q4_msg = check(
-        "Q4 ledger activity",
+        "Q4 ledger activity [observed]",
         q4_total > 1000 and q4_has_hyp,
         f"{q4_total} ledger events; baby-a={dict(q4_counts['baby-a'])}, baby-b={dict(q4_counts['baby-b'])}",
     )
@@ -195,7 +202,7 @@ def _(DYAD, check, json, mo):
             q5_first_bad = q5_first_bad or q5_slot.name
     q5_ok = len(q5_slots) == 240 and q5_branches_ok and q5_paired_ok
     q5_msg = check(
-        "Q5 collection",
+        "Q5 collection [structural]",
         q5_ok,
         f"{len(q5_slots)}/240 cases, {q5_branch_total}/1680 branches, paired-scenario-match={q5_paired_ok}"
         + ("" if q5_ok else f" (first bad: {q5_first_bad})"),
@@ -226,10 +233,10 @@ def _(PARENT, check, json, mo, q5_slots):
             elif q6_cfg.get("derivedFromCheckpointHash") != q6_final:
                 q6_bad.append(f"{q6_slot.name}/{q6_bdir.name}:checkpoint-mismatch")
     if q6_checked == 0:
-        q6_msg = check("Q6 freeze", False, "no collected cases to verify" if not q5_slots else "no branch configs found")
+        q6_msg = check("Q6 freeze config [flags-only]", False, "no collected cases to verify" if not q5_slots else "no branch configs found")
     else:
         q6_msg = check(
-            "Q6 freeze",
+            "Q6 freeze config [flags-only]",
             not q6_bad,
             f"{q6_checked} branches evaluationOnly + bound to final checkpoint {None if q6_final is None else q6_final[:24]}…, bad={q6_bad[:3]}",
         )
@@ -238,13 +245,15 @@ def _(PARENT, check, json, mo, q5_slots):
 
 
 @app.cell
-def _(mo, verdicts):
+def _(mo, verdicts, RUN_AT):
     qv_rows = ["| check | result | detail |", "| --- | --- | --- |"]
     qv_rows += [f"| {qn} | {'PASS' if qo else 'FAIL'} | {qd} |" for qn, qo, qd in verdicts]
     qv_failed = [qn for qn, qo, _qd in verdicts if not qo]
-    mo.md("### Verdicts\n\n" + "\n".join(qv_rows))
+    mo.md(f"### Verdicts (run at {RUN_AT})\n\n" + "\n".join(qv_rows))
+    print(f"verdicts timestamp: {RUN_AT}", flush=True)
     if qv_failed:
-        raise SystemExit(f"QUALIFICATION FAILED: {', '.join(qv_failed)}")
+        raise SystemExit(f"QUALIFICATION FAILED at {RUN_AT}: {', '.join(qv_failed)}")
+    print(f"ALL QUALIFICATION CHECKS PASSED at {RUN_AT}", flush=True)
     mo.md("**ALL QUALIFICATION CHECKS PASSED**")
     return qv_failed, qv_rows
 
