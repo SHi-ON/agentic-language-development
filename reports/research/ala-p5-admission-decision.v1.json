@@ -37,22 +37,25 @@
  "devConsumedCpuHoursUpperBound": 1.0,
  "maxAffordableSlots": {
   "byCpu": "(12 - 2 - 1) / 1.08 = 8.3 slots",
-  "byStorageRaw": "10 GiB / 9.26 GiB = 1.1 slots",
+  "byStorageRaw": "10 GiB / 8.616 GiB = 1.2 slots",
   "conclusion": "Both below the 10+10 minimum campaign; no allowed size fits."
  },
  "measuredAt": "2026-10-09T05:35:00Z",
  "provisioningRule": "Twice the maximum complete calibration CPU/storage/wall per remaining dyad (plan P5).",
  "reservationMath": {
   "full_20plus20_4reserves_cpuHours": "44 x 1.080 + 2.0 + 1.0 = 50.5 > 12",
-  "full_20plus20_4reserves_storageGiB": "44 x 9.26 GiB = 407 GiB raw > 10 GiB",
+  "full_20plus20_4reserves_storageGiB": "44 x 8.616 GiB = 379.1 GiB raw > 10 GiB",
   "min_10plus10_4reserves_cpuHours": "24 x 1.080 + 2.0 + 1.0 = 28.9 > 12",
-  "min_10plus10_4reserves_storageGiB": "24 x 9.26 GiB = 222 GiB raw > 10 GiB (file-deduped 196 GiB; optimistic block-dedup ~29 GiB)",
+  "min_10plus10_4reserves_storageGiB": "24 x 8.616 GiB = 206.8 GiB raw > 10 GiB (file-deduped 182.8 GiB; optimistic block-dedup ~29 GiB)",
   "primariesOnly_10plus10_at_1x_cpuHours": "20 x 0.540 + 2.0 + 1.0 = 13.8 > 12 (fails even without the 2x safety factor)"
  },
  "perDyadProvisioned": {
   "cpuHours": 1.0793056122222222,
-  "evidenceBytes": 9251176866
+  "evidenceBytes": 9251216840
  },
  "studyId": "ALA-LV",
- "workingCapBytes": 10737418240
+ "workingCapBytes": 10737418240,
+ "corrections": [
+  "2026-10-09 (P6 verifier V7): original reservationMath labeled decimal-GB figures as GiB (222/407); corrected to true GiB (206.8/379.1). Decision unchanged \u2014 margins remain >10x. perDyadProvisioned.evidenceBytes rebased to true on-disk total (receipt excludes its own 19987 bytes)."
+ ]
 }
