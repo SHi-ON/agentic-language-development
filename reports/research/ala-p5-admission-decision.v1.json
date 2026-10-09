@@ -1,0 +1,58 @@
+{
+ "admission": "REFUSED \u2014 no evidence/ala-lv/admission.json is written; study cohorts stay disabled by the tested runner gate.",
+ "amendment": "protocols/ala-lv-scope-and-resource-amendment.v1.json",
+ "analysisReservedCpuHours": 2.0,
+ "bottleneck": "Per-branch ~1 MB pre-action prediction-commitment payloads embedding the full training-ledger heads (13,519 entries) dominate storage (1.7 GB/dyad in branches, 1.8 GB in the live evidence.sqlite) and the associated signing/export work dominates CPU. The study protocol's commitment payload lists ledger cutoff and digests, not full heads \u2014 a future heads-cut redesign could change the math, but validating it needs development runs and the allowance is exhausted.",
+ "calibrationMaxComplete": {
+  "cpuHours": 0.5396528061111111,
+  "dyad": "evidence/ala-lv/calibration/primary-0002",
+  "evidenceBytes": 4625588433,
+  "note": "Single complete calibration dyad; maximum over one.",
+  "perDyadGuard": "VIOLATED: 0.540 > 0.25 CPU-h and 33.7 > 20 min wall",
+  "wallMinutes": 33.6613
+ },
+ "campaignCapCpuHours": 12.0,
+ "consequence": "Per plan line 188: finish an honest feasibility/methods draft and stop collection. P6 cohort execution does not proceed; P7 writes the feasibility/methods paper; P8/P9 continue on that draft.",
+ "decision": "NO-GO",
+ "decisionVersion": "v1",
+ "devSlotsUsed": [
+  {
+   "index": 0,
+   "state": "aborted",
+   "work": "training only (193 MB parent retained)"
+  },
+  {
+   "index": 1,
+   "state": "failed",
+   "work": "training only (bundle removed during re-attempt prep; journal + log retained)"
+  },
+  {
+   "index": 2,
+   "state": "valid",
+   "work": "full dyad via one deterministic same-slot resume"
+  }
+ ],
+ "devSlotsUsedCount": "3 of 3 (developmentRepairAttemptsMax exhausted; optimization runs would need a new allowance)",
+ "devZoom": "Over-estimated on purpose (fail-safe direction): each crashed run did strictly less than a full dyad (train-only or train+1 case vs train+240 cases).",
+ "devConsumedCpuHoursUpperBound": 1.0,
+ "maxAffordableSlots": {
+  "byCpu": "(12 - 2 - 1) / 1.08 = 8.3 slots",
+  "byStorageRaw": "10 GiB / 9.26 GiB = 1.1 slots",
+  "conclusion": "Both below the 10+10 minimum campaign; no allowed size fits."
+ },
+ "measuredAt": "2026-10-09T05:35:00Z",
+ "provisioningRule": "Twice the maximum complete calibration CPU/storage/wall per remaining dyad (plan P5).",
+ "reservationMath": {
+  "full_20plus20_4reserves_cpuHours": "44 x 1.080 + 2.0 + 1.0 = 50.5 > 12",
+  "full_20plus20_4reserves_storageGiB": "44 x 9.26 GiB = 407 GiB raw > 10 GiB",
+  "min_10plus10_4reserves_cpuHours": "24 x 1.080 + 2.0 + 1.0 = 28.9 > 12",
+  "min_10plus10_4reserves_storageGiB": "24 x 9.26 GiB = 222 GiB raw > 10 GiB (file-deduped 196 GiB; optimistic block-dedup ~29 GiB)",
+  "primariesOnly_10plus10_at_1x_cpuHours": "20 x 0.540 + 2.0 + 1.0 = 13.8 > 12 (fails even without the 2x safety factor)"
+ },
+ "perDyadProvisioned": {
+  "cpuHours": 1.0793056122222222,
+  "evidenceBytes": 9251176866
+ },
+ "studyId": "ALA-LV",
+ "workingCapBytes": 10737418240
+}
