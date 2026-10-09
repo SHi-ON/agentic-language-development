@@ -13,10 +13,10 @@ contract.
 
 ## Before a release
 
-1. Require the `consolidated-suite` and `mode-r` CI jobs to pass on the exact
+1. Require the `paper-check` and `paper-validate` CI jobs to pass on the exact
    release commit. Do not retry a failure into green.
-2. Confirm `pnpm run check` and `pnpm run test:mode-r` locally when the release
-   changes runtime, isolation, evidence, or deployment behavior.
+2. Confirm `pnpm run check` locally when the release changes runtime,
+   evidence, or paper-study behavior.
 3. Review `BACKLOG.md`, the publication checklist mapping, open deviations,
    invalid/aborted run indexes, and data/model release restrictions.
 4. Build release notes from every commit and patch bump since the previous

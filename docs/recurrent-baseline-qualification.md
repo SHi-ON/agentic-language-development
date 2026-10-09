@@ -62,10 +62,11 @@ The blocking unit and adapter checks establish:
 - byte-equivalent policy export throughout learning-disabled evaluation; and
 - structural reward refusal and absence of outcome labels from self-supervised updates.
 
-`pnpm run test:mode-r-study` additionally runs the two recurrent tracks in distinct
+`pnpm run test:mode-r-study` additionally ran the two recurrent tracks in distinct
 learner containers through the real controller, Gateway, SQLite writer, checkpoint
-service, local qualification anchor, exporter, and production verifier. The resulting
-bundles are then checked by the independent Rust auditor. The local fake-chain receipt
+service, local qualification anchor, exporter, and production verifier (2026-10-09:
+retired with the Mode R campaign; command removed, deployment archived). The resulting
+bundles were then checked by the independent Rust auditor. The local fake-chain receipt
 is deliberately classified as software evidence, never as a public-chain transaction
 or research result.
 

@@ -5,11 +5,17 @@ suite fails. The workflow half is done in-repo; the blocking half is a
 server-side setting that only a repository administrator can enable. This
 runbook gives the exact sequence.
 
+2026-10-09 paper narrowing: jobs are now `paper-check` (`pnpm run check`)
+and `paper-validate` (`pnpm run paper:validate`). The old
+`consolidated-suite` / `mode-r` names below are history; substitute the new
+job IDs in every step.
+
 ## Current state
 
 - Workflow `.github/workflows/book-integrity.yml` triggers on every
-  `pull_request` plus `push` to `main`, with jobs `consolidated-suite`
-  (`pnpm run check:ci`) and `mode-r` (`pnpm run test:mode-r`).
+  `pull_request` plus `push` to `main`, with jobs `paper-check`
+  (`pnpm run check`: lint, secrets, dependency audit, build, focused
+  paper tests) and `paper-validate` (`pnpm run paper:validate`).
 - Fresh read-only evidence:
   `reports/research/upstream-enforcement-observation-2026-10-04.json`
   (upstream `main`: `protected=false`, zero rulesets; fork `main` likewise;
@@ -30,16 +36,16 @@ Do these steps in order, as an administrator of
    in docs/hosted-ci-evidence.md lag new pushes (latest recorded run is for
    a90728a; HEAD has since moved on).
    Both jobs must execute; if either fails, fix the branch and re-run until
-   both are green. This registers the `consolidated-suite` and `mode-r`
+   both are green. This registers the `paper-check` and `paper-validate`
    check names on the upstream repository.
 2. Require the checks on `main` (classic protection):
    Settings → Branches → Add classic branch protection rule →
    branch name pattern `main` → enable "Require status checks before
-   merging" → search and select `consolidated-suite` and `mode-r` →
+   merging" → search and select `paper-check` and `paper-validate` →
    enable "Require branches to be up to date before merging" → Save.
    (Ruleset equivalent: Settings → Rules → Rulesets → New ruleset →
    target branches, include `main` → Require status checks to pass with
-   `consolidated-suite` and `mode-r`.)
+   `paper-check` and `paper-validate`.)
 3. Prove blocking works: open or update any pull request against `main`
    (a no-op commit suffices), confirm the PR shows the two checks as
    pending/required and that merge is blocked until both pass, then let
@@ -58,8 +64,8 @@ API equivalent of step 2 (needs an admin token; never commit the token):
 gh api repos/Ethical-Tech-CoLab/agentic-language-development/branches/main/protection \
   -X PUT \
   -f required_status_checks[strict]=true \
-  -f required_status_checks[checks][][context]='consolidated-suite' \
-  -f required_status_checks[checks][][context]='mode-r' \
+  -f required_status_checks[checks][][context]='paper-check' \
+  -f required_status_checks[checks][][context]='paper-validate' \
   -f enforce_admins=true \
   -f required_pull_request_reviews=null \
   -f restrictions=null
@@ -83,6 +89,11 @@ proof. Until then, ALD-078's blocking half stays open no matter how green
 local runs are.
 
 ## Local wiring proof (2026-10-04, ALDM, commit `03ec401`)
+
+Historical record, preserved as run. The 2026-10-09 paper narrowing
+replaced the commands below (`check:ci`, broad vitest globs incl.
+`twins/**`/`book/**`, red-team suites) with `pnpm run check` and the
+18-file `test:paper` gate; re-verify on the current tree before citing.
 
 The "runs on every proposed change" half is verified end to end locally:
 

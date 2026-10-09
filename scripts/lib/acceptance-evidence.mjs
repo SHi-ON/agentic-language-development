@@ -37,6 +37,9 @@ const excludedScripts = new Set([
   'scripts/build-conformance-matrix.mjs',
   'scripts/check-acceptance-coverage.mjs',
   'scripts/lib/acceptance-evidence.mjs',
+  // Absence-assertions are not behavior evidence: the scope test names
+  // retired IDs only to prove no live executable source still does.
+  'scripts/__tests__/conformance-matrix-scope.test.ts',
 ]);
 
 async function walk(directory) {
@@ -57,10 +60,21 @@ async function walk(directory) {
 }
 
 export async function buildEvidenceIndex() {
+  // 2026-10-09 paper narrowing: pruned trees (twins/, book/) are skipped;
+  // the walk covers the live tree while explicitCoverage below preserves
+  // the historical ALD-ID mapping verbatim.
+  async function walkIfPresent(directory) {
+    try {
+      return await walk(directory);
+    } catch (error) {
+      if (error?.code === 'ENOENT') return [];
+      throw error;
+    }
+  }
   const paths = [
-    ...await walk('packages'),
-    ...await walk('twins'),
-    ...await walk('scripts'),
+    ...await walkIfPresent('packages'),
+    ...await walkIfPresent('twins'),
+    ...await walkIfPresent('scripts'),
     '.github/workflows/book-integrity.yml',
   ].filter((path) => !excludedScripts.has(path));
   const text = new Map(

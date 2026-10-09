@@ -49,7 +49,8 @@ Prototype defaults require no environment variables:
 pnpm run build
 ```
 
-Research-grade Mode R uses Fort file materialization:
+Research-grade Mode R used Fort file materialization (2026-10-09: retired
+with the Mode R campaign; command removed, deployment archived):
 
 ```sh
 fort --host https://fort.aureuma.ai run --repo agentic-language-development --env dev \

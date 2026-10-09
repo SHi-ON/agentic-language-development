@@ -45,3 +45,10 @@ branch produced upstream run
 `action_required` with zero jobs started — every proposed change reaches CI,
 and execution still awaits the maintainer approval that step 1 of the
 runbook requires.
+
+2026-10-09 paper narrowing (local, unpushed): the workflow now defines
+`paper-check` (`pnpm run check`: lint, secrets, dependency audit, build,
+18-file `test:paper` gate) and `paper-validate` (`pnpm run
+paper:validate`). The `consolidated-suite` / `mode-r` job IDs above are
+history. No hosted run of the new jobs exists yet; the runbook's admin
+sequence applies to the new job names when a hosted run registers them.

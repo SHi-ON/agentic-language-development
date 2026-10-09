@@ -58,6 +58,9 @@ fort --host https://fort.aureuma.ai run --repo agentic-language-development --en
   pnpm run test:mode-r-study
 ```
 
+> 2026-10-09: retired with the Mode R campaign (command removed; deployment
+> archived). Preserved as the historical signer-boundary record.
+
 This command demonstrates the signer boundary only when the encrypted environment
 has been provisioned for the exact run IDs. It does not submit a public transaction
 or authorize an outcome claim. Never echo, print, copy, or commit materialized secret

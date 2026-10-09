@@ -53,22 +53,7 @@
       "path": "packages/leakage"
     },
     {
-      "path": "packages/redteam"
-    },
-    {
       "path": "packages/ops"
-    },
-    {
-      "path": "packages/crypto-research"
-    },
-    {
-      "path": "twins/packs/baby-a"
-    },
-    {
-      "path": "twins/packs/baby-b"
-    },
-    {
-      "path": "twins/packs/nursery"
     }
   ]
 }

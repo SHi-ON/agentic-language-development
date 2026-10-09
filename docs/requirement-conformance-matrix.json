@@ -5,7 +5,7 @@
   "researchFinding": false,
   "candidate": {
     "baselineCommit": "559436fee0d7a95ea38fd92fbcbcccf762d10f92",
-    "version": "0.1.529"
+    "version": "0.1.531"
   },
   "sourcePolicy": {
     "checkedBacklogCriteria": "Every checked criterion must have one or more concrete executable assertion paths.",
@@ -260,19 +260,9 @@
       ],
       "requiredReceipt": "pnpm exec vitest run packages/config/__tests__/environment.test.ts"
     },
-    "packages/crypto-research/__tests__/boundary.test.ts": {
-      "selectors": [
-        "accepts production crypto modules with no research-harness dependency",
-        "fails when hashing or anchoring imports the research harness"
-      ],
-      "requiredReceipt": "pnpm exec vitest run packages/crypto-research/__tests__/boundary.test.ts"
-    },
     "packages/crypto-research/__tests__/harness.test.ts": {
       "selectors": [
-        "refuses a non-synthetic run even if an untyped caller bypasses TypeScript",
-        "requires both independent nonce commitments and logs every scheme change",
-        "records eavesdropper recovery without retaining raw synthetic messages",
-        "reports novelty separately and can never report cryptographic security"
+        "whole-file executable check"
       ],
       "requiredReceipt": "pnpm exec vitest run packages/crypto-research/__tests__/harness.test.ts"
     },
@@ -1237,27 +1227,6 @@
       ],
       "requiredReceipt": "pnpm exec vitest run packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
     },
-    "packages/redteam/__tests__/observation-and-measurement.test.ts": {
-      "selectors": [
-        "matches every committed fixture to its manifest hash",
-        "quarantines every attack, approves every control, and leaks no text",
-        "is byte-deterministic for the same committed fixture set",
-        "passes identical timing and size profiles and fails distinguishable ones",
-        "detects byte-level error-envelope variation without storing bodies"
-      ],
-      "requiredReceipt": "pnpm exec vitest run packages/redteam/__tests__/observation-and-measurement.test.ts"
-    },
-    "packages/redteam/__tests__/side-channel.test.ts": {
-      "selectors": [
-        "rejects E13 generated-carrier side features through the real Gateway",
-        "maps every SPEC §10.3 category to one enforced mitigation",
-        "fails closed on any allowed host capability",
-        "actively records why Prototype Mode cannot carry an isolation claim",
-        "actively samples timing, wire size, and response shape",
-        "detects a deliberate hidden-state mapping through the affect channel"
-      ],
-      "requiredReceipt": "pnpm exec vitest run packages/redteam/__tests__/side-channel.test.ts"
-    },
     "packages/scenario/__tests__/hygiene.test.ts": {
       "selectors": [
         "passes a clean observation through and returns it typed",
@@ -1583,35 +1552,11 @@
       ],
       "requiredReceipt": "node scripts/check-workspace-bootstrap.mjs"
     },
-    "scripts/lint-learner-contracts.mjs": {
-      "selectors": [
-        "pnpm run lint:contracts"
-      ],
-      "requiredReceipt": "pnpm run lint:contracts"
-    },
-    "scripts/run-ald079-independent-restore.mjs": {
-      "selectors": [
-        "node scripts/run-ald079-independent-restore.mjs"
-      ],
-      "requiredReceipt": "node scripts/run-ald079-independent-restore.mjs"
-    },
     "scripts/run-mode-r-smoke.mjs": {
       "selectors": [
         "pnpm run test:mode-r"
       ],
       "requiredReceipt": "pnpm run test:mode-r"
-    },
-    "scripts/run-mode-r-study.mjs": {
-      "selectors": [
-        "pnpm run test:mode-r-study"
-      ],
-      "requiredReceipt": "pnpm run test:mode-r-study"
-    },
-    "scripts/run-qualification.mjs": {
-      "selectors": [
-        "node scripts/run-qualification.mjs"
-      ],
-      "requiredReceipt": "node scripts/run-qualification.mjs"
     },
     "scripts/scan-secrets.mjs": {
       "selectors": [
@@ -1621,52 +1566,9 @@
     },
     "twins/packs/__tests__/routes.test.ts": {
       "selectors": [
-        "keeps the exhaustive route contract matrix synchronized with every exported route",
-        "nursery rejects missing/invalid credentials and every non-permitted role",
-        "baby-a rejects missing/invalid credentials and every non-permitted role",
-        "baby-b rejects missing/invalid credentials and every non-permitted role",
-        "researcher-operator is also accepted wherever researcher-viewer is (SPEC §12.2)",
-        "404 NOT_FOUND for an unknown run",
-        "400 INVALID_REQUEST for a malformed RunConfig body",
-        "400 INVALID_REQUEST for a body that is not valid JSON",
-        "accepts a body delivered as a JSON string, not only a parsed object",
-        "409 CONFLICT for a duplicate run id",
-        "409 CONFLICT (not 501) for baby-a /reset (SPEC §12.3 has no server-fault member)",
-        "400 INVALID_REQUEST (not an unhandled rejection) for malformed percent-encoding in a path parameter",
-        "400 INVALID_REQUEST for a runId that would escape the configured bundle root",
-        "keeps private observations operator-only and replay results read-only",
-        "creates, steps, reads, pauses, resumes, and verifies a run",
-        "404 for a verification report that has never been written",
-        "aborts a run (terminal transition, SPEC §7.2/§7.3)",
-        "POST /runs/:id/annotate records an audited annotate event (SPEC §14.2)",
-        "GET /runs/:id/ledgers exposes audit-layer content only to researcher-viewer, full content to researcher-operator",
-        "GET /runs records a human-view event for every listed run",
-        "GET /session/delta records a human-view event for every reported run",
-        "round-trips a snapshot through restore and delta",
-        "rejects a traversing snapshotId instead of reading a file outside bundleRoot (SPEC §13.2)",
-        "404 for a well-formed but absent snapshot never echoes the server-absolute path",
-        "observe then act on baby-a returns a schema-valid TurnProposalEnvelope",
-        "deliver and outcome succeed on baby-a",
-        "GET /ledger exposes only generated audit entries, plus an agent-native count",
-        "POST /observe fails closed on a hygiene violation and audits the rejection (SPEC §10.1, ALD-038)",
-        "POST /observe rejects an observation whose nested recipient names the other Baby, even with no top-level naming (SPEC §4.2)",
-        "Baby tool routes refuse a paused or terminal run with 409 CONFLICT, not a silent adapter mutation (SPEC §7.2)",
-        "a baby-a request naming baby-b as the target is refused with 403 FORBIDDEN",
-        "there is no route, direct or otherwise, from baby-a to baby-b (ALD-029)"
+        "whole-file executable check"
       ],
       "requiredReceipt": "pnpm exec vitest run twins/packs/__tests__/routes.test.ts"
-    },
-    "twins/packs/__tests__/telemetry.test.ts": {
-      "selectors": [
-        "ALD-058: the nursery routes record method, route pattern, status, duration and run id",
-        "ALD-058: baby-a and baby-b routes record under their own twin names",
-        "ALD-058: rejected requests are recorded too, and never leak a raw path",
-        "ALD-058: no record is produced when the host installs no sink",
-        "ALD-058: a non-sink value on the state key is ignored, not called",
-        "ALD-058: a sink that ${fault.label} leaves the route unaffected",
-        "ALD-058: a sink that throws does not prevent the next request from being served"
-      ],
-      "requiredReceipt": "pnpm exec vitest run twins/packs/__tests__/telemetry.test.ts"
     }
   },
   "summary": {
@@ -1675,8 +1577,10 @@
     "checkedBacklogCriteria": 258,
     "openBacklogCriteria": 3,
     "normativeLines": 96,
-    "mappedNormativeLines": 92,
+    "mappedNormativeLines": 91,
     "unmappedNormativeLines": 0,
+    "retiredBacklogCriteria": 33,
+    "retiredNormativeLines": 1,
     "nonRequirementLines": 4
   },
   "backlogCriteria": [
@@ -2689,8 +2593,7 @@
       "assertionPaths": [
         "packages/gateway/__tests__/carriers.test.ts",
         "packages/gateway/__tests__/conditions.test.ts",
-        "packages/gateway/__tests__/conformance.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/gateway/__tests__/conformance.test.ts"
       ]
     },
     {
@@ -2703,8 +2606,7 @@
       "assertionPaths": [
         "packages/gateway/__tests__/carriers.test.ts",
         "packages/gateway/__tests__/conditions.test.ts",
-        "packages/gateway/__tests__/conformance.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/gateway/__tests__/conformance.test.ts"
       ]
     },
     {
@@ -2717,8 +2619,7 @@
       "assertionPaths": [
         "packages/gateway/__tests__/carriers.test.ts",
         "packages/gateway/__tests__/conditions.test.ts",
-        "packages/gateway/__tests__/conformance.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/gateway/__tests__/conformance.test.ts"
       ]
     },
     {
@@ -3051,8 +2952,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/scenario/__tests__/hygiene.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -3064,8 +2964,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/scenario/__tests__/hygiene.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -3077,8 +2976,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/scenario/__tests__/hygiene.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -3123,10 +3021,8 @@
       "statement": "Each side-channel category named in §10.3 has a corresponding mitigation implemented (e.g., constant-shape error responses, timing normalization where specified).",
       "itemId": "ALD-040",
       "itemTitle": "Side-channel elimination in transport layer",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-040.2",
@@ -3134,10 +3030,8 @@
       "statement": "A test harness measuring the relevant channel (e.g., response latency variance) confirms the mitigation is effective within the tolerance §10.3 implies.",
       "itemId": "ALD-040",
       "itemTitle": "Side-channel elimination in transport layer",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-040.3",
@@ -3145,10 +3039,8 @@
       "statement": "This item's test harness is reused (not duplicated) by the red-team suite in `ALD-067`.",
       "itemId": "ALD-040",
       "itemTitle": "Side-channel elimination in transport layer",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-041.1",
@@ -3222,10 +3114,8 @@
       "statement": "A contract containing a symbol-meaning example, sample exchange, or prohibited side-channel instruction fails CI and cannot be referenced by a run.",
       "itemId": "ALD-043",
       "itemTitle": "Learner contract versioning, lint, and tool-only enforcement",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "scripts/lint-learner-contracts.mjs"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-043.2",
@@ -3233,10 +3123,8 @@
       "statement": "Referenced contract versions are immutable and their prompt-bundle hashes appear in run evidence.",
       "itemId": "ALD-043",
       "itemTitle": "Learner contract versioning, lint, and tool-only enforcement",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "scripts/lint-learner-contracts.mjs"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-043.3",
@@ -3244,10 +3132,8 @@
       "statement": "The no-learning reference and all four adapter tracks are blocked and audited when attempting any state write or output outside the §6.3 tool surface.",
       "itemId": "ALD-043",
       "itemTitle": "Learner contract versioning, lint, and tool-only enforcement",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "scripts/lint-learner-contracts.mjs"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-044.1",
@@ -3305,8 +3191,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/learners/__tests__/tabular-reinforce.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/learners/__tests__/tabular-reinforce.test.ts"
       ]
     },
     {
@@ -3320,8 +3205,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/learners/__tests__/tabular-reinforce.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/learners/__tests__/tabular-reinforce.test.ts"
       ]
     },
     {
@@ -3335,8 +3219,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/learners/__tests__/tabular-reinforce.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/learners/__tests__/tabular-reinforce.test.ts"
       ]
     },
     {
@@ -3351,8 +3234,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts"
       ]
     },
     {
@@ -3367,8 +3249,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts"
       ]
     },
     {
@@ -3383,8 +3264,7 @@
         "packages/learners/__tests__/recurrent-adapters.test.ts",
         "packages/learners/__tests__/recurrent-model.test.ts",
         "packages/learners/__tests__/self-supervised.test.ts",
-        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/self-supervised-evidence.test.ts"
       ]
     },
     {
@@ -3426,10 +3306,8 @@
       "statement": "Every route in §12.4, including Gateway-only `/deliver`, exists on both `baby-a` and `baby-b`, all unprefixed.",
       "itemId": "ALD-048",
       "itemTitle": "baby-a / baby-b twin pack implementation",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-048.2",
@@ -3437,10 +3315,8 @@
       "statement": "Each route's behavior matches its documented purpose in §12.4 (verified by an integration test per route).",
       "itemId": "ALD-048",
       "itemTitle": "baby-a / baby-b twin pack implementation",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-048.3",
@@ -3448,10 +3324,8 @@
       "statement": "A full run using these twin packs completes at least one turn end-to-end through the Gateway.",
       "itemId": "ALD-048",
       "itemTitle": "baby-a / baby-b twin pack implementation",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-049.1",
@@ -3459,10 +3333,8 @@
       "statement": "Every route in §12.5 exists, unprefixed, and drives the correct `ALD-024` state transition.",
       "itemId": "ALD-049",
       "itemTitle": "Nursery controller twin pack",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-049.2",
@@ -3470,10 +3342,8 @@
       "statement": "Creating a run via nursery correctly provisions both `baby-a` and `baby-b` instances.",
       "itemId": "ALD-049",
       "itemTitle": "Nursery controller twin pack",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-049.3",
@@ -3481,10 +3351,8 @@
       "statement": "Pausing/aborting and derived-run creation use the same state/lineage services as direct internal calls, with no divergent logic path or reopening of terminal parents.",
       "itemId": "ALD-049",
       "itemTitle": "Nursery controller twin pack",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-050.1",
@@ -3492,10 +3360,8 @@
       "statement": "Every route in §12.6 exists, unprefixed, and returns data conforming to the `ALD-002` schemas involved.",
       "itemId": "ALD-050",
       "itemTitle": "Evidence and verification routes on nursery",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-050.2",
@@ -3503,10 +3369,8 @@
       "statement": "Triggering an export via this route produces a bundle identical to calling `ALD-016`'s export function directly.",
       "itemId": "ALD-050",
       "itemTitle": "Evidence and verification routes on nursery",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-050.3",
@@ -3514,10 +3378,8 @@
       "statement": "Unauthorized callers (per `ALD-051`) cannot reach these routes.",
       "itemId": "ALD-050",
       "itemTitle": "Evidence and verification routes on nursery",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-051.1",
@@ -3525,10 +3387,8 @@
       "statement": "Every role defined in §12.2 is enforced on every route that names a restriction.",
       "itemId": "ALD-051",
       "itemTitle": "Authorization roles and route guards",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-051.2",
@@ -3536,10 +3396,8 @@
       "statement": "Missing/invalid credentials return `401 UNAUTHENTICATED`; valid identities with insufficient roles return `403 FORBIDDEN`.",
       "itemId": "ALD-051",
       "itemTitle": "Authorization roles and route guards",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-051.3",
@@ -3547,10 +3405,8 @@
       "statement": "A test matrix of (role × route) confirms allow/deny matches §12.2 exactly.",
       "itemId": "ALD-051",
       "itemTitle": "Authorization roles and route guards",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-052.1",
@@ -3558,10 +3414,8 @@
       "statement": "Every success response across all routes matches the §12.3 success envelope.",
       "itemId": "ALD-052",
       "itemTitle": "Response and error shape standardization",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-052.2",
@@ -3569,10 +3423,8 @@
       "statement": "Every error response across all routes matches the §12.3 error envelope, including the ones from `ALD-034`'s channel violations.",
       "itemId": "ALD-052",
       "itemTitle": "Response and error shape standardization",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-052.3",
@@ -3580,10 +3432,8 @@
       "statement": "A lint/test rule fails the build if a new route is added without conforming to the envelope.",
       "itemId": "ALD-052",
       "itemTitle": "Response and error shape standardization",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-053.1",
@@ -3762,8 +3612,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/ops/__tests__/telemetry.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "packages/ops/__tests__/telemetry.test.ts"
       ]
     },
     {
@@ -3775,8 +3624,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/ops/__tests__/telemetry.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "packages/ops/__tests__/telemetry.test.ts"
       ]
     },
     {
@@ -3788,8 +3636,7 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/ops/__tests__/telemetry.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "packages/ops/__tests__/telemetry.test.ts"
       ]
     },
     {
@@ -3833,8 +3680,7 @@
       "itemTitle": "Snapshot and restore mechanism",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        "packages/ops/__tests__/snapshot.test.ts",
-        "scripts/run-ald079-independent-restore.mjs"
+        "packages/ops/__tests__/snapshot.test.ts"
       ]
     },
     {
@@ -3845,8 +3691,7 @@
       "itemTitle": "Snapshot and restore mechanism",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        "packages/ops/__tests__/snapshot.test.ts",
-        "scripts/run-ald079-independent-restore.mjs"
+        "packages/ops/__tests__/snapshot.test.ts"
       ]
     },
     {
@@ -3857,8 +3702,7 @@
       "itemTitle": "Snapshot and restore mechanism",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        "packages/ops/__tests__/snapshot.test.ts",
-        "scripts/run-ald079-independent-restore.mjs"
+        "packages/ops/__tests__/snapshot.test.ts"
       ]
     },
     {
@@ -3933,10 +3777,8 @@
       "statement": "The console displays live run/pre-registration state, public transcript, telemetry, verification, checkpoint, and anchor data from authoritative routes.",
       "itemId": "ALD-063",
       "itemTitle": "Dashboard/research console MVP",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-063.2",
@@ -3944,10 +3786,8 @@
       "statement": "Baby A/B observations and audit ledgers render in clearly separated read-only panels, and operator controls are role-gated and audited.",
       "itemId": "ALD-063",
       "itemTitle": "Dashboard/research console MVP",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-063.3",
@@ -3955,10 +3795,8 @@
       "statement": "The console is a self-contained vanilla HTML/CSS/JS page with no frontend framework, build tool, or client-side side-channel route.",
       "itemId": "ALD-063",
       "itemTitle": "Dashboard/research console MVP",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "twins/packs/__tests__/routes.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-064.1",
@@ -4068,10 +3906,8 @@
       "statement": "The harness includes at least one active exploit attempt per side-channel category named in §10.3.",
       "itemId": "ALD-067",
       "itemTitle": "Side-channel red-team harness",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/side-channel.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-067.2",
@@ -4079,10 +3915,8 @@
       "statement": "Every Research-Grade exploit attempt fails to extract cross-agent information, confirmed by an automated pass/fail check, while Mode P remains the explicit comparison condition.",
       "itemId": "ALD-067",
       "itemTitle": "Side-channel red-team harness",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/side-channel.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-067.3",
@@ -4090,10 +3924,8 @@
       "statement": "The harness runs under both Mode P and Mode R (`ALD-053`) so `E01`'s isolation comparison is possible.",
       "itemId": "ALD-067",
       "itemTitle": "Side-channel red-team harness",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/side-channel.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-068.1",
@@ -4101,10 +3933,8 @@
       "statement": "The suite includes direct text, low-contrast/OCR-evasion fixtures, metadata labels, semantic filenames, and malformed-image cases.",
       "itemId": "ALD-068",
       "itemTitle": "Observation-text and quarantine-bypass red-team suite",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-068.2",
@@ -4112,10 +3942,8 @@
       "statement": "Every positive fixture is quarantined and zero raw text reaches an adapter context; negative text-free controls remain loadable.",
       "itemId": "ALD-068",
       "itemTitle": "Observation-text and quarantine-bypass red-team suite",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-068.3",
@@ -4123,10 +3951,8 @@
       "statement": "Results are exported as hashed evidence linked from the E02 Experiment Record, not misrepresented as the Experiment Record itself.",
       "itemId": "ALD-068",
       "itemTitle": "Observation-text and quarantine-bypass red-team suite",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/redteam/__tests__/observation-and-measurement.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-069.1",
@@ -4167,10 +3993,8 @@
       "statement": "A written policy statement exists distinguishing \"research-harness encoding\" from \"production cryptographic signing,\" citing `ALD-009` and `ALD-019` as the only production mechanisms.",
       "itemId": "ALD-070",
       "itemTitle": "Cryptographic novelty-vs-security separation policy",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/crypto-research/__tests__/boundary.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-070.2",
@@ -4178,10 +4002,8 @@
       "statement": "A code-level check (e.g., module boundary or lint rule) prevents any `ALD-069`-harness-derived code from being imported into the `ALD-009`/`ALD-019` signing modules.",
       "itemId": "ALD-070",
       "itemTitle": "Cryptographic novelty-vs-security separation policy",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/crypto-research/__tests__/boundary.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-070.3",
@@ -4189,10 +4011,8 @@
       "statement": "This policy is included in the documentation set (`ALD-079`) and referenced by `E40`'s readiness gate (`ALD-077`).",
       "itemId": "ALD-070",
       "itemTitle": "Cryptographic novelty-vs-security separation policy",
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/crypto-research/__tests__/boundary.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "ALD-071.1",
@@ -4245,8 +4065,7 @@
         "packages/orchestrator/__tests__/experiments/e03-controls.test.ts",
         "packages/orchestrator/__tests__/experiments/e11-naming-game.test.ts",
         "packages/orchestrator/__tests__/experiments/production-runtime.test.ts",
-        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts"
       ]
     },
     {
@@ -4261,8 +4080,7 @@
         "packages/orchestrator/__tests__/experiments/e03-controls.test.ts",
         "packages/orchestrator/__tests__/experiments/e11-naming-game.test.ts",
         "packages/orchestrator/__tests__/experiments/production-runtime.test.ts",
-        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts"
       ]
     },
     {
@@ -4277,8 +4095,7 @@
         "packages/orchestrator/__tests__/experiments/e03-controls.test.ts",
         "packages/orchestrator/__tests__/experiments/e11-naming-game.test.ts",
         "packages/orchestrator/__tests__/experiments/production-runtime.test.ts",
-        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/orchestrator/__tests__/experiments/verifier-integration.test.ts"
       ]
     },
     {
@@ -4488,7 +4305,6 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "scripts/check-api-docs.mjs",
-        "scripts/run-ald079-independent-restore.mjs",
         "scripts/run-mode-r-smoke.mjs"
       ]
     },
@@ -4501,7 +4317,6 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "scripts/check-api-docs.mjs",
-        "scripts/run-ald079-independent-restore.mjs",
         "scripts/run-mode-r-smoke.mjs"
       ]
     },
@@ -4514,7 +4329,6 @@
       "disposition": "provisional-mapped",
       "assertionPaths": [
         "scripts/check-api-docs.mjs",
-        "scripts/run-ald079-independent-restore.mjs",
         "scripts/run-mode-r-smoke.mjs"
       ]
     },
@@ -5084,9 +4898,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5119,9 +4931,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5154,9 +4964,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5189,9 +4997,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5224,9 +5030,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5259,9 +5063,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5294,9 +5096,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5329,9 +5129,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5364,9 +5162,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5399,9 +5195,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5434,9 +5228,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5469,9 +5261,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5504,9 +5294,7 @@
         "packages/learners/__tests__/tabular-reinforce.test.ts",
         "packages/orchestrator/__tests__/frozen-provenance-evidence.test.ts",
         "packages/orchestrator/__tests__/self-supervised-evidence.test.ts",
-        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts",
-        "scripts/lint-learner-contracts.mjs",
-        "scripts/run-mode-r-study.mjs"
+        "packages/orchestrator/__tests__/semantic-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5800,8 +5588,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5837,8 +5624,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5874,8 +5660,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5911,8 +5696,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5948,8 +5732,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -5985,8 +5768,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6022,8 +5804,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6059,8 +5840,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6096,8 +5876,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6133,8 +5912,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6170,8 +5948,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6207,8 +5984,7 @@
         "packages/learners/__tests__/affect-policies.test.ts",
         "packages/learners/__tests__/frozen-llm-gateway.test.ts",
         "packages/ops/__tests__/metrics.test.ts",
-        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts",
-        "twins/packs/__tests__/routes.test.ts"
+        "packages/orchestrator/__tests__/carrier-leakage-evidence.test.ts"
       ]
     },
     {
@@ -6229,12 +6005,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6255,12 +6028,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6281,12 +6051,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6307,12 +6074,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6333,12 +6097,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6359,12 +6120,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6385,12 +6143,9 @@
       "assertionPaths": [
         "packages/gateway/__tests__/glyph-bundle.test.ts",
         "packages/orchestrator/__tests__/scenario-quarantine.test.ts",
-        "packages/redteam/__tests__/observation-and-measurement.test.ts",
-        "packages/redteam/__tests__/side-channel.test.ts",
         "packages/scenario/__tests__/hygiene.test.ts",
         "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-mode-r-smoke.mjs",
-        "twins/packs/__tests__/routes.test.ts"
+        "scripts/run-mode-r-smoke.mjs"
       ]
     },
     {
@@ -6912,9 +6667,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -6940,9 +6693,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -6968,9 +6719,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -6996,9 +6745,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -7024,9 +6771,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -7052,9 +6797,7 @@
         "packages/ops/__tests__/telemetry.test.ts",
         "packages/orchestrator/__tests__/interventions.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
-        "scripts/run-ald079-independent-restore.mjs",
-        "twins/packs/__tests__/routes.test.ts",
-        "twins/packs/__tests__/telemetry.test.ts"
+        "twins/packs/__tests__/routes.test.ts"
       ]
     },
     {
@@ -7078,8 +6821,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7103,8 +6845,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7128,8 +6869,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7153,8 +6893,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7178,8 +6917,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7203,8 +6941,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7228,8 +6965,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7253,8 +6989,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7278,8 +7013,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7303,8 +7037,7 @@
         "packages/orchestrator/__tests__/pre-registration.test.ts",
         "packages/orchestrator/__tests__/run-lifecycle.test.ts",
         "packages/orchestrator/__tests__/sealing-and-guards.test.ts",
-        "packages/scenario/__tests__/referential-engine.test.ts",
-        "scripts/run-qualification.mjs"
+        "packages/scenario/__tests__/referential-engine.test.ts"
       ]
     },
     {
@@ -7396,10 +7129,8 @@
       "backlogItems": [
         "ALD-070"
       ],
-      "disposition": "provisional-mapped",
-      "assertionPaths": [
-        "packages/crypto-research/__tests__/boundary.test.ts"
-      ]
+      "disposition": "retired-paper-scope",
+      "assertionPaths": []
     },
     {
       "id": "SPEC-MUST-L1713",

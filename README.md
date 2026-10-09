@@ -1,542 +1,70 @@
-# Agentic Language Development
+# Agentic Language Development — ALA Workshop Paper Source
 
-> Can two isolated agents invent a grounded, auditable language through shared
-> experience without communicating in a human language?
+**Engineering snapshot:** v0.1.531 · 258/261 backlog acceptance criteria verified.
 
-[View the project site](https://ethical-tech-colab.github.io/agentic-language-development/)
-| [Read the full concept](CONCEPT-IDEA.md)
-| [Review ledger integrity](LEDGER-INTEGRITY-DESIGN.md)
-| [Open the experiment notebook](EXPERIMENT-NOTEBOOK.md)
-| [Read the specification](SPECIFICATION.md)
-| [Open the backlog](BACKLOG.md)
-| [Read the research manuscript](RESEARCH.md)
-| [Read the page-turn edition](https://ethical-tech-colab.github.io/agentic-language-development/research-book.html?open=1)
+One question governs this branch: **does a learner's contemporaneous
+token-association record predict its receiver actions better than a
+validation-selected predictor trained on ordinary observations and
+transcripts, and when does that prediction track causally effective
+communication?** The study identity is `ALA-LV`: a small prospective
+exploratory estimation study for one ALA workshop paper.
 
-## Overview
+## Active authorities
 
-Agentic Language Development is an Ethical Tech CoLab research concept for studying
-emergent communication between two agents, **Baby A** and **Baby B**.
+- Study scope and resource authorization:
+  `protocols/ala-lv-scope-and-resource-amendment.v1.json`
+- Live claim/evidence index:
+  `reports/research/ala-claim-evidence-inventory.v1.json`
+- Paper study guide: `docs/paper-study.md`
+- Reproduction: `docs/reproduction.md`
+- Every trim/change group: `docs/paper-focus-change-log.md`
+- Manuscript (design draft): sibling repo
+  `agentic-language-development-paper` (private)
 
-Each Baby has its own DTSF digital twin, private memory, learning process, and
-chronological language ledger. They can communicate only through a controlled
-non-human symbol channel. A third agent, the **BabySitter**, monitors the experiment,
-preserves evidence, and enforces isolation without teaching or translating the
-language.
+The broad program docs (`BACKLOG.md`, `SPECIFICATION.md`,
+`LEDGER-INTEGRITY-DESIGN.md`, `CONCEPT-IDEA.md`, `RESEARCH.md`,
+`EXPERIMENT-NOTEBOOK.md`) are preserved byte-for-byte as history and
+retired from the active paper gates. The historical protocols, receipts,
+failed attempts, and resource-deviation records are likewise preserved,
+never edited to match the new study. Full pre-trim history is also in the
+tested archive next to this checkout (`ala-pre-trim-archive/`).
 
-```text
-                  shared experiences
-                         |
-                BabySitter / Nursery
-               observes, logs, controls
-                 /               \
-        private observation   private observation
-               |                   |
-          Baby A twin          Baby B twin
-               |                   ^
-               +--- Symbol Gateway+
-                    only route
+## Threat model (paper)
+
+Trusted process and operator, cooperative learners, one synthetic
+referential game, scratch recurrent policies, fixed 32-token inventory,
+within-support test cases, Prototype disposable execution. No
+adversarial-process, timing-channel, hardware-isolation, generalization,
+acquisition, or human-language claim.
+
+## Runnable workflow
+
+```sh
+pnpm install
+pnpm run check            # lint + secrets + deps + build + paper tests
+pnpm run paper:validate   # secrets + frozen claim boundary
+pnpm run paper:run --manifest <path> --cohort A|B --batch <i>  # study (P6)
 ```
 
-## Core Questions
+`paper:qualify/calibrate/freeze/run/audit/analyze/export/reproduce` are the
+paper facade; verbs not yet implemented fail closed with their owning phase
+instead of reporting success. `pnpm test` still runs the broad remaining
+suite for diagnosis; the gate is `pnpm run test:paper` (18 focused files).
 
-- Can two agents establish stable meanings without a supplied dictionary?
-- Can their language become compositional and generalize to new situations?
-- Will independently maintained ledgers converge on compatible interpretations?
-- Can causal interventions prove that the receiver actually uses the messages?
-- How do pretrained language models differ from initially ungrounded trainable agents?
-- Can affect, intrinsic motivation, negotiation, or ephemeral encodings change what
-  emerges?
+## Evidence status and remaining gates
 
-## What Makes the Concept Distinct
+- Live verified originals on this host: **0** (`evidence/` empty; E03/LV01
+  originals absent). Retained summaries are unreproduced summaries.
+- Eligible ALA-LV results: **0**. Collection stays disabled until the P3
+  study/analysis protocols freeze, P4 qualification passes on the exact
+  execution source, and P5 admission reserves the whole campaign inside the
+  additional 12 CPU-hour allowance.
+- Historical deviation preserved: 10 sealed development-iteration candidates
+  against the 5-iteration allowance; cumulative CPU and working peaks
+  unknown. New work charges the additional allowance, never a reset.
 
-- **Independent mandatory ledgers** preserve every meaning hypothesis and revision
-  through hash chains, signed Merkle checkpoints, and optional public-chain anchors.
-- **Grounded shared experiences** connect symbols to objects, actions, and outcomes.
-- **Strict channel isolation** prevents English or another established human language
-  from crossing between the Babies.
-- **Monitor-only supervision** separates BabySitter observation from teaching or
-  reward shaping.
-- **Multiple agent types** make the infant-like analogy testable rather than assumed.
-- **Causal and held-out evaluation** distinguishes genuine communication from a
-  memorized lookup code.
+## Reproduction without this checkout
 
-## Experimental Directions
-
-The concept includes research tracks for:
-
-- a six-display affect allowlist for Happy, Sad, Laughing, Crying, Confused, and
-  Surprised, plus permuted, opaque, derived, and emergent affect controls;
-- blank-canvas communication without a predefined symbol library;
-- endogenous "giddiness," curiosity, and social influence without BabySitter rewards;
-- controlled comparisons among frozen LLM memory, extrinsic-reward MARL,
-  intrinsic-motivation MARL, self-supervised learning, and a no-learning baseline;
-- ephemeral coding conventions and adversarial neural cryptography;
-- cooperative signaling followed by semi-cooperative negotiation;
-- reuse of the DTSF Diplomacy Table interaction and audit model.
-
-These are experimental hypotheses, not claims of established capability or
-cryptographic security.
-
-The Babies never receive a general emoji set. The declared affect condition permits
-one allowlisted display only in a fixed post-outcome feedback window. It does not
-permit emoji sequences, arbitrary timing, modifiers, reactions, or custom glyphs.
-Because even six displays can become a small second alphabet, the experiment must
-audit whether affect choices leak task information beyond their stated purpose.
-
-## Important Caveat
-
-Pretrained language models already contain human-language concepts. Restricting their
-external channel does not make them language-naive. For those agents, the project
-studies the emergence of a new shared **external protocol**.
-
-More strongly infant-like language-acquisition claims require initially ungrounded
-trainable agents. Every experiment must state which agent type, learning mechanism,
-channel constraints, and reward conditions were used.
-
-## Project Status
-
-**Engineering snapshot:** v0.1.529 · 258/261 backlog acceptance criteria verified.
-
-Research status: 4 qualified (software), 2 failed qualification attempts, 0 in progress, 15 not started; 8 open campaign blockers.
-The prospective [nine-member selection clarification](protocols/confirmatory-family-selection-amendment.v1.json)
-resolves a later sample-size wording conflict; it supplies no pilot variance,
-30,000-repetition simulation, selected N, or behavioral result.
-The machine-checked [confirmatory design inventory](protocols/confirmatory-design-readiness.v1.json)
-now makes the remaining inputs explicit: all nine estimands have executable metrics;
-H5's rule, H8's registered spaces, and all nine raw-scale margins are now frozen
-outcome-blind in the [practical-margin policy](protocols/confirmatory-practical-margins.v1.json).
-None of the seven experiment pilots has run, so no variance, power, selected N, or result
-exists. Earlier H2/H4 compiler fixtures are not evidence for the policy.
-The `confirmatory-pilot-summary/v2` contract fixes the seven experiment-to-nine-member
-mappings and fourteen components, requires all twenty valid primary slots in every
-experiment before selection eligibility, and independently checks each experiment's
-one-sided invalid-run upper bound. It rejects partial, invalid, optimistically bounded,
-or confirmatory-reused pilot data.
-The prospective [power-model amendment](protocols/confirmatory-power-model-amendment.v1.json)
-uses dependence-robust member-power bounds and a reserve-adequacy gate; an
-independence-only joint simulation is diagnostic and cannot choose a smaller N.
-The [power-confidence amendment](protocols/confirmatory-power-confidence-amendment.v1.json)
-first corrected simultaneous uncertainty across members. A subsequent
-[component-power amendment](protocols/confirmatory-component-power-amendment.v1.json)
-closes the remaining unidentified dependence inside H1, H5, and H8: the controlling
-selector now uses all fourteen component-power bounds at one-sided `0.05/14`, then
-forms member and family union bounds. Member/joint simulations are diagnostic only.
-The prospective [validity-reserve amendment](protocols/confirmatory-validity-reserve-amendment.v1.json)
-replaces the inadequate fixed 10% rule for the seven confirmatory experiment pilots
-with the smallest candidate-specific reserve count meeting 0.95 adequacy. Its clean
-twenty-slot reference requires 7–52 reserves across candidate N=25–300; these are
-design bounds, not authorized runs or selected prefixes.
-The prospective [power-simulator specification](protocols/confirmatory-power-simulator.v1.json)
-now has an executable deterministic implementation for all eight candidates and
-fourteen component tests. Continuous components use their frozen alternatives and
-future pilot upper SDs under a declared Normal sufficient-statistic working model;
-H5 uses exact-binomial decision probabilities. Independent component streams supply
-only a labeled joint diagnostic. Synthetic software fixtures qualify code paths but
-cannot supply pilot evidence, campaign power, selected N, or resource authorization.
-The retained [qualification receipt](reports/research/confirmatory-power-simulator-qualification-receipt.json)
-binds the exact v0.1.529 implementation and deterministic fixture output. All 112
-candidate/component comparisons agreed with independent Python/scipy reference power
-within the prespecified five-standard-error gate (maximum 2.55). This is bounded
-software qualification only; its fixture counts are not campaign measurements.
-The audit also verifies that the receipt's tree, version, and source bytes belong
-to its named execution commit; later audit-code changes do not rewrite that receipt.
-The prospective [pilot-reduction policy](protocols/confirmatory-pilot-reduction.v1.json)
-now has a deterministic reducer for seven complete twenty-slot corpora. It checks
-ordered, distinct run/seed/evidence identities and computes conservative component
-SDs using a Python/scipy-checked one-sided chi-square factor. Its [qualification
-receipt](reports/research/confirmatory-pilot-reduction-qualification-receipt.json)
-binds the exact v0.1.529 source and 42 independent Python/scipy comparisons (maximum absolute
-difference 1.11e-16); the routine statistics gate verifies its provenance. This is
-bounded synthetic software qualification only: no original pilot bundles or
-registration ancestry have been admitted, and the v2 summary's means may not
-be used to tune the frozen design.
-
-The verifiable core, communication runtime, isolated learner transport, experiment-readiness
-scaffolds, and operator preflight are implemented and tested. E00, E01, and E02
-qualified within distinct, bounded registered **software** scopes. E02 v1 stopped
-after 465 turns at its five-timeout safety pause; v2 stopped after 161 committed
-turns when a post-action timeout escaped. Neither reached restore or probes, and
-both failed attempts remain retained. The prospectively amended v3 attempt ran
-once on five fresh numeric scratch-learner slots, passed all before/after-restore
-checks and 60 fixed probes, and passed a separate full live audit of the original
-evidence. Its [terminal receipt](reports/research/e02-v3-qualification-receipt.json)
-and [audit receipt](reports/research/e02-v3-full-audit-receipt.json) close the local
-reliability gate without establishing a behavioral finding, image-encoder safety,
-independent review, or a public timestamp. The ordinary two-container preflight
-exercises learner-host transport and network controls, not the specification's
-separate Baby-twin, Gateway-only, per-role writer/signer-key, and controller
-trust-zone process boundaries. Existing blocker B12 now gates every E10+ stage
-until selected Mode R topology and detector bounds are qualified; it does not
-gate E03 Prototype controls. E03 controls will use the
-permitted [Prototype-Mode infrastructure path](protocols/e03-prototype-mode-amendment.v2.json)
-without an isolation claim and face an exact development topology, measured
-resource allocation, and registered packet gate. The prospective six-condition
-Prototype-Mode development namespace ran once on clean v0.1.158 and sealed all
-six development conditions; its [original-data audit](reports/research/e03-prototype-topology-audit-receipt.json)
-and separate live replay passed. This is bounded Mode P mechanics/resource
-qualification, not a pilot or chance-control statistical result.
-The unexecuted predecessor paired Prototype Mode with external container adapters,
-which the runtime correctly rejects. The prospective correction requires two
-in-process no-learning adapters in one Nursery process. The corrected
-development runner and original pilot collector use that shared-process
-topology. The original v1 and corrected v2 development attempts both reached
-terminal and separate live raw audits. The prospective
-[pilot allocation](protocols/e03-pilot-resource-allocation.v1.json) reserves 1 CPU-hour,
-1 GiB evidence, and 1 GiB resident memory for 120 planned runs after prior
-charges. Its 0.7-hour sequential wall projection includes observed Docker/
-startup/audit overhead; an unregistered 0.2-hour slot-only projection is
-preserved as a dated correction. The committed
-[v1 pilot packet](protocols/e03-pilot-registration.v1.json) and
-[simulated binding](protocols/e03-pilot-registration-binding.v1.json) remain
-unused: tracked test-fixture corrections change their exact source digest
-before any seed use. A [prospective v2 amendment](protocols/e03-pilot-registration-amendment.v2.json)
-requires fresh pilot IDs/seeds and binding. A new
-[v2 packet](protocols/e03-pilot-registration.v2.json) now freezes 120 distinct
-run IDs and disjoint pilot seeds against clean v0.1.164. Its separately
-committed [simulated binding](protocols/e03-pilot-registration-binding.v2.json)
-reconciles three local confirmations, zero currency, and no public transaction.
-Tracked ready-stage fixture corrections changed the v2 packet's exact source
-digest before seed use. Both earlier registrations remain unused; a
-[prospective v3 amendment](protocols/e03-pilot-registration-amendment.v3.json)
-requires fresh IDs/seeds, packet, and binding. The new
-[v3 packet](protocols/e03-pilot-registration.v3.json) now fixes 120 distinct
-run IDs and disjoint pilot seeds against clean v0.1.167. Its separately
-committed [simulated binding](protocols/e03-pilot-registration-binding.v3.json)
-records three local confirmations without currency or a public transaction.
-The one prospectively registered v3 pilot attempt ran on clean v0.1.169:
-120 planned, attempted, completed, and original-bundle-audited runs; no invalid,
-aborted, or replacement runs. Its separate outcome-blind reduction and recomputation
-audit selected the prespecified 25-primary-seed E03 design row. The
-[pilot progress update](reports/research/e03-v3-pilot-progress-update.md) binds
-the retained original receipt and reduction hashes. The tracked
-[portable status receipt](reports/research/e03-v3-pilot-status-receipt.json)
-allows clean-checkout status inspection; raw-data re-audit still requires the
-separately retained ignored evidence. These are Prototype-Mode
-design inputs, not E03 chance-control or behavioral findings.
-The frozen R-era (Homebrew-R) 30,000-repetition nominal complete-rule simulation passed at
-25 seeds (lower 95% power bound `0.999872`), but its forced two-invalid-primary-
-per-condition sensitivity passed zero repetitions. Registered reserve and
-invalid-run handling therefore need explicit full-stage qualification; the
-nominal design calculation is not a robustness or experiment pass.
-The tracked [outcome-blind E03 design decision](protocols/e03-sample-size-decision.v1.json)
-binds the original pilot, reduction, and power hashes and carries that
-sensitivity. It can be inspected in a clean checkout; its live recomputation
-requires separately retained original evidence.
-The separately [measured full E03 allocation](protocols/e03-full-resource-allocation.v1.json)
-reserves all 168 possible primary/reserve runs under the existing local ceiling:
-1 CPU-hour, 1.1 GiB new evidence, 1 GiB resident, and 0.5 hours projected
-sequential wall time, after charging 22.3 prior CPU-hours and 4.0 GiB of all
-retained evidence. It covers only Prototype-Mode software qualification, not
-the E10+ campaign.
-The [prospective paired-reserve clarification](protocols/e03-full-paired-reserve-amendment.v1.json)
-protects E03's shared-scenario seed and paired oracle-control estimand: one
-invalid primary run excludes its six-condition scenario slot; the next
-ordered reserve slot is collected across all six conditions, at most three.
-Original invalid and valid-but-excluded companions remain indexed. No full
-packet or full seed existed when this clarification was recorded.
-The pure [paired-attempt reconciler](packages/analysis/src/e03-full.ts) now checks
-the complete six-condition primary matrix, shared-scenario histories, ordered
-whole-slot reserve attempts, excluded companions, and exhausted-reserve
-incompleteness. The subsequently registered v1 full-stage attempt completed
-all 150 required primary runs, each with a verified original bundle. All
-primary pairs were valid, so the scheduler correctly left all 18 reserve runs
-unattempted. The registered chance-equivalence, oracle-adequacy, and paired-
-separation thresholds passed, and a separate read-only audit recomputed all
-150 bundles and the fixed analysis. The tracked
-[portable full-stage receipt](reports/research/e03-full-v1-status-receipt.json)
-binds the retained original receipt and reports measured resources. This
-qualifies the E03 Prototype-Mode control baseline only; it is not a behavioral
-language-emergence finding, Research-Grade isolation, or independent review.
-A disposable one-evaluation Prototype fixture sealed with a simulated anchor
-and passed a separate TypeScript bundle replay; it is a software
-smoke check, not the separate six-condition v2 qualification or a pilot.
-The frozen v1 matrix and corrected v2 matrix supply development mechanics only;
-the dependent behavioral campaign remains unstarted. The [phase-two update](reports/research/phase-two-execution-update.md)
-explains the attempt accounting and next acceptance checks. The remaining
-research gates precede the dependent behavioral campaign:
-
-The exact live admission preceded the single-use v3 run. The collector and
-separate `audit:e03-pilot-v3:live` check verified all original bundles. The
-`reduce:e03-pilot-v3:live` command then reran that audit before writing the
-outcome-blind dispersion input; `audit:e03-pilot-v3-reduction:live` independently
-recomputed it from retained original records. All four gates passed on the
-original v3 evidence. E03's full control qualification then ran once and passed
-the original-evidence audit described above.
-The audit cross-checks unsigned operational tallies against the signed,
-verified turn and channel streams before admitting a sample-size input.
-The prospective Prototype-Mode development audit now derives its paired
-scenario hashes and control tallies from those same signed original streams;
-unsigned slot summaries alone cannot clear the topology gate.
-The pilot status gate also discovers its fixed terminal receipt and checks the
-packet identity and planned, attempted, and completed run counts; a stale
-ready or running summary cannot override that terminal evidence.
-Before a terminal receipt exists, a running pilot status requires the original
-start record plus the matching live local controller PID and process-start
-identity; a crashed controller leaves readiness unresolved, not running.
-The standalone project-status check and the campaign gate now use one local
-pilot-state assertion, so original start or terminal evidence cannot be
-ignored by a document-only status check.
-On collector failure, the terminal receipt charges any measured CPU from the
-attempted slot and marks remaining CPU capacity unresolved if a required
-container measurement is missing; the attempt cannot be replaced silently.
-Pilot admission also requires the execution source tree to remain unchanged
-since the packet's protocol-base commit; later source edits require a fresh
-prospective amendment and allocation.
-
-- `@ald/hashing`, `@ald/merkle`, `@ald/evidence`: domain-separated hashing, RFC 8785
-  canonical JSON, per-run Ed25519 signers and key store, hash-chain validation, RFC
-  6962 ordered Merkle trees with inclusion and consistency proofs, and the single
-  atomic SQLite Evidence Writer with fork detection, recovery, bundle export, and
-  analysis attachments atomically bound to witness-committed intervention events.
-- `@ald/checkpoint`, `@ald/anchor`, `@ald/verifier`: signed checkpoint manifests and
-  proof files, the Base-shaped anchor publisher (deterministic simulation by default;
-  optional viem public-chain transport outside the approved campaign), and the standalone
-  `ald-verify` CLI that re-derives
-  every hash, signature, root, proof, binding, and anchor from a bundle alone.
-  A separate read-only Rust auditor independently rebuilds canonical event hashes,
-  signatures, Merkle prefixes, checkpoint chains, receipt bindings, and attachment
-  hashes; `pnpm run challenge:integrity` compares both implementations against a
-  fresh real export and deliberate mutations.
-- `@ald/lifecycle`, `@ald/scenario`, `@ald/gateway`, `@ald/learners`,
-  `@ald/orchestrator`, `@ald/analysis`: the SPEC §7 run state machine; deterministic
-  scenarios, hygiene, and a fail-closed run-registration quarantine gate; fixed-token, glyph, bitmap, canvas,
-  tone, and six-display affect protocols; no-learning and all four trainable/runtime
-  tracks; an explicitly selected 16-unit GRU actor-critic with PPO-style updates for
-  scratch RL; the same 4,049-parameter GRU core with reward-free predictive
-  cross-entropy for self-supervision; tabular/count models retained as named
-  qualification controls; frozen-LLM and hybrid adapter conformance foundations; the
-  carrier analysis module provides grammar-valid bitmap, translation-tolerant canvas,
-  and graded tone distances plus deterministic held-out nearest-prototype scoring,
-  explicitly bounded to a handcrafted-distance diagnostic rather than learned
-  perceptual generalization; the
-  independently seeded policies and witness-committed initial hashes;
-  independently verified derived-run lineage against immutable parent exports;
-  Nursery's end-to-end SPEC §8 turn cycle; a delayed, source-bound human audit
-  interpreter whose generated entries are separately signed and checkpointed; and
-  pre-registered analysis primitives, including immutable mark-level leakage
-  probes across all five carrier conditions with an evidence-preserving claim gate;
-  and an E16 runtime seam that commits validation-selected baseline and native-ledger
-  predictions after delivery but before receiver action, checkpoints that chronology,
-  then source-binds post-outcome scores as per-turn analysis attachments. The immutable
-  run configuration binds the comparator-selection commitment and native
-  prediction-function version, limits eligibility to accepted evaluation
-  deliveries, and includes fail-closed restart checks.
-- `@ald/isolation`, `@ald/ops`, `@ald/interventions`, `@ald/redteam`: fixed-frame
-  process transport, a two-container Mode R network-isolation gate, and learner-host confinement; API telemetry, snapshot/restore,
-  and failure supervision; configuration-driven, verifier-bound live causal probes
-  and bounded repair turns, plus held-out, curriculum, drift, and statistical
-  scaffolds; the committed observation-text and quarantine-bypass corpus; and
-  an active twelve-category side-channel red-team suite shared by Mode P and Mode R,
-  plus 28 generated-carrier dimension, metadata, raw-media, sample-rate, compression,
-  and container attacks through the real Gateway.
-  These are tested foundations, not a completed production Mode R deployment or
-  a scientific result. `pnpm run test:mode-r` builds the locked-down learner image,
-  denies Baby-to-Baby routes on separate internal networks, checks host capability
-  denial and normalized timing, then kills one learner and verifies the other survives.
-  `pnpm run test:mode-r-study` additionally drives every learner track through the
-  actual controller, Gateway, SQLite writer, checkpoint, deterministic simulated commitment,
-  exporter, and verifier. Its local no-Fort qualification path now uses six
-  separate no-network, ephemeral signer containers; the Gateway and writer still
-  share the Nursery process, so B12 remains open. The [independent four-bundle audit receipt](reports/research/mode-r-signer-reference-audit-receipt.json)
-  binds one exact clean-source execution and separate TypeScript/Rust verification; it remains software evidence,
-  not a public-chain transaction or research result.
-  The [journal-bearing reference receipt](reports/research/mode-r-journal-reference-audit-receipt.json)
-  separately checks a later clean-source four-track replay and the paired
-  hash-only write intents; it also leaves B12 open. Persistent study signers are
-  accepted only from `fort` files-mode materialization mounted into the Nursery;
-  neither learner receives that mount or its path.
-  The [prospective authority graph](protocols/mode-r-authority-graph.v1.json)
-  and its [v2 writer-capability amendment](protocols/mode-r-authority-graph.v2.json)
-  fix the intended process, network, key, and caller-specific writer boundaries
-  for the next qualification. Later amendments freeze the remote Gateway,
-  recovery, and Gateway-to-Baby relay contracts. Component integration now
-  exercises separate Gateway, Evidence Writer, Checkpoint, simulated Anchor,
-  delayed Audit Interpreter, Baby, and model-adapter processes, but no authority
-  graph amendment is an implemented-topology receipt and B12 remains open.
-- `@ald/crypto-research`: an E40 research-only, three-role instrumentation harness
-  that records hash-chained ephemeral scheme changes and Eve recovery attempts over
-  synthetic messages. A repository lint boundary prevents it from entering the
-  production hashing or anchoring packages; it never reports cryptographic security.
-- DTSF twin packs for `baby-a`, `baby-b`, and `nursery` expose the SPEC §12 routes
-  with role guards in Prototype Mode; audit-ledger reads return only the separate
-  generated-analysis stream and reject Baby service identities.
-
-The qualification harness (`scripts/run-qualification.mjs`) executes E03-style
-chance controls and an E11-style naming game through the real pipeline and writes a
-report under `reports/qualification/`. Those runs are **non-confirmatory software
-qualification in Prototype Mode**: not pre-registered, not anchored, and never
-research findings.
-
-The committed E03 design simulation is an outcome-blind sensitivity check. The
-stage-aware registration compiler produced canonical pilot and full-stage packets
-with separated scenario, per-role learner, Gateway, and analysis seeds. The full
-packet was compiled only after the retained pilot selected a candidate seed count
-under the frozen 30,000-repetition rule. Research preflight required immutable
-registration and a matching pre-run simulated commitment before each stage ran.
-
-The frozen-LLM operator path also completed a real two-episode qualification
-against Qwen3-4B Q4_K_M through Homebrew llama.cpp 0.4.0. The retained
-[`reports/qualification/frozen-model-qwen3-4b-q4-k-m.json`](reports/qualification/frozen-model-qwen3-4b-q4-k-m.json)
-binds the exact model weights, resolved executable and bottle, software commit,
-live server configuration, separate role processes, clean-process replay,
-tool-only calls, and frozen-weight/private-memory semantics while omitting prompts
-and private output. The 7.5-GiB validation host required non-overlapping role
-processes and a 300-second qualification ceiling, so this is bounded software
-evidence rather than a production-capacity or empirical finding.
-
-The E01/E02 software-readiness outputs have a hashed attachment path linked from
-the append-only Experiment Record and independently checked against their evidence
-event and committed prefix. The approved prospective research profile uses no real
-funds or public-chain transactions; those remain optional capability tests outside
-the study. Repository-native preregistration and deterministic simulated commitments
-are the sole experiment activation path. Hosted enforcement, a restore performed by
-a second human, and third-party registration remain optional evidence-strengthening
-activities and are never claimed unless actually completed. The retention job is implemented
-and covered against real exported bundles and evidence-store rows.
-
-The [external-prerequisite handoff](docs/external-prerequisite-handoff.md) and its
-machine-readable ledger make O01–O06 auditable without recording secrets or personal
-identity. The ledger is ready at 1/1 applicable prerequisite: O01 is verified, while
-O02-O06 are non-applicable to local synthetic execution under the zero-spend,
-repository-native policy. A read-only upstream observation remains as historical
-evidence that hosted required-check enforcement is not demonstrated, not as an
-experiment blocker.
-
-No behavioral research results are claimed.
-
-The complete rationale, literature review, experimental ideas, risks, and open
-decisions are in [CONCEPT-IDEA.md](CONCEPT-IDEA.md).
-
-## Project Documents
-
-| Document | Purpose |
-|---|---|
-| [Phase-one research update](reports/phase-one-research-update.md) | Dated September 4–13 progress snapshot, inherited-versus-added work, and then-current evidence |
-| [Phase-two execution update](reports/research/phase-two-execution-update.md) | Dated September 15 E02 reliability qualification, preserved failures, evidence scope, and next E03 gate |
-| [Phase-one evidence appendix](reports/phase-one-evidence-appendix.md) | Claim-to-commit, receipt, evidence-availability, and verification-command map |
-| [Phase-one demonstration guide](docs/phase-one-demonstration-guide.md) | Short, evidence-preserving walkthrough for a research review |
-| [CONCEPT-IDEA.md](CONCEPT-IDEA.md) | Research premise, architecture, literature, safeguards, experiments, and open decisions |
-| [LEDGER-INTEGRITY-DESIGN.md](LEDGER-INTEGRITY-DESIGN.md) | Hash-chain, ordered-Merkle, signature, Base-anchor, verifier, and recovery design |
-| [EXPERIMENT-NOTEBOOK.md](EXPERIMENT-NOTEBOOK.md) | Ordered experiment protocols, checklists, result tables, deviations, and publication review |
-| [SPECIFICATION.md](SPECIFICATION.md) | Normative architecture, protocols, schemas, APIs, isolation controls, lifecycle, and acceptance criteria |
-| [BACKLOG.md](BACKLOG.md) | Milestones, critical path, epics, dependency-ordered stories, readiness gates, and requirement coverage |
-| [RESEARCH.md](RESEARCH.md) | Pre-results academic manuscript, research questions, methods, literature review, analysis plan, source verification, and arXiv preparation checklist |
-| [CONFIGURATION.md](CONFIGURATION.md) | Runtime environment variables, key-store layout, and secret handling |
-| [docs/external-prerequisite-handoff.md](docs/external-prerequisite-handoff.md) | Exact privacy-safe evidence and activation checks for O01–O06 |
-| [docs/simulation-funded-research-profile.md](docs/simulation-funded-research-profile.md) | Approved zero-spend campaign boundary and the distinction between simulated funds and real observations |
-| [docs/evidence-bundle-format.md](docs/evidence-bundle-format.md) | Byte-level evidence bundle contract shared by the exporter, checkpoint service, and verifier |
-| [docs/cryptographic-separation-policy.md](docs/cryptographic-separation-policy.md) | Mandatory boundary between E40 research encodings and production hashing/signing/anchoring |
-| [reports/README.md](reports/README.md) | What the qualification reports are and are not |
-| [Research validation report](reports/research/research-validation-report.md) | Historical September 13 evidence-class and methods snapshot; current status is in the phase-two update |
-| [Source-lineage register](reports/research/source-lineage-register.md) | Requirement origins and later normative amendments without personal attribution |
-| [Requirement conformance matrix](docs/requirement-conformance-matrix.md) | Provisional mapping from every backlog criterion and normative MUST-bearing line to executable evidence |
-
-## Research Book
-
-The full research manuscript is also published through the Ethical Tech CoLab
-`read-as-book` v3 page-turn reader:
-
-**https://ethical-tech-colab.github.io/agentic-language-development/research-book.html?open=1**
-
-The reader uses committed WebP pages generated from [RESEARCH.md](RESEARCH.md), opens
-as a two-page spread on desktop, collapses to one page on mobile, and provides the
-generated PDF as a download.
-
-Regenerate the book after changing the manuscript:
-
-```powershell
-pnpm run book:research
-```
-
-The page rasterizer requires Node.js 22.13 or newer; generated book assets do not
-require Node.js in the browser.
-
-Set `CHROME_PATH` if Chrome or Edge is not installed at a standard location. The
-generated PDF, page manifest, page images, print edition, and locally bundled reader
-are committed so GitHub Pages needs no server, CDN, or runtime PDF renderer.
-
-The notebook records E00's integrity qualification and E01 v2's completed bounded
-isolation qualification. Behavioral collection awaits the remaining local research gates.
-
-## Running the Platform Locally
-
-```bash
-pnpm install --frozen-lockfile
-pnpm run check
-```
-
-`pnpm run check` runs every source/contract/boundary/readiness/status lint, builds
-every workspace, runs the complete test suite, scans for committed secrets, and
-blocks on high/critical dependency advisories.
-
-The E00/E01 commands in that suite validate tracked receipt summaries. On the
-execution host, also run `pnpm run audit:qualification-e00:live` and
-`pnpm run audit:qualification-e01:live` to compare retained manifest identities
-and slot records. These explicit checks require the ignored `evidence/` directory
-and fail if it is missing. They do not rerun the historical experiments.
-
-Registration audits require the repository's full Git history; shallow clones
-must fetch that history before running the consolidated suite. Plans and tickets
-are local, Git-ignored working documents and are not inputs to CI.
-
-Reproduce the historical E03 design sensitivity calculation now. Compile the
-twenty-slot, zero-reserve pilot only after the exact Prototype-Mode six-condition
-development run and live audit finish and its measured, zero-spend allocation is
-written. The compiler binds those two receipts and fails closed while they are absent:
-
-```bash
-pnpm run design:e03
-pnpm run qualify:e03-prototype-topology-dev # once on a clean commit with an unused evidence root
-pnpm run audit:e03-prototype-topology-dev:live
-pnpm run build:e03-pilot-allocation
-pnpm run registration:e03 --out evidence/preregistration/e03-pilot-v1-draft.json
-pnpm run preflight:research \
-  --registration evidence/preregistration/e03-pilot-v1-draft.json \
-  --binding /absolute/path/repository-registration-and-commitment-binding.json
-```
-
-The historical commands above illustrate the design workflow. E02 and E03's bounded
-software gates have now passed. A fresh stage must still use an immutable packet,
-exact source/seed preflight, simulated pre-run commitment, and an unused evidence
-namespace. The executed full E03 packet was compiled from the retained sample-size
-decision; its current audit commands are:
-
-```bash
-pnpm run audit:e03-full:live
-pnpm run audit:e03-full-status:live
-```
-The first command requires separately retained original evidence; the second
-checks the tracked portable receipt. Neither command supplies the E10+ campaign's
-remaining scientific prerequisites.
-
-Run the Prototype Mode qualification harness and verify a bundle independently:
-
-```bash
-pnpm run build && node scripts/run-qualification.mjs
-```
-
-```bash
-node packages/verifier/bin/ald-verify.js evidence/qualification/<run-set>/bundles/runs/<run-id> --allow-unanchored
-```
-
-Databases and bundles are written under `evidence/`, which is ignored by git; reports
-are written under `reports/qualification/`. The approved profile needs no funded
-wallet: runs use the deterministic in-memory transport, carry
-`anchorClass: "simulated"`, and fail verification if that class is altered.
-
-## Responsible Research
-
-All learned-cipher experiments should use synthetic, non-sensitive messages. Novel or
-agent-generated encodings must not be represented as production cryptography without
-independent expert analysis and formal security work.
-
-The project should report failed conventions, prohibited communication attempts,
-human interventions, side-channel limitations, and negative results alongside
-successful runs.
-
-Only hashes and minimal routing metadata should be anchored publicly. Private ledgers,
-messages, prompts, identities, and secrets must remain off-chain.
-
-## License
-
-Licensed under the [MIT License](LICENSE).
+Reviewers reproduce the paper's numbers from the sealed compact export in
+the paper repo (`make reproduce`) without rerunning training. Optional
+fresh training uses the public source archive at its frozen commit.

@@ -10,6 +10,16 @@ import {
 const OUTPUT_JSON = 'docs/requirement-conformance-matrix.json';
 const OUTPUT_MARKDOWN = 'docs/requirement-conformance-matrix.md';
 const EXTERNAL_ITEMS = new Set(['ALD-020', 'ALD-022', 'ALD-078', 'ALD-079']);
+// 2026-10-09 paper narrowing: backlog items whose executable evidence lived
+// exclusively in pruned trees (twins/, redteam, crypto-research, campaign
+// scripts). Verified per item via `git grep <ID> HEAD` before listing: no
+// live-tree assertion path may exist for a listed ID (enforced by
+// scripts/__tests__/conformance-matrix-scope.test.ts). Bytes preserved in
+// the pre-trim archive and Git history; see docs/paper-focus-change-log.md.
+const RETIRED_PAPER_SCOPE = new Set([
+  'ALD-040', 'ALD-043', 'ALD-048', 'ALD-049', 'ALD-050', 'ALD-051',
+  'ALD-052', 'ALD-063', 'ALD-067', 'ALD-068', 'ALD-070',
+]);
 const NON_REQUIREMENT_LINES = new Set([
   'SPECIFICATION.md:101',
   'SPECIFICATION.md:102',
@@ -189,6 +199,7 @@ function markdown(matrix) {
     '- `provisional-mapped` means a concrete executable surface and required receipt are identified; behavioral truth still awaits the relevant V04–V11 challenge.',
     '- `external-blocked` means the checked state cannot be completed from local execution without authentic authority or independent evidence.',
     '- `open-unmapped` is a conformance defect and causes the generator to fail for a checked criterion or applicable normative line.',
+    '- `retired-paper-scope` means the item was checked when its evidence lived in trees pruned by the 2026-10-09 paper narrowing (see docs/paper-focus-change-log.md); evidence bytes survive in the pre-trim archive and Git history, and the item no longer gates the paper.',
     '- `not-applicable-definition` covers normative-language definitions and table headers that contain the word MUST but impose no independently executable behavior.',
     '',
     'Exact statements, test selectors, and required commands are retained in the companion JSON.',
@@ -217,9 +228,12 @@ const assertionCatalog = Object.fromEntries(
 
 const backlogCriteria = items.flatMap((item) => item.criteria.map((criterion) => {
   const assertionPaths = itemAssertions.get(item.id) ?? [];
-  const disposition = criterion.checked
-    ? assertionPaths.length > 0 ? 'provisional-mapped' : 'open-unmapped'
-    : EXTERNAL_ITEMS.has(item.id) ? 'external-blocked' : 'open-unmapped';
+  const retired = RETIRED_PAPER_SCOPE.has(item.id) && assertionPaths.length === 0;
+  const disposition = retired
+    ? 'retired-paper-scope'
+    : criterion.checked
+      ? assertionPaths.length > 0 ? 'provisional-mapped' : 'open-unmapped'
+      : EXTERNAL_ITEMS.has(item.id) ? 'external-blocked' : 'open-unmapped';
   return { ...criterion, itemId: item.id, itemTitle: item.title, disposition, assertionPaths };
 }));
 
@@ -230,8 +244,12 @@ const normative = [
   const assertionPaths = [...new Set(
     requirement.backlogItems.flatMap((item) => itemAssertions.get(item) ?? []),
   )].sort();
+  const retired = requirement.backlogItems.length > 0
+    && requirement.backlogItems.every((item) => RETIRED_PAPER_SCOPE.has(item))
+    && assertionPaths.length === 0;
   const disposition = !requirement.applicable
     ? 'not-applicable-definition'
+    : retired ? 'retired-paper-scope'
     : assertionPaths.length > 0 ? 'provisional-mapped' : 'open-unmapped';
   return { ...requirement, disposition, assertionPaths };
 });
@@ -256,6 +274,8 @@ const matrix = {
     normativeLines: normative.length,
     mappedNormativeLines: normative.filter((row) => row.disposition === 'provisional-mapped').length,
     unmappedNormativeLines: normative.filter((row) => row.disposition === 'open-unmapped').length,
+    retiredBacklogCriteria: backlogCriteria.filter((row) => row.disposition === 'retired-paper-scope').length,
+    retiredNormativeLines: normative.filter((row) => row.disposition === 'retired-paper-scope').length,
     nonRequirementLines: normative.filter((row) => !row.applicable).length,
   },
   backlogCriteria,
@@ -263,8 +283,8 @@ const matrix = {
 };
 
 const unresolved = [
-  ...backlogCriteria.filter((row) => row.checked && row.assertionPaths.length === 0),
-  ...normative.filter((row) => row.applicable && row.assertionPaths.length === 0),
+  ...backlogCriteria.filter((row) => row.disposition === 'open-unmapped' && (row.checked || EXTERNAL_ITEMS.has(row.itemId))),
+  ...normative.filter((row) => row.disposition === 'open-unmapped' && row.applicable),
 ];
 if (unresolved.length > 0) {
   throw new Error(`unmapped applicable requirements: ${unresolved.map((row) => row.id).join(', ')}`);
