@@ -23,6 +23,7 @@ import { exportRunBundle, openEvidenceDatabase, SqliteEvidenceWriter } from '../
 import { InMemorySignerRegistry } from '../packages/hashing/src/index.js';
 import {
   indexLv01TrainingLedger,
+  loadLearnerContract,
   parseExportedRecurrentScratchPolicy,
   predictLv01NativeLedger,
   replayLv01RecurrentReceiver,
@@ -138,7 +139,20 @@ for (let repeat = 0; repeat < 4; repeat += 1) {
         const start = Date.now();
         await appendCanonical(writer, runId);
         const bundleDir = join(dir, 'bundle');
-        await exportRunBundle(writer, runId, bundleDir, { softwareCommit: 'ala-overhead-benchmark' });
+        const tracks = [
+          ...new Set(
+            [(parentConfig as never)['babyA']?.track, (parentConfig as never)['babyB']?.track].filter(
+              (track): track is string => typeof track === 'string',
+            ),
+          ),
+        ];
+        await exportRunBundle(writer, runId, bundleDir, {
+          softwareCommit: 'ala-overhead-benchmark',
+          learnerContracts: tracks.map((track) => {
+            const contract = loadLearnerContract(track as never);
+            return { track: contract.track, version: contract.version, text: contract.text };
+          }),
+        });
         const reloaded = await readLv01BundleDocs(bundleDir);
         const reloadedTurns = typedTurns(reloaded);
         if (reloadedTurns.length !== canonical.length) throw new Error('benchmark reload lost turns');
