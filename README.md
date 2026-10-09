@@ -1,13 +1,18 @@
 # Agentic Language Development — ALA Workshop Paper Source
 
-**Engineering snapshot:** v0.1.536 · 258/261 backlog acceptance criteria verified.
+**Engineering snapshot:** v0.1.539 · P0 backlog re-audit 258/261 (historical).
 
-One question governs this branch: **does a learner's contemporaneous
-token-association record predict its receiver actions better than a
-validation-selected predictor trained on ordinary observations and
-transcripts, and when does that prediction track causally effective
-communication?** The study identity is `ALA-LV`: a small prospective
-exploratory estimation study for one ALA workshop paper.
+**Status: FEASIBILITY-ONLY. The original ALA-LV cohort study is NO-GO
+(P5 admission refused on measured cost); no study estimates exist. The
+active program is a feasibility/methods case study from retained
+calibration evidence. See `docs/ala-implementation-discrepancy-record.md`
+for promised-vs-actual implementation status.**
+
+One question governed the original design: **does a learner's
+contemporaneous token-association record predict its receiver actions
+better than a validation-selected predictor trained on ordinary
+observations and transcripts?** That question is unresolved: the
+comparison was never executed with fitted baselines (discrepancy D2).
 
 ## Active authorities
 
@@ -41,24 +46,33 @@ acquisition, or human-language claim.
 
 ```sh
 pnpm install
-pnpm run check            # lint + secrets + deps + build + paper tests
-pnpm run paper:validate   # secrets + frozen claim boundary
-pnpm run paper:run --manifest <path> --cohort A|B --batch <i>  # study (P6)
+pnpm run check            # lint + secrets + deps + build + paper tests (24 files / 178 tests)
+pnpm run paper:validate   # secrets + frozen claim boundary + protocol binding
 ```
 
-`paper:qualify/calibrate/freeze/run/audit/analyze/export/reproduce` are the
-paper facade; verbs not yet implemented fail closed with their owning phase
-instead of reporting success. `pnpm test` still runs the broad remaining
-suite for diagnosis; the gate is `pnpm run test:paper` (18 focused files).
+Study collection is disabled: `paper:run --manifest <path>
+--cohort <name> --index <n>` refuses cohorts A/B without a P5 admission
+record (none exists; NO-GO recorded), and the 3-slot development budget
+is exhausted. Same-seed `--resume` reruns a crashed slot only; it never
+overwrites a terminal receipt.
+
+`paper:validate` and `paper:run` are implemented; `paper:audit` reports
+PARTIAL (claim boundary only, no sealed study-evidence audit);
+`paper:qualify/calibrate/freeze/analyze/export/reproduce` are deprecated
+unimplemented facades that fail closed (exit 10) and are not part of the
+supported interface. `pnpm test` still runs the broad remaining suite for
+diagnosis; the gate is `pnpm run test:paper`.
 
 ## Evidence status and remaining gates
 
-- Live verified originals on this host: **0** (`evidence/` empty; E03/LV01
-  originals absent). Retained summaries are unreproduced summaries.
-- Eligible ALA-LV results: **0**. Collection stays disabled until the P3
-  study/analysis protocols freeze, P4 qualification passes on the exact
-  execution source, and P5 admission reserves the whole campaign inside the
-  additional 12 CPU-hour allowance.
+- Historical E03/LV01 originals: still **absent** on this host. Retained
+  summaries are unreproduced summaries.
+- New retained calibration: one complete dyad (`evidence/ala-lv/`,
+  ~4.6 GiB) plus two failed/aborted slots with journal + logs. See the
+  discrepancy record for what this evidence does and does not support.
+- Eligible ALA-LV study results: **0**. P5 admission was refused; no
+  cohort ran. The sealed paper export is FEASIBILITY-ONLY (methods
+  measurements, no estimates).
 - Historical deviation preserved: 10 sealed development-iteration candidates
   against the 5-iteration allowance; cumulative CPU and working peaks
   unknown. New work charges the additional allowance, never a reset.

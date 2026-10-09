@@ -1,24 +1,34 @@
 # ALA-LV paper study guide (active)
 
-Study identity: `ALA-LV`. Question: does a learner's contemporaneous
-token-association record predict its receiver actions better than a
-validation-selected predictor trained on ordinary observations and
-transcripts, and when does that prediction track causally effective
-communication?
+Study identity: `ALA-LV`.
+
+**Status: FEASIBILITY-ONLY. The original cohort study is NO-GO (P5
+admission refused on measured cost); its question — whether a learner's
+token-association record predicts receiver actions better than a
+validation-selected ordinary predictor — is unresolved. The active
+program is a feasibility/methods case study from retained calibration
+evidence. Implementation truth vs the frozen protocol promise is in
+`docs/ala-implementation-discrepancy-record.md`, which overrides any
+older optimistic description in this guide.**
 
 ## Authorities (read in this order)
 
-1. `protocols/ala-lv-scope-and-resource-amendment.v1.json` — prospective
-   scope and the additional 12 CPU-hour allowance. Collection is disabled
-   until its gate closes (P3 protocol freeze + P4 qualification + P5
-   admission).
-2. `reports/research/ala-claim-evidence-inventory.v1.json` — the live
-   claim/evidence index. Zero live originals on this host; zero eligible
-   new results until the P6 sealed export.
-3. `protocols/ala-lv-study.v1.json` + `protocols/ala-lv-analysis.v1.json`
-   (P3 freeze) — the exact frozen study/analysis contracts. Nothing runs
-   before they exist.
-4. `docs/reproduction.md` — how to reproduce every number.
+1. `docs/ala-implementation-discrepancy-record.md` — promised protocol
+   vs actual implementation vs observed/missing evidence (read first).
+2. `protocols/ala-lv-scope-and-resource-amendment.v1.json` — prospective
+   scope and the additional 12 CPU-hour allowance. P5 admission was
+   refused; no cohort is admitted and the development budget is spent.
+3. `reports/research/ala-claim-evidence-inventory.v1.json` — the live
+   claim/evidence index. Historical E03/LV01 originals remain absent;
+   new retained calibration (one complete dyad + two failed slots) is
+   partial-machinery evidence, not study results. Zero eligible study
+   results; the sealed paper export is FEASIBILITY-ONLY.
+4. `protocols/ala-lv-study.v1.json` + `protocols/ala-lv-analysis.v1.json`
+   (P3 freeze) — the exact frozen study/analysis contracts, now
+   historical authority for an unexecuted study. Do not rewrite v1 to
+   match implementation departures; record departures in the
+   discrepancy record.
+5. `docs/reproduction.md` — how to reproduce every number.
 
 ## What is retired (preserved, not governing)
 
@@ -35,8 +45,10 @@ communication?
   deleted. LV01 sample size, power requirement, margins, stage labels,
   and historical classifications are never silently changed.
 - Removed active surface (book, twins, Mode R deployment, red-team and
-  crypto-research packages, 166 campaign scripts) is preserved in the
-  tested pre-trim archive beside this checkout and in Git history.
+  crypto-research packages, 166 campaign scripts) is preserved in Git
+  history (pre-trim commit `2e042b1`; restore procedure in
+  `docs/paper-focus-change-log.md`). The beside-checkout archive copy was
+  removed as redundant; never recreate it.
   Every removal group is logged in `docs/paper-focus-change-log.md`
   with its dependency proof.
 

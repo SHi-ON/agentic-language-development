@@ -17,21 +17,23 @@ Inputs: `results/summary.json` (sealed export), `results/manifest.json`
 `requirements.txt` (self-contained uv environment). No private token,
 sibling repo, network fetch, or host path is required.
 
-Currently fails closed: the P6 sealed export does not exist yet.
+Current state: the sealed export is FEASIBILITY-ONLY (methods
+measurements, no study estimates; `per-dyad.tsv` has no rows by design).
+`make reproduce` regenerates methods macros only.
 
-## Fresh training replication (optional, bounded)
+## Fresh training replication (not available)
 
-Reruns the study from the frozen protocol with the exact source commit:
+The original study would rerun from the frozen protocol as:
 
 ```sh
-pnpm run paper:run --manifest <execution-manifest> --cohort A|B --batch <i>
+pnpm run paper:run --manifest <execution-manifest> --cohort <name> --index <n>
 ```
 
-Bounded by the P5 admission reservation inside the additional 12 CPU-hour
-allowance. Cohort B is the fresh-seed check; reproducing the same data is
-not a fresh-seed replication.
-
-Currently fails closed: protocols unfrozen, runner unbuilt (P3/P6).
+but P5 admission was refused (NO-GO) and the development budget is
+spent, so no cohort is runnable. Same-seed `--resume` reruns a crashed
+slot only. Any future study needs a new versioned protocol revision and
+a fresh prospective allowance; it would be a new study, never completion
+of the v1 campaign.
 
 ## Environment
 
@@ -43,9 +45,11 @@ Currently fails closed: protocols unfrozen, runner unbuilt (P3/P6).
 
 ## Provenance checks
 
-- `pnpm run paper:validate` — secrets + frozen claim boundary.
-- `pnpm run paper:audit` — claim boundary today; full study-evidence
-  audit once the P6 export exists.
-- Every manuscript number traces to the sealed export via
-  `docs/claims.tsv` in the paper repo. No console summaries, placeholder
-  macros, or hand-typed table cells.
+- `pnpm run paper:validate` — secrets + frozen claim boundary + protocol
+  binding.
+- `pnpm run paper:audit` — claim boundary only; reports PARTIAL. There is
+  no sealed study-evidence audit (no study ran).
+- Every manuscript measurement traces to the sealed export via
+  `docs/claims.tsv` in the paper repo; protocol design constants cite
+  the frozen contracts digested in the export manifest. No console
+  summaries, placeholder macros, or hand-typed table cells.
