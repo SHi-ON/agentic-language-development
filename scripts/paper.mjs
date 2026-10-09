@@ -22,9 +22,11 @@ function notImplemented(phase) {
 
 switch (verb) {
   case "validate":
-    // Reused helpers available today: secret scan + frozen claim boundary.
+    // Reused helpers available today: secret scan + frozen claim boundary
+    // + ALA-LV protocol schema/binding check.
     runPnpm(["scan:secrets"]);
     runPnpm(["audit:data-claims"]);
+    runPnpm(["check:ala-protocol"]);
     console.log("paper:validate OK");
     break;
   case "audit":
