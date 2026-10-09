@@ -3,7 +3,7 @@
  *
  * Usage:
  *   tsx scripts/ala-run-entry.ts --manifest <path> --cohort A|B|development|calibration
- *     --kind primary|reserve --index <n> [--evidence-root <dir>]
+ *     --kind primary|reserve --index <n> [--evidence-root <dir>] [--resume]
  *
  * Collects the retained-identity corpus from tracked records and runs one
  * ALA dyad through the manifest-verified runner.
@@ -73,5 +73,6 @@ const receipt = await runAlaDyad({
   index,
   evidenceRoot,
   retainedCorpus: collectRetainedSeedCorpus(),
+  resume: process.argv.includes('--resume'),
 });
 console.log(JSON.stringify({ state: receipt.state, reason: receipt.reason, casesValid: receipt.casesValid }));

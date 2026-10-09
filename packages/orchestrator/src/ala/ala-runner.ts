@@ -16,7 +16,7 @@
  * - development/calibration beyond 3 attempts (amendment budget),
  * - re-running an attempted slot (terminal receipts are append-only).
  */
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -52,6 +52,7 @@ import {
   mapLv01LedgerAssociations,
 } from '../experiments/lv01-paired-predictions.js';
 import { trainLv01SlotParent } from '../experiments/lv01-parent-training.js';
+import { LV01_BRANCHES } from '../experiments/ledger-value.js';
 
 import {
   ALA_POLICY_VERSION,
@@ -66,7 +67,16 @@ import {
 import { verifyAlaExecutionManifest, type AlaExecutionManifest } from './ala-manifest.js';
 import { alaPrototypeWorkload, alaStudyCounts } from './ala-workload.js';
 
-export type AlaDyadState = 'planned' | 'attempted' | 'valid' | 'invalid' | 'aborted' | 'unattempted';
+export type AlaDyadState =
+  | 'planned'
+  | 'attempted'
+  | 'resumed'
+  | 'valid'
+  | 'invalid'
+  | 'aborted'
+  | 'failed'
+  | 'note'
+  | 'unattempted';
 
 export interface AlaDyadReceipt {
   readonly cohort: AlaCohort;
@@ -149,7 +159,7 @@ export function alaDevAttemptsUsed(journal: readonly AlaJournalEntry[]): number 
   for (const entry of journal) {
     if (
       (entry.cohort === 'development' || entry.cohort === 'calibration') &&
-      entry.state !== 'planned' && entry.state !== 'unattempted'
+      entry.state !== 'planned' && entry.state !== 'unattempted' && entry.state !== 'note'
     ) {
       attempted.add(`${entry.cohort}/${entry.kind}/${entry.index}`);
     }
@@ -165,6 +175,7 @@ export async function runAlaDyad(input: {
   readonly index: number;
   readonly evidenceRoot: string;
   readonly retainedCorpus: readonly string[];
+  readonly resume?: boolean;
 }): Promise<AlaDyadReceipt> {
   const wallStart = Date.now();
   const cpuStart = process.cpuUsage();
@@ -175,13 +186,24 @@ export async function runAlaDyad(input: {
   const manifestBytes = await readFile(join(input.root, input.manifestPath), 'utf8');
   const manifestSha256 = hashCanonical('ala-manifest-identity/v1', manifestBytes);
 
-  // 2. Gates: attempted slots are terminal; study needs admission; dev is budgeted.
+  // 2. Gates: terminal receipts are final; study needs admission; dev is budgeted.
+  // Resume re-enters a crashed (attempted/failed, never terminal) slot with the
+  // same seeds: a deterministic rerun, not a new attempt, so it consumes no
+  // additional budget.
   const journal = await readAlaJournal(input.evidenceRoot);
   const prior = journal.filter(
     (e) => e.cohort === input.cohort && e.kind === input.kind && e.index === input.index,
   );
-  if (prior.some((e) => e.state === 'attempted' || e.state === 'valid' || e.state === 'invalid' || e.state === 'aborted')) {
-    fail(`slot ${input.cohort}/${input.kind}/${input.index} was already attempted; terminal receipts are append-only`);
+  const resuming = input.resume === true;
+  if (prior.some((e) => e.state === 'valid' || e.state === 'invalid' || e.state === 'aborted')) {
+    fail(`slot ${input.cohort}/${input.kind}/${input.index} has a terminal receipt; receipts are append-only`);
+  }
+  if (prior.some((e) => e.state === 'attempted' || e.state === 'resumed' || e.state === 'failed')) {
+    if (!resuming) {
+      fail(`slot ${input.cohort}/${input.kind}/${input.index} was already attempted; terminal receipts are append-only`);
+    }
+  } else if (resuming) {
+    fail(`slot ${input.cohort}/${input.kind}/${input.index} was never attempted; nothing to resume`);
   }
   if (input.cohort === 'A' || input.cohort === 'B') {
     const admissionPath = join(input.evidenceRoot, 'admission.json');
@@ -191,7 +213,7 @@ export async function runAlaDyad(input: {
       fail(`cohort ${input.cohort} admission record is invalid`);
     }
     if (admission.manifestSha256 !== manifestSha256) fail('admission record binds a different execution manifest');
-  } else if (alaDevAttemptsUsed(journal) >= 3) {
+  } else if (!resuming && alaDevAttemptsUsed(journal) >= 3) {
     fail('development/calibration attempt budget (3) is exhausted');
   }
   await appendAlaJournal(input.evidenceRoot, {
@@ -199,13 +221,18 @@ export async function runAlaDyad(input: {
     cohort: input.cohort,
     kind: input.kind,
     index: input.index,
-    state: 'attempted',
+    state: resuming ? 'resumed' : 'attempted',
   });
 
   const slotLabel = pad4(input.index);
   const engineSlot = alaEngineSlotNumber(input.cohort, input.kind, input.index);
   const engineSlotLabel = pad4(engineSlot);
   const dyadDir = join(input.evidenceRoot, input.cohort, `${input.kind}-${slotLabel}`);
+  if (resuming) {
+    // Deterministic rerun from identical seeds: remove partial output so no
+    // stale case can mix with the rerun. The journal retains the crash record.
+    await rm(dyadDir, { recursive: true, force: true });
+  }
   await mkdir(dyadDir, { recursive: true });
 
   // 3. Seeds in the ALA namespace; audit against retained LV01 identities.
@@ -385,14 +412,19 @@ export async function runAlaDyad(input: {
       for (const runId of executions) {
         branchDocs.push(await readLv01BundleDocs(join(caseDir, 'branches', runId)));
       }
-      const audited = branchDocs.map((docs) => loadLv01AuditedBranch(docs));
-      for (const branch of audited) {
+      const paired = branchDocs.map((docs) => ({ docs, branch: loadLv01AuditedBranch(docs) }));
+      for (const { branch } of paired) {
         if (branch.payload.state.scenarioStateHash !== scheduled.stateHash) {
           fail(`case ${slot} branch ${branch.branch} served outside the schedule`);
         }
       }
+      // The auditor requires canonical LV01 branch order; run directories
+      // sort alphabetically, so reorder explicitly and keep docs attached.
+      const order = new Map<string, number>(LV01_BRANCHES.map((name, position) => [name, position]));
+      paired.sort((a, b) => (order.get(a.branch.branch) ?? 99) - (order.get(b.branch.branch) ?? 99));
+      const audited = paired.map((entry) => entry.branch);
       const first = audited[0];
-      const firstDocs = branchDocs[0];
+      const firstDocs = paired[0]?.docs;
       if (first === undefined || firstDocs === undefined) fail(`case ${slot} has no audited branches`);
       const shared = loadLv01AuditShared({ parentDocs, branchDocs: firstDocs, firstBranch: first, treatmentBatch: batch });
       const { caseCommitment } = auditLv01PairedCase({ plan, shared, branches: audited });

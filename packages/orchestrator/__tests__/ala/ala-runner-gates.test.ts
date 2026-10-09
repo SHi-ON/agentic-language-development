@@ -79,4 +79,62 @@ describe('ALA runner gates (no training runs)', () => {
       }),
     ).rejects.toThrowError(/already attempted/);
   });
+
+  it('resume refuses an unattempted slot', async () => {
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 9,
+        evidenceRoot: evidenceRoot(),
+        retainedCorpus: [],
+        resume: true,
+      }),
+    ).rejects.toThrowError(/nothing to resume/);
+  });
+
+  it('resume refuses a terminal slot', async () => {
+    const dir = evidenceRoot();
+    writeFileSync(
+      join(dir, 'journal.jsonl'),
+      `${JSON.stringify({ at: '2026-10-09T00:00:00Z', cohort: 'development', kind: 'primary', index: 0, state: 'valid' })}\n`,
+    );
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        resume: true,
+      }),
+    ).rejects.toThrowError(/terminal receipt/);
+  });
+
+  it('resume bypasses the attempted refusal but keeps downstream gates', async () => {
+    // Cohort A with a crashed (attempted, never terminal) slot: resume must
+    // pass the attempted gate and then fail at P5 admission — proving the
+    // bypass without training.
+    const dir = evidenceRoot();
+    writeFileSync(
+      join(dir, 'journal.jsonl'),
+      `${JSON.stringify({ at: '2026-10-09T00:00:00Z', cohort: 'A', kind: 'primary', index: 0, state: 'attempted' })}\n`,
+    );
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'A',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        resume: true,
+      }),
+    ).rejects.toThrowError(/no P5 admission record/);
+  });
 });
