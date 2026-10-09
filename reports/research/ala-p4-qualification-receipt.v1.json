@@ -1,0 +1,83 @@
+{
+ "acceptance": "P4 acceptance met on the exact execution source: targeted tests (24 files / 178 tests) plus one integrated real dyad pass; the artifact rejects the negative fixtures (mutation matrix 8/8). No study test-effect labels were read or reported during qualification (training curves and cost bytes only).",
+ "analysis": "Calibration consumed all 3 development/repair slots (index 0 aborted on a schedule-count bug, index 1 failed on a collection-time ordinary-composition bug, index 2 valid after a deterministic same-slot resume fixing branch audit order). The qualified dyad is estimation-capable software: 3000 training turns, 240/240 paired cases, 1680/1680 branches, evaluation freeze verified. Learning itself is highly variable (index-0 final block 0.42 vs index-2 final block 0.21 against 0.25 chance) \u2014 a valid outcome, not invalidity. The binding P4 output for P5 is cost: the complete dyad exceeds the absolute per-dyad guard (0.25 CPU-h / 20 min) and, at 4.63 GB raw, makes every allowed campaign size unaffordable (see P5 decision record).",
+ "benchmarkRehearsal": {
+  "capCpuHours": 0.1,
+  "cpuSeconds": 12.39889,
+  "dyad": "evidence/ala-lv/calibration/primary-0002",
+  "medianAuthenticatedMs": 209,
+  "medianOrdinaryMs": 201,
+  "note": "Rehearsal on the qualified calibration dyad; the binding run stays on the first eligible cohort-A dyad per the analysis protocol (not reached: P5 NO-GO).",
+  "output": "evidence/ala-lv/p4-benchmark-rehearsal.json"
+ },
+ "calibrationDyad": {
+  "casesValid": 240,
+  "cost": {
+   "cpuHours": 0.5396528061111111,
+   "cpuMicroseconds": 1942750502,
+   "evidenceBytes": 4625588433,
+   "evidenceBytesOnDisk": 4625608420,
+   "fileDedupBytes": 4089679732,
+   "peakBytes": 952872960,
+   "peakGiB": 0.8875279426574707,
+   "unresolved": [],
+   "verificationMilliseconds": 139499,
+   "wallMilliseconds": 2019678,
+   "wallMinutes": 33.6613
+  },
+  "dyad": "evidence/ala-lv/calibration/primary-0002",
+  "perDyadGuard": {
+   "cpuHoursMax": 0.25,
+   "verdict": "VIOLATED (0.540 > 0.25 CPU-h; 33.7 > 20 min wall)",
+   "wallMinutesMax": 20
+  },
+  "receipt": "evidence/ala-lv/calibration/primary-0002/dyad-receipt.json",
+  "slot": "calibration/primary/2 (resumed once after crash; same seeds)",
+  "state": "valid"
+ },
+ "learningCurve": {
+  "chance": 0.25,
+  "finalBlock100": 0.21,
+  "firstBlock100": 0.25,
+  "index0Reference": {
+   "finalBlock100": 0.42,
+   "firstBlock100": 0.32,
+   "note": "Attempt-1 parent (aborted slot, training only); shows across-dyad learning variance, not a study result."
+  },
+  "note": "Training turns only (phase=running). Chance-level learning is a valid learner outcome per P4, not technical invalidity.",
+  "source": "worksheets/ala-qualification.py Q2"
+ },
+ "measuredAt": "2026-10-09T05:30:00Z",
+ "negativeFixtures": "ala-mutation-matrix M0-M7 8/8 (event, prediction, parent reference, fit identity, schedule, candidate order, cutoff, blob corruption each produce named nonzero audit failures); gate tests refuse re-run, terminal resume, unattempted resume, budget overrun, and study cohorts without admission.",
+ "qualifiedSource": {
+  "manifest": "protocols/ala-lv-execution-manifest.v1.json",
+  "manifestClosure": "358 files sha256:6a117b58316a6469f0c5189bf52911530dfeb399f791e8204f3b322400c1e7e1",
+  "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
+  "worktreeCommit": "1c2f02b + P4 batch (worksheet, analytic fixtures, resume)",
+  "worktreeNote": "Qualification executed on worktree commit 1c2f02b (resume fix); this receipt plus the worksheet and analytic fixtures are committed as the P4 batch on top."
+ },
+ "receiptVersion": "v1",
+ "softwareTests": {
+  "command": "pnpm run check (lint + scan:secrets + audit:dependencies + build + test:paper)",
+  "files": 24,
+  "result": "all green",
+  "tests": 178
+ },
+ "status": "passed",
+ "studyId": "ALA-LV",
+ "worksheet": {
+  "command": ".venv-worksheet/bin/python worksheets/ala-qualification.py --dyad evidence/ala-lv/calibration/primary-0002",
+  "environment": "requirements-worksheet.txt (marimo 0.25.1, numpy 2.5.3, scipy 1.18.1)",
+  "exitCode": 0,
+  "file": "worksheets/ala-qualification.py",
+  "verdicts": [
+   "PASS Q0 receipt: state=valid, casesValid=240",
+   "PASS Q1 turn chain: 3001 turns, 3000 running, chain-linked, receivers baby-a+baby-b",
+   "PASS Q2 learning curve: 30x100-turn blocks captured (no threshold)",
+   "PASS Q3 genuine updates: updateCount 3000/agent, 4049 params, 284 linked checkpoints, 567 ledger roots",
+   "PASS Q4 ledger activity: 13519 ledger events incl. hypothesis/term events",
+   "PASS Q5 collection: 240/240 cases, 1680/1680 branches, paired scenarios match",
+   "PASS Q6 freeze: 1680 branches evaluationOnly + bound to final training checkpoint"
+  ]
+ }
+}
