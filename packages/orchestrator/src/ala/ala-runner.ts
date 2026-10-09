@@ -280,6 +280,9 @@ export async function runAlaDyad(input: {
     };
     const parentCheckpointHash = lv01ParentCheckpointHash(parentDocs);
     const authenticate = authenticateFromManifest(parentDocs.runManifest);
+    // Branch harnesses open the same store file; close the training handle
+    // first (same discipline as the collector's own live tests).
+    production.close();
 
     // 7. Schedule over the ALA scenario seed; ordinary providers from parent.
     const engine = new ReferentialScenarioEngine(
@@ -444,6 +447,10 @@ export async function runAlaDyad(input: {
     });
     return receipt;
   } finally {
-    database.close();
+    try {
+      database.close();
+    } catch {
+      // Already closed after training; branch harnesses manage their own handles.
+    }
   }
 }

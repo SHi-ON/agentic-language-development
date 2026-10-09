@@ -1,6 +1,6 @@
 # Agentic Language Development — ALA Workshop Paper Source
 
-**Engineering snapshot:** v0.1.534 · 258/261 backlog acceptance criteria verified.
+**Engineering snapshot:** v0.1.535 · 258/261 backlog acceptance criteria verified.
 
 One question governs this branch: **does a learner's contemporaneous
 token-association record predict its receiver actions better than a
