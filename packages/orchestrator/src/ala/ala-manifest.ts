@@ -134,7 +134,9 @@ export function buildAlaExecutionManifest(root: string): AlaExecutionManifest {
   return {
     manifestVersion: 'ala-lv-execution-manifest/v1',
     studyId: 'ALA-LV',
-    protocolCommit: git(root, 'rev-parse', 'HEAD'),
+    // The commit that last changed the frozen protocol bytes (stable
+    // across manifest rebuilds; a protocol change requires a new version).
+    protocolCommit: git(root, 'log', '-1', '--format=%H', '--', ALA_STUDY_PATH, ALA_ANALYSIS_PATH),
     sourceTree: git(root, 'rev-parse', 'HEAD^{tree}'),
     createdAtUtc: new Date().toISOString(),
     protocols,

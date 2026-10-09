@@ -6,6 +6,8 @@
  * the owning phase. No verb ever reports success without doing the work.
  */
 import { execFileSync } from "node:child_process";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const [verb, ...rest] = process.argv.slice(2);
 
@@ -47,13 +49,21 @@ switch (verb) {
   case "freeze":
     notImplemented("P3 (protocol freeze) / P6 (export freeze)");
     break;
-  case "run":
+  case "run": {
     if (!rest.includes("--manifest")) {
-      console.error("FAIL: paper:run requires --manifest <path> (P6).");
+      console.error("FAIL: paper:run requires --manifest <path>.");
       process.exit(11);
     }
-    notImplemented("P6");
+    if (!rest.includes("--cohort") || !rest.includes("--index")) {
+      console.error("FAIL: paper:run requires --cohort <A|B|development|calibration> and --index <n>.");
+      process.exit(11);
+    }
+    // Study cohorts stay refused inside the runner until a P5 admission
+    // record exists; development/calibration consume the 3-attempt budget.
+    const here = dirname(fileURLToPath(import.meta.url));
+    execFileSync("node", [join(here, "ala-run.mjs"), ...rest], { stdio: "inherit" });
     break;
+  }
   case "analyze":
     notImplemented("P6");
     break;

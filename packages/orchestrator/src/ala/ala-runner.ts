@@ -20,7 +20,7 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { openEvidenceDatabase, type EvidenceDatabase } from '@ald/evidence';
+import { type EvidenceDatabase } from '@ald/evidence';
 import { InMemorySignerRegistry, hashCanonical } from '@ald/hashing';
 import { indexLv01TrainingLedger } from '@ald/learners';
 import { LV01_UNTOUCHED_TYPE_CODES, ReferentialScenarioEngine } from '@ald/scenario';
