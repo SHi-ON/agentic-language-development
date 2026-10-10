@@ -1,0 +1,151 @@
+{
+ "dyad": "evidence/ala-lv/calibration/primary-0002",
+ "partition": {
+  "parent-bundle": {
+   "apparentBytes": 23095970,
+   "physicalBytes": 23773184,
+   "files": 297
+  },
+  "runs": {
+   "apparentBytes": 1065472412,
+   "physicalBytes": 1217171456,
+   "files": 45980
+  },
+  "scenario-registry": {
+   "apparentBytes": 326,
+   "physicalBytes": 4096,
+   "files": 1
+  },
+  "slotsBranches": {
+   "slotCount": 240,
+   "apparentBytes": 1735715141
+  },
+  "slotsManifests": {
+   "apparentBytes": 297480
+  },
+  "dyad-receipt.json": 19987,
+  "evidence.sqlite": {
+   "apparentBytes": 1801007104,
+   "physicalBytes": 1801007104,
+   "files": 1
+  }
+ },
+ "runsSplit": {
+  "parentRunApparentBytes": 46455692,
+  "branchRunCount": 1680,
+  "branchRunsApparentBytes": 1019016720
+ },
+ "sqlite": {
+  "pageSize": 4096,
+  "pageCount": 439699,
+  "freelistPages": 0,
+  "fileBytes": 1801007104,
+  "tables": {
+   "affect_events": {
+    "rows": 0,
+    "textPayloadBytes": 0
+   },
+   "analysis_attachments": {
+    "rows": 0,
+    "textPayloadBytes": 0
+   },
+   "anchor_receipts": {
+    "rows": 0,
+    "textPayloadBytes": 0
+   },
+   "audit_ledger_entries": {
+    "rows": 0,
+    "textPayloadBytes": 0
+   },
+   "channel_events": {
+    "rows": 4681,
+    "textPayloadBytes": 7627934
+   },
+   "checkpoint_manifests": {
+    "rows": 5324,
+    "textPayloadBytes": 10355995
+   },
+   "experiment_records": {
+    "rows": 1683,
+    "textPayloadBytes": 1995440
+   },
+   "fork_artifacts": {
+    "rows": 0,
+    "textPayloadBytes": 0
+   },
+   "intervention_log": {
+    "rows": 6722,
+    "textPayloadBytes": 1693598178
+   },
+   "ledger_events": {
+    "rows": 28159,
+    "textPayloadBytes": 38488245
+   },
+   "run_metadata": {
+    "rows": 1681,
+    "textPayloadBytes": 6139430
+   },
+   "run_signers": {
+    "rows": 10086,
+    "textPayloadBytes": 1543580
+   },
+   "schema_migrations": {
+    "rows": 4,
+    "textPayloadBytes": 478
+   },
+   "turn_records": {
+    "rows": 4681,
+    "textPayloadBytes": 8497200
+   }
+  },
+  "indexCount": 7
+ },
+ "headsCensus": {
+  "branchesScanned": 1680,
+  "distinctHeadDigests": 1,
+  "totalHeadBytes": 1703430960,
+  "uniqueHeadBytes": 1013947,
+  "topDigestShare": 1.0,
+  "topDigestExampleBranch": "slot-0001/branches/ala-calibration-primary-0002-s0001-constant",
+  "digests": [
+   {
+    "sha256": "5a68f72f8acd88d42fef376e268a4cc4069750ab3196f45fd75cc2f3f8a02373",
+    "count": 1680,
+    "bytes": 1013947,
+    "exampleBranch": "slot-0001/branches/ala-calibration-primary-0002-s0001-constant"
+   }
+  ]
+ },
+ "envelopeBytes": {
+  "min": 1110,
+  "max": 1924,
+  "total": 2952918
+ },
+ "gzipSamples": {
+  "headsBytes": 1013947,
+  "headsGzipBytes": 522982,
+  "ledgerBytes": 7288467,
+  "ledgerGzipBytes": 1605292
+ },
+ "corpusSelection": {
+  "rule": "median-size -normal branch + median-size -ledger-consistent branch from a different slot (sorted by intervention-log.jsonl apparent bytes, deterministic)",
+  "picks": [
+   {
+    "branch": "slot-0082/branches/ala-calibration-primary-0002-s0082-normal",
+    "payloadBytes": 1015757,
+    "payloadSha256": "115aee3a8ed8555fd821cc4d7beff691de2ed530d1a5fe0df49c14c49efa99bb"
+   },
+   {
+    "branch": "slot-0042/branches/ala-calibration-primary-0002-s0042-ledger-consistent",
+    "payloadBytes": 1015796,
+    "payloadSha256": "f7828474ffbf114268111ceb36d8b98f3750e9fb97943ffc230a1503b166c177"
+   }
+  ]
+ },
+ "coverage": {
+  "branches": "1680/1680 commitments parsed",
+  "sqlite": "all tables: row counts + TEXT/BLOB payload sums; page stats",
+  "unmeasured": "per-index byte sizes (index DDL counted only); parent-run export internals; slot manifest semantics"
+ },
+ "method": "read-only single-pass scan; digests + lengths only in memory"
+}
