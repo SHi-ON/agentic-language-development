@@ -14,7 +14,7 @@ make reproduce
 
 Inputs: `results/summary.json` (sealed export), `results/manifest.json`
 (provenance), `results/per-dyad.tsv` (sufficient analysis inputs), pinned
-`requirements.txt` (self-contained uv environment). No private token,
+`pyproject.toml` + `uv.lock` (self-contained uv environment). No private token,
 sibling repo, network fetch, or host path is required.
 
 Current state: the sealed export is FEASIBILITY-ONLY (methods
@@ -38,7 +38,7 @@ of the v1 campaign.
 ## Environment
 
 - Node v24.21.0, pnpm (CI pins 12.3.4), uv-managed Python 3.13 with
-  `requirements.txt` (numpy/scipy; no R/Rscript; no Homebrew/system
+  `pyproject.toml` + `uv.lock` (numpy/scipy/marimo; no R/Rscript; no Homebrew/system
   installers; no Docker or LaTeX on this host).
 - Paper PDF builds in CI from the pinned TeX Live image; the PDF and log
   are downloaded for local inspection with `pdfinfo`/`pdftotext`/rendering.

@@ -19,7 +19,7 @@ config flags only, never outcomes. Every verdict carries the run
 timestamp; cached outputs must never be presented as fresh observations.
 
 Run headless:
-  .venv-worksheet/bin/python worksheets/ala-qualification.py \
+  .venv/bin/python worksheets/ala-qualification.py \
       --dyad evidence/ala-lv/calibration/primary-0002
 """
 

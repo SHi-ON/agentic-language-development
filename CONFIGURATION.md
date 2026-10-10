@@ -80,9 +80,10 @@ The confirmatory gates spawn `scripts/*.py` through the repo-local `.venv`
 Create it once per checkout:
 
 ```sh
-uv venv --python 3.13
-uv pip install --python .venv/bin/python -r requirements.txt
+uv sync
 ```
 
-`requirements.txt` pins the exact numpy/scipy versions the frozen receipts were
-generated with. CI provisions the same venv via `astral-sh/setup-uv`.
+`pyproject.toml` + tracked `uv.lock` pin the exact versions the frozen
+receipts were generated with (single in-project `.venv` for both the
+statistics sidecar and the worksheets). CI provisions the same venv via
+`astral-sh/setup-uv`.

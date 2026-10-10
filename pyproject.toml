@@ -1,0 +1,43 @@
+# Single uv-managed Python environment for this repo (replaces
+# requirements.txt + requirements-worksheet.txt, deleted 2026-10-10).
+# Setup: `uv sync` (creates in-project .venv). Run: `uv run ...`
+# or `.venv/bin/python ...` (see CONFIGURATION.md).
+# Interpreter pinned to the 3.13 minor the frozen receipts were computed
+# with; dependency pins preserved verbatim from the old requirements files.
+[project]
+name = "agentic-language-development"
+version = "0.1.0"
+description = "Independent-statistics sidecar (scripts/*.py) + worksheets env"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+  "anyio==4.15.1",
+  "click==8.5.0",
+  "docutils==0.23",
+  "h11==0.16.0",
+  "idna==3.20",
+  "itsdangerous==2.2.0",
+  "jedi==0.20.0",
+  "loro==1.16.2",
+  "marimo==0.25.1",
+  "markdown==3.11",
+  "msgspec==0.22.0",
+  "narwhals==2.26.0",
+  "numpy==2.5.3",
+  "packaging==26.3",
+  "parso==0.8.7",
+  "psutil==7.2.2",
+  "pygments==2.21.0",
+  "pymdown-extensions==11.0.2",
+  "python-multipart==0.0.32",
+  "pyyaml==6.0.3",
+  "pyzmq==27.2.0",
+  "scipy==1.18.1",
+  "starlette==1.7.0",
+  "tomlkit==0.15.1",
+  "typing-extensions==4.16.0",
+  "uvicorn==0.54.0",
+  "websockets==17.2",
+]
+
+[tool.uv]
+package = false

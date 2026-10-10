@@ -23,7 +23,7 @@ nonzero on any failure. No study statistics exist, so there is no Brier /
 interval reduction to reproduce; this verifies the cost/qualification basis
 of the feasibility paper instead.
 
-Run: .venv-worksheet/bin/python worksheets/ala-feasibility-verify.py
+Run: .venv/bin/python worksheets/ala-feasibility-verify.py
 """
 
 import json

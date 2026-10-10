@@ -11,7 +11,7 @@ checked against branch intention records.
 Writes reports/research/ala-duplication-census.v1.json. No study slots
 are consumed; no new runs are launched.
 
-Run: .venv-worksheet/bin/python worksheets/ala-duplication-census.py
+Run: .venv/bin/python worksheets/ala-duplication-census.py
 """
 
 import json

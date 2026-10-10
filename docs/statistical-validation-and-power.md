@@ -9,7 +9,7 @@ Canonical protocol: `protocols/statistical-analysis-and-power.v1.json`
 This is outcome-blind design evidence. It validates calculations and prospective
 operating characteristics; it contains no agent experiment result. The independent
 implementation is Python/scipy in the repo-local `.venv` (pinned exact versions in
-`requirements.txt`; see `CONFIGURATION.md`). Its 66-row receipt is
+`pyproject.toml` + `uv.lock`; see `CONFIGURATION.md`). Its 66-row receipt is
 `reports/research/statistical-validation.tsv`. `pnpm audit:statistics` compares 28
 production values with the frozen Python references and enforces every declared simulation
 finding. `pnpm audit:statistics:live` regenerates the receipt in a temporary directory

@@ -14,9 +14,7 @@ export function venvPython() {
   const absolute = resolve(repoRoot, relative);
   if (!existsSync(absolute)) {
     throw new Error(
-      `missing ${relative}; create it with: uv venv --python 3.13 && ` +
-        'uv pip install --python .venv/bin/python -r requirements.txt ' +
-        '(see CONFIGURATION.md)',
+      `missing ${relative}; create it with: uv sync (see CONFIGURATION.md)`,
     );
   }
   return absolute;
