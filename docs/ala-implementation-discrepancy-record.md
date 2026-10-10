@@ -71,7 +71,7 @@ inspectable and are not rewritten.
 | Native predictor formula | Designed + component-tested; not executed on test cases as a scored comparison | `ledger-value-prediction` tests; native vectors persisted in branch commitments but never scored vs ordinary |
 | Five ordinary candidates + Brier selection + refit | Designed + fitter component tests; selection/refit not executed | No validation-fold execution; branches commit uniform |
 | Pre-action commitment payloads | Actual (executed, uniform ordinary) | Branch `prediction-commitment` intervention events |
-| Seven paired branches from restored state | Actual (executed) | 1680/1680 branches, paired scenario match, evaluationOnly + checkpoint binding |
+| Seven paired branches from recorded pre-state | Actual (executed); live restoration unverified | 1680/1680 branches, paired scenario match, evaluationOnly + checkpoint binding; see next row |
 | Live weight/optimizer/hidden/PRNG restoration proof | Unverified | Config flags only; no live-state comparison captured |
 | Cohort estimation (t-intervals, bootstrap, 0.02 rule) | Designed, unexecuted | Frozen analysis contract; no cohorts admitted |
 | Overhead benchmark comparison | Partially executed (rehearsal); signing-isolation claim unsupported | Rehearsal repeats; see critique F08 |
@@ -86,3 +86,19 @@ inspectable and are not rewritten.
   projection, and missing stages (no "order of magnitude on both").
 - "Prospectively specified in versioned local contracts" replaces
   "pre-registered" everywhere: no external timestamped registration exists.
+
+## D6. Retention rule vs embedded heads (critique G09, 2026-10-10)
+
+Promised: the study contract's `retention.blobRule` requires sharing
+immutable blobs by digest with explicit references and never cloning a
+full bundle per branch; the pre-action payload lists the ledger cutoff
+plus policy/state digests. Actual: every branch's
+`prediction-commitment` embeds the full `state.trainingLedgerHeads`
+(13,519 entries, ~1MB per payload) alongside the small cutoff record,
+repeated across all 1,680 branches and mirrored in the live
+`evidence.sqlite` (1,680 commitment rows, ~1.69GB). Measured by
+`worksheets/ala-commitment-anatomy.py` (read-only structural scan;
+`reports/research/ala-commitment-anatomy.v1.json`). Consequence: the
+retention format as executed violates blobRule; per-branch bytes are
+structural, not a measurement artifact. The paper's bottleneck sentence
+is licensed by the sealed anatomy census, not by the P5 prose alone.

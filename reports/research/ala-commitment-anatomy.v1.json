@@ -1,0 +1,29 @@
+{
+ "dyad": "evidence/ala-lv/calibration/primary-0002",
+ "branches": 1680,
+ "ordinaryUniform": true,
+ "ordinaryNotUniform": [],
+ "nativeDistributionPresent": true,
+ "replayDistributionPresent": true,
+ "replayNullOnlyDisabled": true,
+ "cutoffPresent": true,
+ "payloadBytes": {
+  "min": 1015093,
+  "p50": 1015838,
+  "max": 1015907
+ },
+ "headsBytes": {
+  "min": 1013947,
+  "max": 1013947,
+  "total": 1703430960
+ },
+ "headsEntries": {
+  "min": 13519,
+  "max": 13519
+ },
+ "sqliteCommitments": {
+  "rows": 1680,
+  "bytes": 1685725602
+ },
+ "method": "read-only structural scan; no realized actions or outcomes recorded"
+}
