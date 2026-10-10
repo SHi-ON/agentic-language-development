@@ -1,0 +1,16 @@
+{
+ "dyad": "evidence/ala-lv/calibration/primary-0002",
+ "branchesChecked": 1680,
+ "distinctRandomSeed": 1,
+ "distinctGateway": 1,
+ "randomSeedHistogram": {
+  "8cd2cb6cc5a136e46935e3a4533d4fd23e9a4761356d413e73d1a45ac2ec0485": 1680
+ },
+ "gatewayDigest": "sha256:8499258007167c44bbea1b9776ec32cc47c44097b76624dfd8ad7299e19f9138",
+ "extractSeeds": [
+  "8cd2cb6cc5a136e46935e3a4533d4fd23e9a4761356d413e73d1a45ac2ec0485"
+ ],
+ "extractAgreement": true,
+ "mismatches": [],
+ "method": "read-only parse of configuration/run-config.json per branch"
+}

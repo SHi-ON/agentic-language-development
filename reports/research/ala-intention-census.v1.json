@@ -1,0 +1,15 @@
+{
+ "dyad": "evidence/ala-lv/calibration/primary-0002",
+ "branchesChecked": 1680,
+ "multiplicityHistogram": {
+  "1": 1680
+ },
+ "nullAgreement": {
+  "agree": 1680,
+  "total": 1680
+ },
+ "proposalHashEqualSlots": 240,
+ "slotCount": 240,
+ "mismatches": [],
+ "method": "read-only scan of receiver baby-ledger turn-0 intentions vs extract rows, plus turn-records turn-0 babyProposalHash across 7 siblings per slot"
+}

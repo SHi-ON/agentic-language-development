@@ -2,8 +2,8 @@
   "manifestVersion": "ala-lv-execution-manifest/v1",
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
-  "sourceTree": "4aaf8064925963cd337cad2cb3cf108fbd24c4fc",
-  "createdAtUtc": "2026-10-10T12:37:25.672Z",
+  "sourceTree": "fe87cff4dc605b3c6d86e0ee7f509fba1423764d",
+  "createdAtUtc": "2026-10-10T22:34:54.467Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -20,7 +20,7 @@
   },
   "executionClosure": {
     "fileCount": 358,
-    "sha256": "sha256:46fb46e1cbfaaa20ae0eed1d7d464402a63ae86844506534c4e892bacd2d95bc"
+    "sha256": "sha256:67d0fac6dd15f6c37ca211cb279f928c866a0e2560c69610a6ed4bb46235e7f9"
   },
   "closureFiles": [
     "package.json",
@@ -385,7 +385,7 @@
   "dependencies": {
     "node": "v24.21.0",
     "lockfileSha256": "sha256:d1fa42e14d66df92cd916b38bef1ea075c7e2ba001a2ecf4dfc3aa075377661a",
-    "packageJsonSha256": "sha256:5545e7982e1b102174b79ceec705f0fcfffbb5e511f9bd0fe6033c336408e65b"
+    "packageJsonSha256": "sha256:985405f78048158dda327874bb61dbbeed362425994ac2939fcff8e27c07dbed"
   },
   "workload": {
     "trainingCases": 3000,

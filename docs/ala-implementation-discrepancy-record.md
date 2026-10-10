@@ -119,3 +119,21 @@ discriminating fixture:
 Original calibration is partial machinery with invalid control
 construction; its compute/storage measurements describe that
 historical workload, not a complete valid study.
+
+## D8. Census follow-ups + audit-text corrections (round 2, 2026-10-10)
+
+Seed census (`worksheets/ala-seed-census.py`;
+`reports/research/ala-seed-census.v1.json`): all 1680 branch
+run-configs share one `randomSeed` and one `seedBindings.gateway`,
+agreeing with the N1 extract — gateway constancy now has a
+reproducing artifact. Intention census
+(`worksheets/ala-intention-census.py`;
+`reports/research/ala-intention-census.v1.json`): turn-0 intention
+multiplicity is exactly 1 in all 1680 branches (the extract's
+last-match projection is unique), token/null agreement 1680/1680,
+and turn-0 `babyProposalHash` is equal across all 7 siblings in
+240/240 slots. Byte-audit corrections (same run): the corpus rule
+text wrongly said "median-size" while the code picks smallest-size —
+text fixed (picks unchanged); sqlite `-shm`/`-wal` sidecars
+(32768 B + 0 B) now counted separately; coverage denominator derived
+from the branch directories instead of hardcoded.

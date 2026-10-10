@@ -34,8 +34,6 @@ def main() -> int:
     test_rows = []
     for slot in sorted(p for p in DYAD.glob("slot-*") if p.is_dir()):
         batch = json.loads((slot / "treatment-batch.json").read_text())
-        cases = {c["caseId"].rsplit("-", 2)[0] + ":" + c["caseId"].rsplit("-", 1)[-1]: c
-                 for c in batch["cases"]}
         branches = {}
         seeds = set()
         for bdir in sorted((slot / "branches").glob("*")):

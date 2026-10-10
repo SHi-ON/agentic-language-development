@@ -28,6 +28,10 @@
    "apparentBytes": 1801007104,
    "physicalBytes": 1801007104,
    "files": 1
+  },
+  "sqliteSidecars": {
+   "-shm": 32768,
+   "-wal": 0
   }
  },
  "runsSplit": {
@@ -128,7 +132,7 @@
   "ledgerGzipBytes": 1605292
  },
  "corpusSelection": {
-  "rule": "median-size -normal branch + median-size -ledger-consistent branch from a different slot (sorted by intervention-log.jsonl apparent bytes, deterministic)",
+  "rule": "smallest-size -normal branch + smallest-size -ledger-consistent branch from a different slot (sorted by intervention-log.jsonl apparent bytes ascending, deterministic; corrected 2026-10-10: earlier rule text wrongly said median-size)",
   "picks": [
    {
     "branch": "slot-0082/branches/ala-calibration-primary-0002-s0082-normal",
@@ -145,7 +149,7 @@
  "coverage": {
   "branches": "1680/1680 commitments parsed",
   "sqlite": "all tables: row counts + TEXT/BLOB payload sums; page stats",
-  "unmeasured": "per-index byte sizes (index DDL counted only); parent-run export internals; slot manifest semantics"
+  "unmeasured": "per-index byte sizes (index DDL counted only); parent-run export internals; slot manifest semantics; sqlite -shm/-wal sidecars counted separately, not in evidence.sqlite bytes"
  },
  "method": "read-only single-pass scan; digests + lengths only in memory"
 }

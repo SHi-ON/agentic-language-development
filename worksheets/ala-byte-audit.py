@@ -105,6 +105,10 @@ def main() -> int:
     for name in ("parent-bundle", "runs", "scenario-registry"):
         partition[name] = tree_bytes(DYAD / name)
     slots = sorted(p for p in DYAD.glob("slot-*") if p.is_dir())
+    expected_branches = sum(
+        len([b for b in (slot / "branches").glob("*") if b.is_dir()])
+        for slot in slots
+    )
     slot_branches = slot_other = 0
     for slot in slots:
         slot_branches += tree_bytes(slot / "branches")["apparentBytes"]
@@ -116,6 +120,12 @@ def main() -> int:
     partition["slotsManifests"] = {"apparentBytes": slot_other}
     partition["dyad-receipt.json"] = (DYAD / "dyad-receipt.json").stat().st_size
     partition["evidence.sqlite"] = tree_bytes(DYAD / "evidence.sqlite")
+    sidecars = {}
+    for suffix in ("-shm", "-wal"):
+        sidecar = DYAD / f"evidence.sqlite{suffix}"
+        if sidecar.exists():
+            sidecars[suffix] = sidecar.stat().st_size
+    partition["sqliteSidecars"] = sidecars
     runs = DYAD / "runs"
     run_dirs = sorted(p for p in runs.iterdir() if p.is_dir())
     parent_run = tree_bytes(runs / "ala-calibration-primary-0002-parent")
@@ -165,8 +175,10 @@ def main() -> int:
     gzip_heads = len(gzip.compress(sample_heads, compresslevel=6))
     gzip_ledger = len(gzip.compress(ledger_sample, compresslevel=6))
 
-    # Corpus selection: median-heads normal branch + median-heads
-    # ledger-consistent branch from two different slots (deterministic).
+    # Corpus selection: smallest-size normal branch + smallest-size
+    # ledger-consistent branch from two different slots (size-ascending,
+    # deterministic). Corrected 2026-10-10: earlier text wrongly said
+    # median-size; the code always picked the first (smallest) match.
     sizes = []
     for slot in slots:
         for branch in sorted((slot / "branches").glob("*")):
@@ -218,16 +230,20 @@ def main() -> int:
             "ledgerBytes": len(ledger_sample), "ledgerGzipBytes": gzip_ledger,
         },
         "corpusSelection": {
-            "rule": "median-size -normal branch + median-size -ledger-consistent "
-                    "branch from a different slot (sorted by intervention-log.jsonl "
-                    "apparent bytes, deterministic)",
+            "rule": "smallest-size -normal branch + smallest-size "
+                    "-ledger-consistent branch from a different slot (sorted by "
+                    "intervention-log.jsonl apparent bytes ascending, "
+                    "deterministic; corrected 2026-10-10: earlier rule text "
+                    "wrongly said median-size)",
             "picks": corpus,
         },
         "coverage": {
-            "branches": f"{scanned}/1680 commitments parsed",
+            "branches": f"{scanned}/{expected_branches} commitments parsed",
             "sqlite": "all tables: row counts + TEXT/BLOB payload sums; page stats",
             "unmeasured": "per-index byte sizes (index DDL counted only); "
-                          "parent-run export internals; slot manifest semantics",
+                          "parent-run export internals; slot manifest semantics; "
+                          "sqlite -shm/-wal sidecars counted separately, not in "
+                          "evidence.sqlite bytes",
         },
         "method": "read-only single-pass scan; digests + lengths only in memory",
     }
