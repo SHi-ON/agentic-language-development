@@ -1,0 +1,51 @@
+{
+ "_note": "N1.1 treatment-validity correction. The retained ALA-LV calibration controls are structurally ineffective: ledger shuffle swaps IDs across copies of one scheduled example; random/normal/shuffled turn-0 deliveries repeat because one dyad-level seed serves all 240 slots and all branches of a case. Cost/storage measurements of the executed workload stand; no control-validity, causal-listening, or full-qualification claim is licensed. This record corrects interpretation; it does not repair or relabel the retained data.",
+ "auditSource": "96f84ba77644ae8d6c93320eb74f4b169d5ced26 (trace read at this HEAD; constructor verified byte-identical to execution pin)",
+ "batchFiles": {
+  "combinedSha256": "0aa890a0eb435335b7e755d2fbffb83b671e0a0cd69b2667610c92a1fa682c3d",
+  "count": 240,
+  "method": "sha256 of the sorted per-file sha256 list (git-archive-stable paths)"
+ },
+ "defects": {
+  "ledgerShuffle": {
+   "cause": "buildLv01TreatmentCases copies one scheduled target/candidate list/role into both ledger cases; only caseId differs. selectLedgerConsistentToken is deterministic on those inputs, so both selections are equal and the derangement swaps identical tokens.",
+   "donorIdentity": "shuffledSourceCaseId names the sibling branch caseId (different ID) but the SAME scheduled example (same target/candidates/role). Donor and recipient are different case records, not different scheduled cases.",
+   "evidence": "240/240 same role/target/candidates/selection; 240/240 both shuffle deliveries equal own selection; identicalTokenCoincidence true throughout",
+   "intended": "ledger-shuffled delivers a token selected for a different scheduled example",
+   "source": "packages/orchestrator/src/experiments/lv01-collector.ts buildLv01TreatmentCases; packages/orchestrator/src/experiments/lv01-ledger-treatments.ts selection+derangement"
+  },
+  "randomConstancy": {
+   "cause": "one dyad-level seed (alaDyadSeeds per cohort/kind/dyad-label; the slotIndex part is the dyad label, not the case) is reused for all 240 slots, and sibling branches share it by paired-seed design; turn-0 random draws therefore repeat exactly.",
+   "evidence": "S12 delivered at turn 0 in all 240 random branches; identical randomSeed/seedBindings.gateway across sampled slots (0001/0002/0120/0240)",
+   "intended": "independent random control deliveries per case",
+   "source": "packages/orchestrator/src/ala/ala-runner.ts:239 (single alaDyadSeeds call); packages/orchestrator/src/ala/ala-seeds.ts (branch omitted for paired seeds)"
+  },
+  "senderShuffleNoOp": {
+   "cause": "shared pre-state + shared seed produce identical turn-0 sender proposals across sibling branches; permuting deliveries across effectively identical single-turn messages cannot separate listening from signaling.",
+   "evidence": "240/240 normal==shuffled turn-0 delivery; 2 distinct normal tokens (one per role); identical babyProposalHash across sibling branches",
+   "intended": "shuffled message control that breaks sender/receiver contingency"
+  }
+ },
+ "executionSource": "66712b5ceaa1d7c939d37a14493f852b4b3838f5 (buildLv01TreatmentCases byte-identical at pin and audit HEAD; only audit-entry additions differ elsewhere in the file)",
+ "preserved": [
+  "prior all-240 census counts (reinterpreted, not recomputed)",
+  "measured compute/storage of the executed partial-defective workload",
+  "no old test branch is rerun, repaired, or replaced"
+ ],
+ "record": "reports/research/ala-treatment-validity-correction.v1.json",
+ "recordVersion": "v1",
+ "roles": {
+  "baby-a": 120,
+  "baby-b": 120
+ },
+ "status": "seven branch labels existed; ledger-shuffle, random, and sender-shuffle controls were not effective. Original calibration is partial machinery with invalid control construction.",
+ "extract": {
+  "path": "reports/research/ala-message-extract.v1.json",
+  "sha256": "sha256:8f375c3cf2acf83d032d032e2c5f9ad9100d2b1693ab980272f70b1176c1b158",
+  "rows": {
+   "test": 240,
+   "training": 3000
+  },
+  "bytes": 607108
+ }
+}

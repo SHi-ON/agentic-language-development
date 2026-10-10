@@ -102,3 +102,20 @@ repeated across all 1,680 branches and mirrored in the live
 retention format as executed violates blobRule; per-branch bytes are
 structural, not a measurement artifact. The paper's bottleneck sentence
 is licensed by the sealed anatomy census, not by the P5 prose alone.
+
+## D7. Treatment controls ineffective as executed (critique N1, 2026-10-10)
+
+Seven branch labels existed, but three control families were not
+effective. Ledger shuffle: both cases copy one scheduled example, so
+the derangement swaps identical selections (240/240). Random: one
+dyad-level seed serves all slots and branches, so turn-0 deliveries
+repeat exactly (S12 everywhere). Sender shuffle: shared pre-state plus
+shared seed make turn-0 proposals identical, so the shuffle is a no-op
+(240/240 normal==shuffled). Full trace and counts:
+`reports/research/ala-treatment-validity-correction.v1.json`;
+reproducing extract: `reports/research/ala-message-extract.v1.json`;
+discriminating fixture:
+`packages/orchestrator/__tests__/ala/ala-treatment-validity.test.ts`.
+Original calibration is partial machinery with invalid control
+construction; its compute/storage measurements describe that
+historical workload, not a complete valid study.

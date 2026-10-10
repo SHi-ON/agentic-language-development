@@ -1,11 +1,12 @@
 {
  "censusVersion": "v1",
  "studyId": "ALA-LV",
- "method": "Read-only joins over retained bundles; training tokens from parent-ledger intention.recorded symbols joined to turn scenario hashes; test tokens from treatment-batch.json selectedToken, spot-checked against branch intention records.",
+ "method": "Read-only joins over retained bundles; training tokens from parent-ledger intention.recorded symbols joined to turn scenario hashes; test tokens from branch-ledger turn-0 intention records (treatment-batch.json supplies receiver role and candidate sets only). Missing turn-0 intentions are listed per slot/branch; disabled branches are expected-null, never missing. N1.5 correction 2026-10-10: prior text inverted the test sourcing.",
  "limits": [
   "Turn records and transcripts carry hashes only; plaintext comes from ledger intention events.",
   "Candidate-type overlap for training turns is proxied by scenario-hash (dis)equality.",
-  "primary-0000 is an aborted training-only run; pooled numbers would mix policies, so dyads stay separate."
+  "primary-0000 is an aborted training-only run; pooled numbers would mix policies, so dyads stay separate.",
+  "Within-case branch coincidences partly reflect N1 control defects (shared seeds, same-example ledger construction), not independent message duplication."
  ],
  "training": {
   "primary-0002": {
@@ -249,6 +250,6 @@
   ],
   "missingIntention": []
  },
- "interpretation": "Exact-duplicate messages across different scenarios are pervasive (32 fixed symbols over thousands of turns); the retained analysis keeps the uniform-null ordinary with no repetition-sensitive modeling, and the old repetition claim is replaced by this census.",
- "selectedOption": "D2 (ratified): keep uniform-null ordinary, no repetition-sensitive modeling; duplication is reported as this census. Poisoning question resolved as: benign structural duplication (32 fixed symbols; top-1 39.2% training share) with no fitted ordinary to poison; repetition-sensitive modeling stays an open future question requiring new dev samples."
+ "interpretation": "Alphabet reuse over 3000 turns of a fixed 32-symbol inventory is expected and is not evidence of duplicated examples. Test-branch coincidences are dominated by construction defects (see the treatment-validity correction), not by independent message duplication. No fitted ordinary baseline exists, so repetition effects under a fitted baseline are unmeasured.",
+ "selectedOption": "D2 (ratified): keep uniform-null ordinary, no repetition-sensitive modeling; duplication is reported as this census. No fitted ordinary exists to poison; whether repetition would matter under a fitted baseline is unmeasured and stays an open future question."
 }

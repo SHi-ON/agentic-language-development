@@ -7,7 +7,11 @@ admission refused on measured cost); its question — whether a learner's
 token-association record predicts receiver actions better than a
 validation-selected ordinary predictor — is unresolved. The active
 program is a feasibility/methods case study from retained calibration
-evidence. Implementation truth vs the frozen protocol promise is in
+evidence. That evidence is partial machinery with invalid control
+construction (seven branch labels, ineffective shuffle/random/sender
+controls — see D7 and the treatment-validity correction); its
+measurements describe the historical workload, not a complete valid
+study. Implementation truth vs the frozen protocol promise is in
 `docs/ala-implementation-discrepancy-record.md`, which overrides any
 older optimistic description in this guide.**
 
