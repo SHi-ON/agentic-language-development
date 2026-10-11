@@ -50,7 +50,9 @@ def tree_bytes(path: Path) -> dict:
 
 
 def sqlite_anatomy(db: Path) -> dict:
-    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    # immutable=1, not mode=ro: read-only still creates -shm/-wal sidecars
+    # in WAL mode; immutable performs zero writes to the evidence dir.
+    con = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
     page_size = con.execute("pragma page_size").fetchone()[0]
     page_count = con.execute("pragma page_count").fetchone()[0]
     freelist = con.execute("pragma freelist_count").fetchone()[0]

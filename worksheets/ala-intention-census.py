@@ -43,8 +43,14 @@ def main() -> int:
     for slot in slots:
         batch = json.loads((slot / "treatment-batch.json").read_text())
         baby = batch["cases"][0]["receiverRole"]
-        row = extract.get(slot.name, {})
-        expected_tokens = row.get("branchTokens", {})
+        if slot.name not in extract:
+            print(f"FAIL: slot {slot.name} missing from message extract", file=sys.stderr)
+            return 1
+        row = extract[slot.name]
+        if "branchTokens" not in row:
+            print(f"FAIL: slot {slot.name} extract row lacks branchTokens", file=sys.stderr)
+            return 1
+        expected_tokens = row["branchTokens"]
         slot_hashes = set()
         for bdir in sorted((slot / "branches").glob("*")):
             if not bdir.is_dir():

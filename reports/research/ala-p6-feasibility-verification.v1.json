@@ -31,7 +31,7 @@
   {
    "name": "V6 p4-match",
    "pass": true,
-   "detail": "P4 receipt cost fields match dyad receipt + disk exactly"
+   "detail": "P4 receipt v2 cost fields match dyad receipt + disk exactly; derived quotients exact"
   },
   {
    "name": "V7 nogo",
@@ -57,6 +57,7 @@
  "values": {
   "evidenceBytes": 4625608420,
   "receiptEvidenceBytes": 4625588433,
+  "sqliteSidecarsExcluded": {},
   "primitives": {
    "cpuMicroseconds": 1942750502,
    "evidenceBytes": 4625588433,

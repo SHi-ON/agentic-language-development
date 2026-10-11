@@ -39,7 +39,8 @@ of the v1 campaign.
 
 - Node v24.21.0, pnpm (CI pins 12.3.4), uv-managed Python 3.13 with
   `pyproject.toml` + `uv.lock` (numpy/scipy/marimo; no R/Rscript; no Homebrew/system
-  installers; no Docker or LaTeX on this host).
+  installers; no Docker). Paper PDFs build via the paper repo: pinned
+  TeX Live image in CI or an approved local TeX installation.
 - Paper PDF builds in CI from the pinned TeX Live image; the PDF and log
   are downloaded for local inspection with `pdfinfo`/`pdftotext`/rendering.
 

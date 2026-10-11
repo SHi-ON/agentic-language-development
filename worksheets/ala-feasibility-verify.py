@@ -10,7 +10,8 @@ TypeScript scorer or trusting console summaries:
       vs derived recorded separately; no independent CPU remeasurement)
   V4  240 slot dirs / 1680 branch dirs on disk
   V5  journal accounts 3/3 dev slots with terminal states
-  V6  P4 receipt cost fields match dyad receipt (exact)
+  V6  P4 receipt v2 cost fields match dyad receipt (exact) + derived
+      quotients exact (v1 derived cpuHours/peakGiB from stale primitives)
   V7  caps parsed from the frozen amendment + P5 record (no hardcoded
       constants); reservation math recomputed; NO-GO reproduced at the
       historical dev assumption AND at dev=0 (consumed cost unknown)
@@ -49,15 +50,28 @@ def rel_close(a: float, b: float, tol: float = 1e-9) -> bool:
     return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
 
 
-def du_bytes(path: Path) -> int:
+# SQLite WAL-mode sidecars are ephemeral read state (ignored, untracked),
+# not retained evidence: ala-byte-audit records them under
+# partition["sqliteSidecars"] instead of counting them. Mirror that here
+# so a 32768 B shm left by an earlier read cannot fail the exact V2 check.
+SQLITE_SIDECARS = ("evidence.sqlite-shm", "evidence.sqlite-wal")
+
+
+def du_bytes(path: Path) -> tuple[int, dict[str, int]]:
     total = 0
+    sidecars: dict[str, int] = {}
     for dirpath, _, files in os.walk(path):
         for f in files:
+            full = os.path.join(dirpath, f)
             try:
-                total += os.path.getsize(os.path.join(dirpath, f))
+                size = os.path.getsize(full)
             except OSError:
-                pass
-    return total
+                continue
+            if f in SQLITE_SIDECARS:
+                sidecars[full] = size
+                continue
+            total += size
+    return total, sidecars
 
 
 def main() -> int:
@@ -66,7 +80,7 @@ def main() -> int:
     check("V1 receipt", receipt.get("state") == "valid" and receipt.get("casesValid") == 240,
           f"state={receipt.get('state')} casesValid={receipt.get('casesValid')}")
 
-    on_disk = du_bytes(DYAD)
+    on_disk, sidecars = du_bytes(DYAD)
     receipt_file = (DYAD / "dyad-receipt.json").stat().st_size
     # The runner measures directoryBytes before writing dyad-receipt.json,
     # so the receipt excludes itself; disk must equal receipt + receipt file.
@@ -74,6 +88,7 @@ def main() -> int:
           f"receipt={cost['evidenceBytes']} +receipt_file={receipt_file} disk={on_disk}")
     values["evidenceBytes"] = on_disk
     values["receiptEvidenceBytes"] = cost["evidenceBytes"]
+    values["sqliteSidecarsExcluded"] = sidecars
 
     cpu_h = cost["cpuMicroseconds"] / 3.6e9
     wall_min = cost["wallMilliseconds"] / 60000.0
@@ -105,12 +120,20 @@ def main() -> int:
     check("V5 journal", v5_ok, f"calibration slots={ {k: v for k, v in cal.items()} }")
     values["devSlots"] = {str(k): v for k, v in cal.items()}
 
-    p4 = json.loads((ROOT / "reports/research/ala-p4-qualification-receipt.v1.json").read_text())
+    p4 = json.loads((ROOT / "reports/research/ala-p4-qualification-receipt.v2.json").read_text())
     p4c = p4["calibrationDyad"]["cost"]
+    # v1 derived cpuHours/peakGiB from stale primitives (round-3 M5); v2
+    # recomputes them, and this check pins the quotient relation so the
+    # bug class fails here instead of hiding in a rounded display value.
+    derived_ok = (
+        p4.get("receiptVersion") == "v2"
+        and rel_close(p4c["cpuHours"], p4c["cpuMicroseconds"] / 3.6e9)
+        and rel_close(p4c["peakGiB"], p4c["peakBytes"] / 1024**3)
+    )
     check("V6 p4-match",
           p4c["evidenceBytesOnDisk"] == on_disk and p4c["evidenceBytes"] == cost["evidenceBytes"]
-          and p4c["cpuMicroseconds"] == cost["cpuMicroseconds"],
-          "P4 receipt cost fields match dyad receipt + disk exactly")
+          and p4c["cpuMicroseconds"] == cost["cpuMicroseconds"] and derived_ok,
+          "P4 receipt v2 cost fields match dyad receipt + disk exactly; derived quotients exact")
 
     # V7: reservation math from the frozen contract (no hardcoded constants).
     amend = json.loads((ROOT / "protocols/ala-lv-scope-and-resource-amendment.v1.json").read_text())

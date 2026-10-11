@@ -43,10 +43,14 @@ def training_tokens(dyad: str):
             if e.get("eventType") == "intention.recorded" and isinstance(e.get("turn"), int):
                 syms = ((e.get("content") or {}).get("symbols") or [None])
                 symbols[e["turn"]] = syms[0]
+    skipped = sorted(n for n in scen if symbols.get(n) is None)
+    if skipped:
+        # Fail closed: silently dropping running turns would bias every
+        # training rate below. Current data joins 3000/3000 on both dyads.
+        raise SystemExit(f"FAIL: {len(skipped)} running turns lack recorded symbols: {skipped[:5]}")
     rows = [
         {"turn": n, "token": symbols.get(n), "scenario": scen.get(n), "sender": sender.get(n)}
         for n in sorted(scen)
-        if symbols.get(n) is not None
     ]
     return rows
 

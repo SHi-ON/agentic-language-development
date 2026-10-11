@@ -29,10 +29,7 @@
    "physicalBytes": 1801007104,
    "files": 1
   },
-  "sqliteSidecars": {
-   "-shm": 32768,
-   "-wal": 0
-  }
+  "sqliteSidecars": {}
  },
  "runsSplit": {
   "parentRunApparentBytes": 46455692,

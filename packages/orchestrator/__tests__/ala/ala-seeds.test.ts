@@ -21,12 +21,12 @@ describe('ALA seed namespace', () => {
     for (const seed of [a, b, c, d]) expect(seed).toMatch(/^[0-9a-f]{64}$/u);
   });
 
-  it('shares paired-branch seeds across branches but not cases', () => {
+  it('derives distinct seeds per case', () => {
     const shared = { cohort: 'A' as const, slotKind: 'primary' as const, slotIndex: '0000', purpose: 'action-draw' as const, role: 'shared' as const, partition: 'within-support-test' as const, caseId: 'within-support-test:baby-a:0007' };
-    const withBranch = deriveAlaSeed({ ...shared });
+    const sameCase = deriveAlaSeed({ ...shared });
     const otherCase = deriveAlaSeed({ ...shared, caseId: 'within-support-test:baby-a:0008' });
-    expect(withBranch).toMatch(/^[0-9a-f]{64}$/u);
-    expect(otherCase).not.toBe(withBranch);
+    expect(sameCase).toMatch(/^[0-9a-f]{64}$/u);
+    expect(otherCase).not.toBe(sameCase);
   });
 
   it('rejects malformed parts', () => {

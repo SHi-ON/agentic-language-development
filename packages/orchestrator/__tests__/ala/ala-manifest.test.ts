@@ -102,4 +102,59 @@ describe('ALA execution manifest', () => {
     const studyBytes = readFileSync(join(root, 'protocols/ala-lv-study.v1.json'));
     expect(manifest.protocols['protocols/ala-lv-study.v1.json']!.bytes).toBe(studyBytes.length);
   });
+
+  it('records an explicit VOID seed ref when no seed manifest was frozen', () => {
+    const root = fixtureRoot();
+    const manifest = buildAlaExecutionManifest(root);
+    expect(manifest.seedManifestRef).toContain('VOID');
+    expect(manifest.seedManifestRef).not.toContain('sha256:');
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v1.json'), JSON.stringify(manifest));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).not.toThrow();
+  });
+
+  it('binds a present seed manifest by digest and fails on tamper', () => {
+    const root = fixtureRoot();
+    writeFileSync(join(root, 'protocols/ala-lv-seed-manifest.v1.json'), JSON.stringify({ seeds: [1] }));
+    const manifest = buildAlaExecutionManifest(root);
+    expect(manifest.seedManifestRef).toContain('sha256:');
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v1.json'), JSON.stringify(manifest));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).not.toThrow();
+    writeFileSync(join(root, 'protocols/ala-lv-seed-manifest.v1.json'), JSON.stringify({ seeds: [2] }));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).toThrowError(
+      /seed manifest state changed/,
+    );
+  });
+
+  it('fails closed when a seed manifest appears after a VOID build', () => {
+    const root = fixtureRoot();
+    const manifest = buildAlaExecutionManifest(root);
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v1.json'), JSON.stringify(manifest));
+    writeFileSync(join(root, 'protocols/ala-lv-seed-manifest.v1.json'), JSON.stringify({ seeds: [1] }));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).toThrowError(
+      /seed manifest state changed/,
+    );
+  });
+
+  it('fails closed on hand-edited workload', () => {
+    const root = fixtureRoot();
+    const manifest = buildAlaExecutionManifest(root);
+    const edited = { ...manifest, workload: { ...manifest.workload, trainingCases: 9999 } };
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v1.json'), JSON.stringify(edited));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).toThrowError(
+      /workload drifted/,
+    );
+  });
+
+  it('logs the amendment commit and fails closed on commit drift', () => {
+    const root = fixtureRoot();
+    const manifest = buildAlaExecutionManifest(root);
+    const head = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    expect(manifest.protocolCommit).toBe(head);
+    expect(manifest.amendmentCommit).toBe(head);
+    const edited = { ...manifest, amendmentCommit: '0'.repeat(40) };
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v1.json'), JSON.stringify(edited));
+    expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).toThrowError(
+      /amendmentCommit drifted/,
+    );
+  });
 });

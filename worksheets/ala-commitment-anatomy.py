@@ -33,6 +33,7 @@ def main() -> int:
     missing_native = []
     missing_replay = []
     missing_cutoff = []
+    null_replay_branches: list[tuple[str, bool]] = []
     for slot in slots:
         for branch in sorted((slot / "branches").glob("*")):
             log = branch / "intervention-log.jsonl"
@@ -59,13 +60,16 @@ def main() -> int:
             rp = p.get("replay")
             is_disabled = branch.name.endswith("-disabled")
             if rp is None:
+                null_replay_branches.append((str(branch.relative_to(DYAD)), is_disabled))
                 if not is_disabled:
                     missing_replay.append(str(branch.relative_to(DYAD)))
             elif "distribution" not in rp:
                 missing_replay.append(str(branch.relative_to(DYAD)))
             if "sequence" not in p.get("cutoff", {}):
                 missing_cutoff.append(str(branch.relative_to(DYAD)))
-    con = sqlite3.connect(DYAD / "evidence.sqlite")
+    # Immutable read: a plain connect creates -shm/-wal sidecars in WAL
+    # mode, writing read state into the retained evidence dir.
+    con = sqlite3.connect(f"file:{DYAD / 'evidence.sqlite'}?immutable=1", uri=True)
     sql_n = con.execute(
         "select count(*) from intervention_log where event_type='prediction-commitment'"
     ).fetchone()[0]
@@ -82,7 +86,7 @@ def main() -> int:
         "ordinaryNotUniform": ordinary_not_uniform,
         "nativeDistributionPresent": len(missing_native) == 0,
         "replayDistributionPresent": len(missing_replay) == 0,
-        "replayNullOnlyDisabled": True,
+        "replayNullOnlyDisabled": all(d for _, d in null_replay_branches),
         "cutoffPresent": len(missing_cutoff) == 0,
         "payloadBytes": {
             "min": payload_bytes[0], "p50": payload_bytes[n // 2], "max": payload_bytes[-1],

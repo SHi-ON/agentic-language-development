@@ -19,11 +19,14 @@ export const ALA_MANIFEST_PATH = 'protocols/ala-lv-execution-manifest.v1.json';
 export const ALA_STUDY_PATH = 'protocols/ala-lv-study.v1.json';
 export const ALA_ANALYSIS_PATH = 'protocols/ala-lv-analysis.v1.json';
 export const ALA_AMENDMENT_PATH = 'protocols/ala-lv-scope-and-resource-amendment.v1.json';
+export const ALA_SEED_MANIFEST_PATH = 'protocols/ala-lv-seed-manifest.v1.json';
+export const ALA_SEED_MANIFEST_VOID = 'VOID: no seed manifest frozen (P6 never admitted; no cohort ran)';
 
 export interface AlaExecutionManifest {
   readonly manifestVersion: 'ala-lv-execution-manifest/v1';
   readonly studyId: 'ALA-LV';
   readonly protocolCommit: string;
+  readonly amendmentCommit: string;
   readonly sourceTree: string;
   readonly createdAtUtc: string;
   readonly protocols: Readonly<Record<string, { readonly sha256: string; readonly bytes: number }>>;
@@ -118,6 +121,15 @@ function git(root: string, ...args: string[]): string {
   return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
 }
 
+/** Seed-manifest binding: digest-bound ref when the file exists, an
+ * explicit VOID marker when P6 never froze one. A dangling pointer to
+ * an absent file is never recorded. Shared by build and verify. */
+export function alaSeedManifestRef(root: string): string {
+  const full = join(root, ALA_SEED_MANIFEST_PATH);
+  if (!existsSync(full)) return ALA_SEED_MANIFEST_VOID;
+  return `${ALA_SEED_MANIFEST_PATH} sha256:${sha256Hex(readFileSync(full))}`;
+}
+
 export function buildAlaExecutionManifest(root: string): AlaExecutionManifest {
   for (const path of [ALA_STUDY_PATH, ALA_ANALYSIS_PATH, ALA_AMENDMENT_PATH]) {
     if (!existsSync(join(root, path))) fail(`missing protocol ${path}`);
@@ -136,7 +148,10 @@ export function buildAlaExecutionManifest(root: string): AlaExecutionManifest {
     studyId: 'ALA-LV',
     // The commit that last changed the frozen protocol bytes (stable
     // across manifest rebuilds; a protocol change requires a new version).
-    protocolCommit: git(root, 'log', '-1', '--format=%H', '--', ALA_STUDY_PATH, ALA_ANALYSIS_PATH),
+    // Covers all three protocol paths; the amendment's own commit is
+    // logged separately since budgets cite it directly.
+    protocolCommit: git(root, 'log', '-1', '--format=%H', '--', ALA_STUDY_PATH, ALA_ANALYSIS_PATH, ALA_AMENDMENT_PATH),
+    amendmentCommit: git(root, 'log', '-1', '--format=%H', '--', ALA_AMENDMENT_PATH),
     sourceTree: git(root, 'rev-parse', 'HEAD^{tree}'),
     createdAtUtc: new Date().toISOString(),
     protocols,
@@ -154,7 +169,7 @@ export function buildAlaExecutionManifest(root: string): AlaExecutionManifest {
       withinSupportTestCases: study.task.partitions['withinSupportTest']!.cases,
     },
     seedPolicy: { root: 'ala-ledger-value-v1', studyId: 'ALA-LV' },
-    seedManifestRef: 'protocols/ala-lv-seed-manifest.v1.json (frozen at P6 admission)',
+    seedManifestRef: alaSeedManifestRef(root),
   };
 }
 
@@ -186,6 +201,34 @@ export function verifyAlaExecutionManifest(root: string, manifestPath: string): 
   }
   if (alaClosureDigest(root, liveFiles) !== manifest.executionClosure.sha256) {
     fail('execution closure bytes drifted');
+  }
+  // Derived bindings: recompute from the live (already byte-verified)
+  // study file and history; a hand-edited manifest never verifies.
+  const liveStudy = JSON.parse(readFileSync(join(root, ALA_STUDY_PATH), 'utf8')) as {
+    task: { partitions: Record<string, { cases: number }> };
+  };
+  const liveWorkload = {
+    trainingCases: liveStudy.task.partitions['training']!.cases,
+    validationFitCases: liveStudy.task.partitions['validationFit']!.cases,
+    validationSelectionCases: liveStudy.task.partitions['validationSelection']!.cases,
+    withinSupportTestCases: liveStudy.task.partitions['withinSupportTest']!.cases,
+  };
+  if (JSON.stringify(manifest.workload) !== JSON.stringify(liveWorkload)) {
+    fail('workload drifted from study partitions');
+  }
+  const liveProtocolCommit = git(root, 'log', '-1', '--format=%H', '--', ALA_STUDY_PATH, ALA_ANALYSIS_PATH, ALA_AMENDMENT_PATH);
+  if (manifest.protocolCommit !== liveProtocolCommit) {
+    fail('protocolCommit drifted from protocol history');
+  }
+  const liveAmendmentCommit = git(root, 'log', '-1', '--format=%H', '--', ALA_AMENDMENT_PATH);
+  if (manifest.amendmentCommit !== liveAmendmentCommit) {
+    fail('amendmentCommit drifted from amendment history');
+  }
+  if (manifest.seedManifestRef !== alaSeedManifestRef(root)) {
+    fail('seed manifest state changed (present/void mismatch or bytes drifted)');
+  }
+  if (JSON.stringify(manifest.seedPolicy) !== JSON.stringify({ root: 'ala-ledger-value-v1', studyId: 'ALA-LV' })) {
+    fail('seedPolicy drifted');
   }
   return manifest;
 }
