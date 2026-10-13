@@ -177,3 +177,23 @@ from the branch directories instead of hardcoded.
   is sampled process RSS including per-case samples — not a
   three-point rule and not a continuously observed peak system
   memory. The original D3 text stands as the historical wording.
+
+## 2026-10-13 — Round 6 diagnostic and extraction corrections
+
+Round 5's TypeScript helper inferred scheduled identity from branch-name
+suffixes while the portable Python diagnostic used explicit recorded IDs.
+The offline helper now lives in `packages/orchestrator/__tests__/ala/helpers/treatment-diagnostic.ts`
+and requires explicit scheduled identity. Both implementations reject empty
+batches, malformed identity fields, duplicate branch IDs, and conflicting
+conditioning content under one scheduled ID. Cross-role deliveries cannot
+count as genuine collisions. These are retrospective diagnostic checks;
+collection behavior and the historical receipts are unchanged.
+
+The rows and coverage worksheets now reject out-of-universe IDs, wrong
+round-robin targets, either branch's wrong role, inconsistent ordered
+candidates under a scheduled identity, and conflicting schedule commitments.
+They reproduce the retained reports byte-for-byte: 240 executions, 120
+scheduled IDs twice, 120 absent, six eligible targets per role. Seven portable
+Python regression tests exercise both extractors without the private corpus.
+The paper's cross-language check also runs 15 independently specified
+counterexamples and all 240 retained batches against both implementations.

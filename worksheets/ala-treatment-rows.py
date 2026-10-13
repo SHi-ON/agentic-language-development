@@ -59,6 +59,11 @@ def main() -> int:
         print(f"FAIL: {len(slots)} slots, want 240", file=sys.stderr)
         return 1
     rows = []
+    identities = {}
+    commitments = set()
+    eligible = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14]
+    universe = {f"within-support-test:{role}:{i:04d}"
+                for role in ("baby-a", "baby-b") for i in range(120)}
     for slot in slots:
         batch = json.loads((slot / "treatment-batch.json").read_text())
         schedule_path = slot / "schedule.json"
@@ -78,6 +83,17 @@ def main() -> int:
             print(f"FAIL: {slot.name} holds {len(cases)} cases, want 2",
                   file=sys.stderr)
             return 1
+        if scheduled_id not in universe:
+            print(f"FAIL: {slot.name} schedule ID outside expected universe", file=sys.stderr)
+            return 1
+        _, role, index = scheduled_id.split(":")
+        content = (role, eligible[int(index) % 12], tuple(cases[0]["candidateTypeCodes"]))
+        if any((c["receiverRole"], c["targetTypeCode"], tuple(c["candidateTypeCodes"])) != content
+               for c in cases) or (scheduled_id in identities and identities[scheduled_id] != content):
+            print(f"FAIL: {slot.name} schedule identity/content mismatch", file=sys.stderr)
+            return 1
+        identities[scheduled_id] = content
+        commitments.add(commitment)
         branches = sorted(branch_of(c["caseId"]) for c in cases)
         if branches != ["ledger-consistent", "ledger-shuffled"]:
             print(f"FAIL: {slot.name} branches {branches}", file=sys.stderr)
@@ -119,6 +135,9 @@ def main() -> int:
             "shuffledToken": tokens["shuffled"],
             "seed": seeds[0],
         })
+    if len(commitments) != 1:
+        print("FAIL: retained slots disagree on schedule commitment", file=sys.stderr)
+        return 1
     OUT.write_text(json.dumps({
         "extractVersion": "v2",
         "studyId": "ALA-LV",

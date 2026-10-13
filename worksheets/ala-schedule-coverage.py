@@ -56,7 +56,9 @@ def main() -> int:
         return 1
     executed = []  # (slot, executedCaseId, role, target)
     commitments = set()
-    id_target: dict[str, int] = {}
+    id_content: dict[str, tuple] = {}
+    expected = expected_ids()
+    universe = set(expected)
     for slot in slots:
         schedule_path = slot / "schedule.json"
         batch_path = slot / "treatment-batch.json"
@@ -71,6 +73,9 @@ def main() -> int:
                 or not isinstance(commitment, str) or not commitment:
             print(f"FAIL: {slot.name} schedule.json malformed", file=sys.stderr)
             return 1
+        if case_id not in universe:
+            print(f"FAIL: {slot.name} executedCaseId outside expected universe: {case_id}", file=sys.stderr)
+            return 1
         parts = case_id.split(":")
         if len(parts) != 3 or parts[0] != "within-support-test" \
                 or parts[1] not in ROLES:
@@ -79,21 +84,25 @@ def main() -> int:
             return 1
         batch = json.loads(batch_path.read_text())
         cases = batch["cases"]
-        if len(cases) != 2 or cases[0]["receiverRole"] != parts[1] \
-                or cases[0]["targetTypeCode"] != cases[1]["targetTypeCode"]:
+        if len(cases) != 2 or any(c["receiverRole"] != parts[1]
+                or c["targetTypeCode"] != expected_target(case_id) for c in cases):
             print(f"FAIL: {slot.name} batch disagrees with schedule identity",
                   file=sys.stderr)
             return 1
         target = cases[0]["targetTypeCode"]
-        if case_id in id_target and id_target[case_id] != target:
-            print(f"FAIL: {case_id} executed with two targets", file=sys.stderr)
+        content = (parts[1], target, tuple(cases[0]["candidateTypeCodes"]))
+        if (cases[0]["candidateTypeCodes"] != cases[1]["candidateTypeCodes"]
+                or (case_id in id_content and id_content[case_id] != content)):
+            print(f"FAIL: {case_id} has inconsistent conditioning content", file=sys.stderr)
             return 1
-        id_target[case_id] = target
+        id_content[case_id] = content
         commitments.add(commitment)
         executed.append((slot.name, case_id, parts[1], target))
     ids = [e[1] for e in executed]
     counts = Counter(ids)
-    expected = expected_ids()
+    if len(commitments) != 1:
+        print("FAIL: retained slots disagree on schedule commitment", file=sys.stderr)
+        return 1
     missing = sorted(set(expected) - set(ids))
     duplicated = sorted(i for i, n in counts.items() if n > 1)
     histogram: dict[str, int] = {}
