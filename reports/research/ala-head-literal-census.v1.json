@@ -1,0 +1,13 @@
+{
+ "censusVersion": "v1",
+ "studyId": "ALA-LV",
+ "dyad": "calibration/primary-0002",
+ "method": "exact UTF-8 bytes of the trainingLedgerHeads JSON value in each branch prediction-commitment event line (byte-level balanced-brace scan, JSON string aware, no decode/re-encode round trip); decoded with json.loads for value equality only",
+ "branches": 1680,
+ "literalDistinct": 1,
+ "literalUniqueBytes": 1000427,
+ "literalTotalBytes": 1680717360,
+ "literalHeadDigest": "c7d4197025e5780cf35f78f721ffaa32462e4b18950661ef20133f7c66bcd060",
+ "decodedDistinct": 1,
+ "headEntryCount": 13519
+}

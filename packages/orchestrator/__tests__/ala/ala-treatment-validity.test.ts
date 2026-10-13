@@ -2,14 +2,24 @@
  * N1.3 semantic treatment-validity fixture (deterministic, no training).
  *
  * A ledger-shuffle control is valid only when donors and recipients are
- * distinct SCHEDULED EXAMPLES (target + candidates + role), not merely
- * distinct branch IDs. The retained calibration construction copies one
- * scheduled example into both ledger cases, so its derangement swaps
+ * distinct SCHEDULED EXAMPLES (role + target + ORDERED candidates), not
+ * merely distinct branch IDs. The retained calibration construction copies
+ * one scheduled example into both ledger cases, so its derangement swaps
  * identical selections; these tests fail that sham shape and pass genuinely
  * distinct batches. Genuine token collisions (distinct examples, same
  * selected token) are allowed and counted. Random-control checks cover the
  * intended protocol: per-case seed separation, reproducibility, valid
  * inventory, and no stream restart — all deterministic, no flakiness.
+ *
+ * Rule interpretation (round-4 R2/R3): the frozen protocol's "no shared
+ * target across shuffled cases" governs the shuffle mapping — donor
+ * assignment must be a derangement (no fixed points, injective donors)
+ * over same-role cases — not token inequality between cases. Example
+ * identity uses ORDERED candidates: order is part of the conditioning
+ * the selector consumes. This helper is an offline diagnostic over
+ * retained/planned batches; it is not wired into any collection entry
+ * point, so production can still construct a sham batch (diagnosis,
+ * not enforced prevention).
  */
 import { describe, expect, it } from 'vitest';
 import { SeededPrng } from '@ald/hashing';
@@ -42,13 +52,19 @@ function association(token: string, weights: number[]) {
 function babyBIndex(): Lv01NativeLedgerIndex {
   const w05 = new Array(16).fill(0);
   w05[1] = 10;
+  // Round-4 R2: T05 also associates with eligible type 2, so the
+  // collision fixture can use distinct in-domain targets (1 vs 2)
+  // while both examples select T05.
+  w05[2] = 10;
   const w17 = new Array(16).fill(0);
   w17[5] = 10;
+  const w21 = new Array(16).fill(0);
+  w21[6] = 10;
   return {
     predictionFunctionVersion: LV01_PREDICTION_FUNCTION_VERSION,
     receiverRole: 'baby-b',
     cutoff: { sequence: 2, turn: 1 },
-    selectedAssociations: [association('T05', w05), association('T17', w17)],
+    selectedAssociations: [association('T05', w05), association('T17', w17), association('T21', w21)],
   };
 }
 
@@ -65,13 +81,17 @@ interface ValidityVerdict {
   readonly genuineCollisions: number;
 }
 
-/** Semantic validity: distinct scheduled examples per role, real donors, role match. */
+/** Semantic validity: distinct scheduled examples per role, deranged donors, role match. */
 function checkLedgerBatchValidity(cases: readonly Lv01TreatedCase[]): ValidityVerdict {
   const reasons: string[] = [];
   let genuineCollisions = 0;
   const keyOf = (c: Lv01TreatedCase): string =>
-    `${c.receiverRole}|${c.targetTypeCode}|${[...c.candidateTypeCodes].sort((a, b) => a - b).join(',')}`;
+    `${c.receiverRole}|${c.targetTypeCode}|${[...c.candidateTypeCodes].join(',')}`;
   const byId = new Map(cases.map((c) => [c.caseId, c]));
+  const donors = cases.map((c) => c.shuffledSourceCaseId);
+  if (new Set(donors).size !== donors.length) {
+    reasons.push('donor assignment is not injective (two cases share one shuffle target)');
+  }
   for (const role of ['baby-a', 'baby-b'] as const) {
     const roleCases = cases.filter((c) => c.receiverRole === role);
     if (roleCases.length === 0) continue;
@@ -156,6 +176,31 @@ describe('N1.3 ledger treatment validity', () => {
     }
   });
 
+  it('passes in-domain distinct examples (eligible off-diagonal types only)', () => {
+    // Round-4 R2: the earlier positive uses type 5, outside the study's
+    // eligibleTypeCodes [1,2,3,4,6,7,8,9,11,12,13,14]. This pair stays
+    // inside the eligible domain and selects distinct tokens.
+    const mk = (id: string, target: number, cands: number[]) => ({
+      caseId: id,
+      receiverRole: 'baby-b' as const,
+      targetTypeCode: target,
+      candidateTypeCodes: cands,
+    });
+    const batch = buildLedgerTreatmentBatch({
+      cases: [mk('in1', 1, [1, 2, 3, 4]), mk('in2', 6, [6, 7, 8, 9])],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    const [first, second] = batch.cases;
+    expect(first.selectedToken).toBe('T05');
+    expect(second.selectedToken).toBe('T21');
+    const verdict = checkLedgerBatchValidity(batch.cases);
+    expect(verdict.reasons).toEqual([]);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.genuineCollisions).toBe(0);
+  });
+
   it('allows and counts genuine token collisions', () => {
     const mk = (id: string, target: number, cands: number[]) => ({
       caseId: id,
@@ -164,12 +209,13 @@ describe('N1.3 ledger treatment validity', () => {
       candidateTypeCodes: cands,
     });
     const batch = buildLedgerTreatmentBatch({
-      cases: [mk('ex1', 1, [1, 2, 3, 4]), mk('ex3', 1, [1, 9, 10, 11])],
+      cases: [mk('ex1', 1, [1, 2, 3, 4]), mk('ex3', 2, [2, 9, 12, 11])],
       nativeIndexes: NATIVE_INDEXES,
       symbolInventory: INVENTORY,
       derangementSeed: DERANGEMENT_SEED,
     });
-    // Distinct examples (different candidate sets), same argmax token.
+    // Distinct examples (different targets and candidate sets, all codes
+    // inside eligibleTypeCodes), same argmax token by inventory-order ties.
     expect(batch.cases[0].selectedToken).toBe(batch.cases[1].selectedToken);
     const verdict = checkLedgerBatchValidity(batch.cases);
     expect(verdict.ok).toBe(true);
