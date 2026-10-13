@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Round-4 R5: portable treatment-row extract over the retained dyad.
+"""Round-4 R5 + round-5 F2: portable treatment-row extract.
 
-Reads the 240 retained per-slot treatment-batch.json files plus the
-message extract (branch tokens + stream seeds) and writes one
-outcome-free row per slot: scheduled/branch identities, donor
-identities, receiver role, target + ORDERED candidates, selections,
-deliveries, and stream/context identities. No scores or behavioral
-outcomes: the projection audits treatment CONSTRUCTION only.
+Reads the 240 retained per-slot treatment-batch.json files, each slot's
+schedule.json (real scheduledCaseId + schedule commitment), and the
+message extract (branch tokens + stream seeds); writes one outcome-free
+row per slot. Identities are distinct fields: slot stem (slot identity,
+derived from branch record ids), real scheduledCaseId (from
+schedule.json), branch record ids, donor ids. Plus receiver role,
+target + ORDERED candidates, selections, deliveries, and stream/context
+identities. No scores or behavioral outcomes: the projection audits
+treatment CONSTRUCTION and schedule coverage inputs only.
 
 Fail-closed: 240 slots, 2 ledger cases per slot with the expected
-branch suffixes, complete extract join, else exit 1 with no report.
+branch suffixes, complete schedule + extract joins, else exit 1 with
+no report.
+
+Writes reports/research/ala-treatment-rows.v2.json (v1 preserved).
 """
 import json
 import sys
@@ -18,7 +24,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DYAD = ROOT / "evidence/ala-lv/calibration/primary-0002"
 EXTRACT = ROOT / "reports/research/ala-message-extract.v1.json"
-OUT = ROOT / "reports/research/ala-treatment-rows.v1.json"
+OUT = ROOT / "reports/research/ala-treatment-rows.v2.json"
 
 
 def branch_of(case_id: str) -> str:
@@ -28,13 +34,13 @@ def branch_of(case_id: str) -> str:
     raise ValueError(f"unexpected ledger case id: {case_id}")
 
 
-def scheduled_stem(case_id: str) -> str:
-    """Shared stem identifying the scheduled example a branch record came from.
+def slot_stem(case_id: str) -> str:
+    """Slot identity derived from a branch record id (round-5 F2).
 
-    The retained batch carries no separate scheduled-case field; both pair
-    records embed the same stem (e.g. ...-s0001-...) with different branch
-    suffixes. Derived deterministically from the retained caseId, so the
-    one-example/two-records shape is machine-checkable downstream.
+    Both pair records embed the same stem (e.g. ...-s0001-...) with
+    different branch suffixes. This is the SLOT's identity, not the
+    original scheduled-case ID; the real scheduledCaseId comes from the
+    slot's schedule.json and is carried as its own field.
     """
     for suffix in ("-ledger-consistent:turn:0", "-ledger-shuffled:turn:0"):
         if case_id.endswith(suffix):
@@ -55,6 +61,18 @@ def main() -> int:
     rows = []
     for slot in slots:
         batch = json.loads((slot / "treatment-batch.json").read_text())
+        schedule_path = slot / "schedule.json"
+        if not schedule_path.is_file():
+            print(f"FAIL: {slot.name} lacks schedule.json", file=sys.stderr)
+            return 1
+        schedule = json.loads(schedule_path.read_text())
+        scheduled_id = schedule.get("executedCaseId")
+        commitment = schedule.get("commitment")
+        if not isinstance(scheduled_id, str) or not scheduled_id \
+                or not isinstance(commitment, str) or not commitment:
+            print(f"FAIL: {slot.name} schedule.json lacks executedCaseId/commitment",
+                  file=sys.stderr)
+            return 1
         cases = batch["cases"]
         if len(cases) != 2:
             print(f"FAIL: {slot.name} holds {len(cases)} cases, want 2",
@@ -79,12 +97,15 @@ def main() -> int:
         rows.append({
             "slot": slot.name,
             "receiverRole": cases[0]["receiverRole"],
+            "scheduledCaseId": scheduled_id,
+            "scheduleCommitment": commitment,
             "batchCommitment": batch["batchCommitment"],
             "derangementSeed": batch["derangementSeed"],
             "cases": [{
                 "caseId": c["caseId"],
                 "branch": branch_of(c["caseId"]),
-                "scheduledStem": scheduled_stem(c["caseId"]),
+                "slotStem": slot_stem(c["caseId"]),
+                "scheduledCaseId": scheduled_id,
                 "receiverRole": c["receiverRole"],
                 "target": c["targetTypeCode"],
                 "candidates": list(c["candidateTypeCodes"]),
@@ -99,15 +120,17 @@ def main() -> int:
             "seed": seeds[0],
         })
     OUT.write_text(json.dumps({
-        "extractVersion": "v1",
+        "extractVersion": "v2",
         "studyId": "ALA-LV",
         "dyad": "calibration/primary-0002",
-        "method": ("one row per retained slot treatment-batch.json "
-                   "(case ids, scheduled stems derived from case ids, roles, "
+        "method": ("one row per retained slot: treatment-batch.json (branch "
+                   "record ids, slot stems derived from record ids, roles, "
                    "targets, ORDERED candidates, selections, donors, "
                    "deliveries, batch commitment, derangement seed) joined to "
-                   "ala-message-extract.v1.json testRows for the random-branch "
-                   "token and stream seed; outcome-free"),
+                   "the slot's schedule.json (real scheduledCaseId + "
+                   "schedule commitment) and ala-message-extract.v1.json "
+                   "testRows (random-branch token, stream seed); "
+                   "outcome-free"),
         "rows": rows,
     }, indent=1))
     sham = sum(1 for r in rows

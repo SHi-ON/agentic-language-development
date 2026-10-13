@@ -20,6 +20,21 @@
  * retained/planned batches; it is not wired into any collection entry
  * point, so production can still construct a sham batch (diagnosis,
  * not enforced prevention).
+ *
+ * Scoped predicate (round-5 F1/F2), not a "valid iff": trusted inputs
+ * are the recorded fields themselves — this helper does not re-derive
+ * selections from ledger indexes or verify tokens against ledgers.
+ * What it verifies: donor membership, injective donors, derangement,
+ * donor/recipient role match, distinct scheduled examples (content
+ * key), and REALIZED delivery (the delivered token is the declared
+ * donor's selected token). A collision counts as genuine only when the
+ * delivered token matches the donor's selection and also equals the
+ * recipient's own selection; wrong-donor deliveries fail with a named
+ * delivery-mismatch reason. Scheduled identity inside one batch is the
+ * branch-record ID with the collector's branch suffix removed (in
+ * synthetic fixtures the caseId already is the case identity); the
+ * portable paper helper keys identity on the real scheduledCaseId from
+ * retained schedule files.
  */
 import { describe, expect, it } from 'vitest';
 import { SeededPrng } from '@ald/hashing';
@@ -79,14 +94,23 @@ interface ValidityVerdict {
   readonly ok: boolean;
   readonly reasons: string[];
   readonly genuineCollisions: number;
+  readonly repeatedContent: number;
 }
 
-/** Semantic validity: distinct scheduled examples per role, deranged donors, role match. */
+/** Scoped diagnostic: distinct scheduled cases per role, deranged injective donors, realized delivery. */
 function checkLedgerBatchValidity(cases: readonly Lv01TreatedCase[]): ValidityVerdict {
   const reasons: string[] = [];
   let genuineCollisions = 0;
+  let repeatedContent = 0;
   const keyOf = (c: Lv01TreatedCase): string =>
     `${c.receiverRole}|${c.targetTypeCode}|${[...c.candidateTypeCodes].join(',')}`;
+  // Scheduled identity inside one batch: the branch-record ID with the
+  // collector's branch suffix removed. Within a deployed batch that
+  // identifies the scheduled case the records came from; in synthetic
+  // fixtures the caseId already is the case identity. The portable paper
+  // helper keys identity on the real scheduledCaseId instead (F2).
+  const scheduledId = (c: Lv01TreatedCase): string =>
+    c.caseId.replace(/-ledger-(consistent|shuffled):turn:\d+$/u, '');
   const byId = new Map(cases.map((c) => [c.caseId, c]));
   const donors = cases.map((c) => c.shuffledSourceCaseId);
   if (new Set(donors).size !== donors.length) {
@@ -95,10 +119,10 @@ function checkLedgerBatchValidity(cases: readonly Lv01TreatedCase[]): ValidityVe
   for (const role of ['baby-a', 'baby-b'] as const) {
     const roleCases = cases.filter((c) => c.receiverRole === role);
     if (roleCases.length === 0) continue;
-    const distinct = new Set(roleCases.map(keyOf));
+    const distinct = new Set(roleCases.map(scheduledId));
     if (distinct.size < 2) {
       reasons.push(
-        `role ${role}: one distinct scheduled example across ${roleCases.length} cases (branch IDs differ but examples do not)`,
+        `role ${role}: one distinct scheduled case across ${roleCases.length} cases (branch records share one scheduled identity)`,
       );
     }
   }
@@ -115,13 +139,26 @@ function checkLedgerBatchValidity(cases: readonly Lv01TreatedCase[]): ValidityVe
     if (donor.receiverRole !== c.receiverRole) {
       reasons.push(`${c.caseId}: donor role ${donor.receiverRole} mismatches ${c.receiverRole}`);
     }
+    if (scheduledId(donor) === scheduledId(c)) {
+      reasons.push(`${c.caseId}: donor is the same scheduled case (sham shuffle)`);
+      continue;
+    }
     if (keyOf(donor) === keyOf(c)) {
-      reasons.push(`${c.caseId}: donor is the same scheduled example (sham shuffle)`);
+      // Distinct scheduled cases, identical conditioning: reported,
+      // not invalid (F2.6).
+      repeatedContent += 1;
+    }
+    if (c.shuffledDeliveredToken !== donor.selectedToken) {
+      // Round-5 F1: the declared permutation must be REALIZED — the
+      // delivered token has to be the donor's selected token.
+      reasons.push(
+        `${c.caseId}: delivery mismatch: donor ${donor.caseId} selected ${donor.selectedToken} but ${c.shuffledDeliveredToken} was delivered`,
+      );
     } else if (c.shuffledDeliveredToken === c.selectedToken) {
       genuineCollisions += 1;
     }
   }
-  return { ok: reasons.length === 0, reasons, genuineCollisions };
+  return { ok: reasons.length === 0, reasons, genuineCollisions, repeatedContent };
 }
 
 describe('N1.3 ledger treatment validity', () => {
@@ -146,7 +183,7 @@ describe('N1.3 ledger treatment validity', () => {
     });
     const verdict = checkLedgerBatchValidity(batch.cases);
     expect(verdict.ok).toBe(false);
-    expect(verdict.reasons.join('\n')).toMatch(/one distinct scheduled example/);
+    expect(verdict.reasons.join('\n')).toMatch(/one distinct scheduled case/);
     expect(verdict.reasons.join('\n')).toMatch(/sham shuffle/);
   });
 
@@ -220,6 +257,128 @@ describe('N1.3 ledger treatment validity', () => {
     const verdict = checkLedgerBatchValidity(batch.cases);
     expect(verdict.ok).toBe(true);
     expect(verdict.genuineCollisions).toBe(2);
+  });
+
+  it('rejects deliveries that did not come from the declared donor (F1)', () => {
+    const mk = (id: string, target: number, cands: number[]) => ({
+      caseId: id,
+      receiverRole: 'baby-b' as const,
+      targetTypeCode: target,
+      candidateTypeCodes: cands,
+    });
+    const batch = buildLedgerTreatmentBatch({
+      cases: [mk('in1', 1, [1, 2, 3, 4]), mk('in2', 6, [6, 7, 8, 9])],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    // Deliver each recipient its OWN selection instead of the donor's:
+    // the declared permutation was not realized, and these are not
+    // genuine collisions even though delivered == own selection.
+    const ownDelivered = batch.cases.map((c) => ({
+      ...c,
+      shuffledDeliveredToken: c.selectedToken,
+    }));
+    const ownVerdict = checkLedgerBatchValidity(ownDelivered);
+    expect(ownVerdict.ok).toBe(false);
+    expect(ownVerdict.genuineCollisions).toBe(0);
+    expect(ownVerdict.reasons.join('\n')).toMatch(/delivery mismatch/);
+    // Deliver a token neither donor selected.
+    const alienDelivered = batch.cases.map((c) => ({
+      ...c,
+      shuffledDeliveredToken: 'T31',
+    }));
+    const alienVerdict = checkLedgerBatchValidity(alienDelivered);
+    expect(alienVerdict.ok).toBe(false);
+    expect(alienVerdict.genuineCollisions).toBe(0);
+    expect(alienVerdict.reasons.join('\n')).toMatch(/delivery mismatch/);
+  });
+
+  it('detects a fixed point in an otherwise injective identity mapping (F1)', () => {
+    const base = {
+      receiverRole: 'baby-b' as const,
+      identicalTokenCoincidence: true,
+    };
+    const verdict = checkLedgerBatchValidity([
+      {
+        ...base,
+        caseId: 'fp-a',
+        targetTypeCode: 1,
+        candidateTypeCodes: [1, 2, 3, 4],
+        selectedToken: 'T05',
+        shuffledSourceCaseId: 'fp-a',
+        shuffledDeliveredToken: 'T05',
+      },
+      {
+        ...base,
+        caseId: 'fp-b',
+        targetTypeCode: 6,
+        candidateTypeCodes: [6, 7, 8, 9],
+        selectedToken: 'T21',
+        shuffledSourceCaseId: 'fp-b',
+        shuffledDeliveredToken: 'T21',
+      },
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reasons.join('\n')).toMatch(/fixed point/);
+    expect(verdict.reasons.join('\n')).not.toMatch(/not injective/);
+  });
+
+  it('rejects a shared donor over distinct examples (F1)', () => {
+    const base = { receiverRole: 'baby-b' as const, identicalTokenCoincidence: false };
+    const verdict = checkLedgerBatchValidity([
+      {
+        ...base,
+        caseId: 'sd-a',
+        targetTypeCode: 1,
+        candidateTypeCodes: [1, 2, 3, 4],
+        selectedToken: 'T05',
+        shuffledSourceCaseId: 'sd-c',
+        shuffledDeliveredToken: 'T21',
+      },
+      {
+        ...base,
+        caseId: 'sd-b',
+        targetTypeCode: 2,
+        candidateTypeCodes: [2, 9, 12, 11],
+        selectedToken: 'T05',
+        shuffledSourceCaseId: 'sd-c',
+        shuffledDeliveredToken: 'T21',
+      },
+      {
+        ...base,
+        caseId: 'sd-c',
+        targetTypeCode: 6,
+        candidateTypeCodes: [6, 7, 8, 9],
+        selectedToken: 'T21',
+        shuffledSourceCaseId: 'sd-a',
+        shuffledDeliveredToken: 'T05',
+      },
+    ]);
+    expect(verdict.ok).toBe(false);
+    expect(verdict.reasons.join('\n')).toMatch(/not injective/);
+  });
+
+  it('allows distinct scheduled examples with identical conditioning (F2)', () => {
+    // Equal content under different scheduled identities is reported
+    // context, not invalidity: both examples select T05, the derangement
+    // is realized, and both deliveries are genuine collisions.
+    const mk = (id: string, target: number, cands: number[]) => ({
+      caseId: id,
+      receiverRole: 'baby-b' as const,
+      targetTypeCode: target,
+      candidateTypeCodes: cands,
+    });
+    const batch = buildLedgerTreatmentBatch({
+      cases: [mk('rc1', 1, [1, 2, 3, 4]), mk('rc2', 1, [1, 2, 3, 4])],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    const verdict = checkLedgerBatchValidity(batch.cases);
+    expect(verdict.ok).toBe(true);
+    expect(verdict.genuineCollisions).toBe(2);
+    expect(verdict.repeatedContent).toBe(2);
   });
 });
 

@@ -25,6 +25,26 @@ function fixtureEngine(runSeed: string): ReferentialScenarioEngine {
 const FULL = { ...LV01_PARTITION_CASES };
 const SMALL = { training: 64, 'validation-fit': 24, 'validation-selection': 24, 'within-support-test': 24 } as const;
 
+/**
+ * Complete-coverage predicate (round-5 F2): every expected scheduled ID
+ * executed exactly once. verifyLv01ScheduleCoverage checks membership
+ * only; this distinguishes complete execution from a repeated subset.
+ */
+function checkCompleteCoverage(
+  expectedIds: readonly string[],
+  executedIds: readonly string[],
+): { ok: boolean; missing: string[]; duplicated: string[] } {
+  const counts = new Map<string, number>();
+  for (const id of executedIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+  const missing = expectedIds.filter((id) => !counts.has(id));
+  const duplicated = expectedIds.filter((id) => (counts.get(id) ?? 0) > 1);
+  return {
+    ok: missing.length === 0 && duplicated.length === 0 && executedIds.length === expectedIds.length,
+    missing,
+    duplicated,
+  };
+}
+
 describe('LV01 scientific case schedule', () => {
   it('materializes frozen per-partition per-role counts', () => {
     const schedule = buildLv01Schedule({ engine: fixtureEngine('lv01-schedule-fixture'), counts: FULL });
@@ -102,6 +122,34 @@ describe('LV01 scientific case schedule', () => {
     expect(verifyLv01ScheduleCoverage(schedule, [entry.caseId])).toBe(schedule.commitment);
     expect(verifyLv01ScheduleCoverage(schedule, [])).toBe(schedule.commitment);
     expect(() => verifyLv01ScheduleCoverage(schedule, ['within-support-test:baby-b:9999'])).toThrow(/outside the committed schedule/u);
+  });
+
+  it('accepts a complete schedule under both membership and coverage (F2)', () => {
+    const schedule = buildLv01Schedule({ engine: fixtureEngine('lv01-schedule-fixture'), counts: { ...SMALL } });
+    const expected = schedule.cases['within-support-test'].map((entry) => entry.caseId);
+    expect(verifyLv01ScheduleCoverage(schedule, expected)).toBe(schedule.commitment);
+    expect(checkCompleteCoverage(expected, expected)).toEqual({ ok: true, missing: [], duplicated: [] });
+  });
+
+  it('rejects the retained repeated-half shape that membership accepts (F2)', () => {
+    const schedule = buildLv01Schedule({ engine: fixtureEngine('lv01-schedule-fixture'), counts: { ...SMALL } });
+    const expected = schedule.cases['within-support-test'].map((entry) => entry.caseId);
+    // Retained mechanism at small scale: receiver alternates by slot
+    // parity while caseIndex = (slot - 1) % 24, so each role visits one
+    // parity of indices and repeats it in the second half.
+    const executed: string[] = [];
+    for (let slot = 1; slot <= expected.length; slot += 1) {
+      const receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a';
+      executed.push(scheduleCaseId('within-support-test', receiver, (slot - 1) % 24));
+    }
+    expect(executed).toHaveLength(expected.length);
+    // Membership alone accepts the repeated subset...
+    expect(verifyLv01ScheduleCoverage(schedule, executed)).toBe(schedule.commitment);
+    // ...expected-multiplicity coverage rejects it.
+    const coverage = checkCompleteCoverage(expected, executed);
+    expect(coverage.ok).toBe(false);
+    expect(coverage.missing).toHaveLength(24);
+    expect(coverage.duplicated).toHaveLength(24);
   });
 
   it('rejects out-of-range counts and empty roles', () => {

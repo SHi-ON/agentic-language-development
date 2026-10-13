@@ -137,3 +137,43 @@ text wrongly said "median-size" while the code picks smallest-size —
 text fixed (picks unchanged); sqlite `-shm`/`-wal` sidecars
 (32768 B + 0 B) now counted separately; coverage denominator derived
 from the branch directories instead of hardcoded.
+
+## D9. Schedule coverage: 120 scheduled cases executed twice (2026-10-13)
+
+- Mechanism: the runner alternates receiver role by slot parity
+  (`receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a'`) while computing
+  `caseIndex = (slot - 1) % 120` (ala-runner.ts, retained-source lines
+  ≈338–353; same construction at the historical execution pin). Each
+  role therefore visits only one parity of case indices, and the
+  second 120 slots repeat the first 120 exactly.
+- Observed: 240 executed slots cover 120 distinct `executedCaseId`
+  values, each with multiplicity 2; 60 distinct cases per receiver
+  role; each role saw 6 of the 12 eligible targets (baby-b:
+  1,3,6,8,11,13; baby-a: 2,4,7,9,12,14 — 20 slots each) against the
+  scheduled ten per eligible target per role. Global role and target
+  totals look balanced; the joint distribution is not the planned one.
+- Why it escaped: the final call verifies membership only
+  (`verifyLv01ScheduleCoverage`: every executed ID belongs to the
+  committed schedule) and the executed list it checks is recomputed
+  with the same parity formula, so complete coverage and multiplicity
+  were never established.
+- Evidence: `worksheets/ala-schedule-coverage.py` →
+  `reports/research/ala-schedule-coverage.v1.json` (executed multiset
+  vs expected 240-ID universe, duplicates/missing, role×target table);
+  rows carry the real `executedCaseId` in
+  `reports/research/ala-treatment-rows.v2.json`. Discriminating
+  fixture: `lv01-schedule.test.ts` (membership accepts the repeated
+  half; the complete-coverage predicate rejects it).
+- Scope: historical execution only. Repairing a future collector or
+  running a corrected dyad is separate work; the 240 executed pairs
+  and measured costs count actual executions and are unchanged.
+
+## Corrections (2026-10-13)
+
+- D3's "recorded peak is a 3-point sample maximum" is superseded:
+  the historical runner samples process RSS at start, before the
+  paired loop, and twice inside each case iteration (approximately
+  lines 182, 343, 407, 432 at the execution pin). The recorded figure
+  is sampled process RSS including per-case samples — not a
+  three-point rule and not a continuously observed peak system
+  memory. The original D3 text stands as the historical wording.
