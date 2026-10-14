@@ -12,7 +12,8 @@ identities. No scores or behavioral outcomes: the projection audits
 treatment CONSTRUCTION and schedule coverage inputs only.
 
 Fail-closed: 240 slots, 2 ledger cases per slot with the expected
-branch suffixes, complete schedule + extract joins, else exit 1 with
+branch suffixes, complete schedule + extract joins, unique extract
+slot rows, exactly one stream seed per slot, else exit 1 with
 no report.
 
 Writes reports/research/ala-treatment-rows.v2.json (v1 preserved).
@@ -48,12 +49,41 @@ def slot_stem(case_id: str) -> str:
     raise ValueError(f"unexpected ledger case id: {case_id}")
 
 
+def index_extract(rows: list) -> dict:
+    """Index message-extract rows by slot; duplicates are fatal.
+
+    A dict comprehension would silently keep one of two contradictory
+    rows for a slot. The slot join must be unique.
+    """
+    extract = {}
+    for row in rows:
+        slot = row["slot"]
+        if slot in extract:
+            raise ValueError(f"duplicate message-extract row for {slot}")
+        extract[slot] = row
+    return extract
+
+
+def single_seed(row: dict):
+    """Return the slot's only stream seed; zero or several are fatal.
+
+    Taking seeds[0] would silently discard further seed identities.
+    """
+    seeds = row.get("seeds", [])
+    if len(seeds) != 1:
+        raise ValueError(f"holds {len(seeds)} stream seeds, want exactly 1")
+    return seeds[0]
+
+
 def main() -> int:
     if not DYAD.is_dir():
         print(f"FAIL: dyad evidence missing: {DYAD}", file=sys.stderr)
         return 1
-    extract = {row["slot"]: row for row in
-               json.loads(EXTRACT.read_text())["testRows"]}
+    try:
+        extract = index_extract(json.loads(EXTRACT.read_text())["testRows"])
+    except ValueError as exc:
+        print(f"FAIL: {exc}", file=sys.stderr)
+        return 1
     slots = sorted(p for p in DYAD.glob("slot-*") if p.is_dir())
     if len(slots) != 240:
         print(f"FAIL: {len(slots)} slots, want 240", file=sys.stderr)
@@ -104,11 +134,15 @@ def main() -> int:
             return 1
         row = extract[slot.name]
         tokens = row.get("branchTokens", {})
-        seeds = row.get("seeds", [])
         if "random" not in tokens or "normal" not in tokens \
-                or "shuffled" not in tokens or not seeds:
-            print(f"FAIL: {slot.name} extract row lacks branch tokens/seed",
+                or "shuffled" not in tokens:
+            print(f"FAIL: {slot.name} extract row lacks branch tokens",
                   file=sys.stderr)
+            return 1
+        try:
+            seed = single_seed(row)
+        except ValueError as exc:
+            print(f"FAIL: {slot.name} {exc}", file=sys.stderr)
             return 1
         rows.append({
             "slot": slot.name,
@@ -133,7 +167,7 @@ def main() -> int:
             "randomToken": tokens["random"],
             "normalToken": tokens["normal"],
             "shuffledToken": tokens["shuffled"],
-            "seed": seeds[0],
+            "seed": seed,
         })
     if len(commitments) != 1:
         print("FAIL: retained slots disagree on schedule commitment", file=sys.stderr)
