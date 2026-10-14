@@ -1,6 +1,8 @@
 /** Offline construction diagnostic; never called by the historical collector.
  * Scheduled identity is an explicit recorded input, never inferred from branch
  * names. Selections are trusted records, not re-derived from policy ledgers.
+ * Total over malformed input (non-array batches, null/non-object cases return
+ * a rejection verdict, never throw), matching the Python port.
  */
 export interface AlaTreatmentDiagnosticCase {
   readonly caseId: string;
@@ -25,15 +27,16 @@ export function diagnoseLedgerBatch(cases: readonly AlaTreatmentDiagnosticCase[]
   let genuineCollisions = 0;
   let repeatedContent = 0;
   const result = (): AlaTreatmentVerdict => ({ ok: reasons.length === 0, reasons, genuineCollisions, repeatedContent });
-  if (cases.length === 0) {
-    reasons.push('batch is empty');
+  if (!Array.isArray(cases) || cases.length === 0) {
+    reasons.push('batch is empty or not a list');
     return result();
   }
   const keyOf = (c: AlaTreatmentDiagnosticCase): string => JSON.stringify([c.receiverRole, c.target, c.candidates]);
   const identities = new Map<string, string>();
   const recordIds = new Set<string>();
   for (const c of cases) {
-    if (['caseId', 'scheduledCaseId', 'selection', 'shuffledSource', 'shuffledDelivered'].some(
+    if (c === null || typeof c !== 'object' || Array.isArray(c)
+      || ['caseId', 'scheduledCaseId', 'selection', 'shuffledSource', 'shuffledDelivered'].some(
       (field) => typeof c[field as keyof AlaTreatmentDiagnosticCase] !== 'string' || c[field as keyof AlaTreatmentDiagnosticCase] === '',
     ) || !['baby-a', 'baby-b'].includes(c.receiverRole)
       || !Number.isInteger(c.target) || !Array.isArray(c.candidates)

@@ -350,7 +350,20 @@ const explicitCases: readonly AlaTreatmentDiagnosticCase[] = [
 
 describe('explicit diagnostic identities and malformed batches', () => {
   it('rejects an empty batch', () => {
-    expect(diagnoseLedgerBatch([]).reasons).toContain('batch is empty');
+    expect(diagnoseLedgerBatch([]).reasons).toContain('batch is empty or not a list');
+  });
+  it('rejects non-batch and null-case inputs without throwing', () => {
+    const malformed = [null, {}, [null], [{}]] as unknown as readonly AlaTreatmentDiagnosticCase[][];
+    for (const batch of malformed) {
+      const verdict = diagnoseLedgerBatch(batch);
+      expect(verdict.ok).toBe(false);
+      expect(verdict.genuineCollisions).toBe(0);
+      expect(verdict.repeatedContent).toBe(0);
+    }
+    expect(diagnoseLedgerBatch(null as unknown as readonly AlaTreatmentDiagnosticCase[]).reasons)
+      .toContain('batch is empty or not a list');
+    expect(diagnoseLedgerBatch([null] as unknown as readonly AlaTreatmentDiagnosticCase[])
+      .reasons.join(' ')).toMatch(/malformed/);
   });
   it('rejects a missing schedule identity without falling back to branch names', () => {
     expect(diagnoseLedgerBatch(explicitCases.map((c) => ({ ...c, scheduledCaseId: '' }))).ok).toBe(false);
