@@ -31,8 +31,9 @@ The broad program docs (`BACKLOG.md`, `SPECIFICATION.md`,
 `EXPERIMENT-NOTEBOOK.md`) are preserved byte-for-byte as history and
 retired from the active paper gates. The historical protocols, receipts,
 failed attempts, and resource-deviation records are likewise preserved,
-never edited to match the new study. Full pre-trim history is also in the
-tested archive next to this checkout (`ala-pre-trim-archive/`).
+never edited to match the new study. Pre-trim source remains recoverable
+from Git at `2e042b1de8e13d05eb6252a63b6f0815c7841c49`; the verified
+restore procedure is in `docs/paper-focus-change-log.md`.
 
 ## Threat model (paper)
 

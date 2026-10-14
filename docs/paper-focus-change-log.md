@@ -185,3 +185,46 @@ edits, and with no basename string reference from kept files.
   the override lives in `pnpm-workspace.yaml`). `pnpm audit
   --audit-level=high` now reports no known vulnerabilities; build +
   `test:paper` re-verified after the bump.
+
+## 2026-10-09 — Redundant pre-trim archive removed
+
+- source-before: `9a13f7d93ccda1a0110069cdabbd3cfcc908f115`
+- path: `/home/maria/Development/ala-pre-trim-archive/`
+- old bundle SHA-256:
+  `8bb818d091ca329210d708981529f7c05243bcf7679db608bb36c0010fbf278e`
+- action: removed the duplicate backup directory at the user's request
+  after checking that it contained no unique required material; removed
+  86,972,087 bytes (about 83 MiB).
+- why: all 19 unique objects named by its 25 bundle refs remain reachable
+  in this repository, with no missing historical objects. Its six
+  unchanged planning files remain in `plans/`; its seventh plan is an
+  obsolete copy superseded by the current publication plan.
+- new preservation authority: this repository's Git history, specifically
+  pre-trim commit `2e042b1de8e13d05eb6252a63b6f0815c7841c49` and tree
+  `81b69eb31f9563e074113a206411f8988a879551`. Earlier archive locators in
+  this append-only log describe historical checks and are superseded by
+  this entry. Git history, refs, tags, and stash were not changed.
+- verification: a fresh `git archive` of that commit recovered all 1,314
+  tracked files, with zero missing files and zero Git blob mismatches.
+  All four saved uncommitted files still match their archived SHA-256
+  hashes: `reports/manuscript/README.md`,
+  `reports/manuscript/first-paper-draft.md`,
+  `reports/research/authority-binding-proposals.v1.md`, and
+  `scripts/__tests__/anchor-staging.test.ts`. Those working files were
+  left untouched. The removed archive contained no original experiment
+  data and did not recover the already-missing E03/LV01 evidence.
+- documentation: README now points to the Git restore procedure below.
+- source-after: uncommitted documentation update for this removal.
+- unresolved: none for duplicate archive removal. Recovery below exports
+  committed pre-trim source; the four preserved uncommitted edits remain
+  in the current checkout and are not part of that historical commit.
+
+To inspect or recover committed pre-trim source without changing the
+active checkout, run from this repository:
+
+```sh
+restore_dir="$(mktemp -d /tmp/ald-pre-trim-source.XXXXXX)"
+git archive --output="$restore_dir/source.tar" 2e042b1de8e13d05eb6252a63b6f0815c7841c49
+mkdir "$restore_dir/source"
+tar -xf "$restore_dir/source.tar" -C "$restore_dir/source"
+```

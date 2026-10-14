@@ -1524,6 +1524,7 @@ describe('R8-Q key generation and submit dispatch', () => {
     const record = JSON.parse(readFileSync(out, 'utf8'));
     expect(record).toMatchObject({
       kind: 'anchor-broadcast-receipt',
+      anchorClass: 'public-chain',
       transactionHash: TX,
       blockNumber: 10,
       confirmations: 1,

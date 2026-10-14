@@ -92,12 +92,11 @@ packets (R03: original lineage commit `9be6e536`, plus R03-B F1/F2
 committed in `9c25643` plus seed-vocabulary amendment committed in
 `f4cc224` plus F-R04-1 draw-scope/B1 amendment committed in
 `591c9ce`, with digests as listed in §5.1) and other tracked `protocols/` sources.
-Ignored `plans/` files coordinate work; they are not registrations or
-evidence and fix no method here (see
-`reports/research/authority-binding-proposals.v1.md` for the tracked
-bindings that P1/P2 still require). No value here is a measurement. Every
-empirical field stays `TBD` until R09/R10. Tracked packet governs on any
-conflict with this prose.
+Only the frozen packets and tracked `protocols/` sources above fix a
+method here (see `reports/research/authority-binding-proposals.v1.md`
+for the tracked bindings that P1/P2 still require). No value here is a
+measurement. Every empirical field stays `TBD` until R09/R10. Tracked
+packet governs on any conflict with this prose.
 
 ### 5.1 Design, registration, and analysis plan
 
@@ -359,8 +358,8 @@ success/probability contrasts [−1,1] (working ranges; unbound pending the §5.
 ### 5.7 Operating-characteristic validation of the selector
 
 The v2 packets cite the family; the simulation cases below are currently
-described only in the ignored handoff (`plans/` work coordination, not
-authority) and are UNBOUND until the tracked P1 binding lands (see
+described only in working notes (not authority) and are UNBOUND until
+the tracked P1 binding lands (see
 `reports/research/authority-binding-proposals.v1.md`). Working description:
 at null or design-alternative mean mu, test: a Normal working model at
 SD 0.08 (numerical working model, not a bounded-data claim); endpoint

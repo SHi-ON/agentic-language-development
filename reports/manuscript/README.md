@@ -11,12 +11,11 @@ field in this package is `TBD` until populated from verified, sealed evidence.
 No numeric result, interval, or cost figure in this package is an observation.
 
 - Research authority: the frozen R03 design packets (lineage `9be6e536` + R03-B F1/F2 `9c25643` + seed-vocab `f4cc224` — see §5.1),
-  tracked `protocols/` files, and sealed stage evidence — never `plans/`.
-  `plans/` is gitignored work coordination (R00–R15 queue, R11 notes); it is
-  not a registration and not evidence, so nothing here cites it as authority.
+  tracked `protocols/` files, and sealed stage evidence. Nothing here cites
+  any other source as authority.
 - Scope summary: `first-paper-draft.md` §§1–5. Venue gate:
-  `review-package.md` §C4 (TMLR, conditional target) — a coordination
-  note only; current official TMLR pages govern at freeze.
+  `review-package.md` §C4 (TMLR, conditional target); current official
+  TMLR pages govern at freeze.
 - This package is planning/reporting scaffolding. It does not create
   registrations, authorize collection, or assert that any empirical gate passed.
 

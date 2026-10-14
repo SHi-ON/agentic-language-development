@@ -7,8 +7,7 @@ implementation, not this file.
 
 ## Premise (binding on all four proposals)
 
-`plans/` is gitignored (`.gitignore` `/plans/`, zero tracked files) and
-coordinates work only. An ignored plan is not a registration, not evidence,
+An ignored plan is not a registration, not evidence,
 and not committed scientific authority: it cannot fix a method, authorize a
 run, or supply a number. Any method currently fixed only in
 `plans/research-validation-plan.md` or
