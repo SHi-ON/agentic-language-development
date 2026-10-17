@@ -3,8 +3,8 @@
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
   "amendmentCommit": "a1fc53924df22e8260ccffee019b25de09a8511d",
-  "sourceTree": "56ff402d3c41b30e8ebf192fca7da51260fe4375",
-  "createdAtUtc": "2026-10-17T14:56:46.032Z",
+  "sourceTree": "5cf0b36df8021e69b125b6461213e93b0135c414",
+  "createdAtUtc": "2026-10-17T15:04:49.312Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -20,8 +20,8 @@
     }
   },
   "executionClosure": {
-    "fileCount": 358,
-    "sha256": "sha256:03228a4d2a2e6a9e13d26b006674e39bbb746988424b41da5433245e170ad176"
+    "fileCount": 360,
+    "sha256": "sha256:d31295481dbf021f5a39d7cbf0e0da0161f62b24954b635401fe86fbad2ce218"
   },
   "closureFiles": [
     "package.json",
@@ -269,6 +269,7 @@
     "packages/orchestrator/src/experiments/lv01-snapshots.ts",
     "packages/orchestrator/src/experiments/lv01-stage-audit.ts",
     "packages/orchestrator/src/experiments/lv01-stage-packets.ts",
+    "packages/orchestrator/src/experiments/lv01-treatment-gate.ts",
     "packages/orchestrator/src/experiments/lv01-uncertain-write-diagnostic.ts",
     "packages/orchestrator/src/experiments/report.ts",
     "packages/orchestrator/src/fort-signers.ts",
@@ -340,6 +341,7 @@
     "scripts/build-ala-manifest.ts",
     "scripts/build-conformance-matrix.mjs",
     "scripts/build-data-claim-manifest.ts",
+    "scripts/build-valid-ledger-batch.ts",
     "scripts/check-ala-protocol.mjs",
     "scripts/check-lv01-application-fault-v3-receipt.mjs",
     "scripts/check-lv01-commitment-window-fault-v3-receipt.mjs",

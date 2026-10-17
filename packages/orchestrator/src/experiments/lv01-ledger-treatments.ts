@@ -14,6 +14,10 @@ import {
   selectLedgerConsistentToken,
   type Lv01NativeLedgerIndex,
 } from '@ald/learners';
+import {
+  assertValidLedgerBatch,
+  type AlaTreatmentDiagnosticCase,
+} from './lv01-treatment-gate.js';
 
 import type { Lv01Branch } from './ledger-value.js';
 
@@ -262,4 +266,100 @@ export function verifyLv01TreatmentTargets(
     if (observed === undefined) fail(`treatment batch case ${entry.caseId} was never served`);
     if (observed !== entry.targetTypeCode) fail(`treatment batch case ${entry.caseId} targets the wrong case`);
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Repaired cross-case construction (v2; the v1 path above is frozen)   */
+/* ------------------------------------------------------------------ */
+
+export const LV01_LEDGER_TREATMENT_BATCH_DOMAIN_V2 =
+  'lv01-ledger-treatment-batch/v2' as const;
+
+/** One treatment case bound to its scheduled example at construction
+ * time. Distinct entries must name distinct scheduled cases per role;
+ * the historical v1 path named one scheduled case per slot.
+ */
+export interface Lv01ScheduledTreatmentEntry {
+  readonly scheduledCaseId: string;
+  readonly treatmentCase: Lv01TreatmentCase;
+}
+
+export interface Lv01ValidTreatedCase extends Lv01TreatedCase {
+  readonly scheduledCaseId: string;
+}
+
+export interface Lv01LedgerTreatmentBatchV2 {
+  readonly version: 2;
+  readonly derangementSeed: string;
+  readonly cases: readonly Lv01ValidTreatedCase[];
+  readonly batchCommitment: string;
+}
+
+const toDiagnosticCases = (
+  cases: readonly Lv01ValidTreatedCase[],
+): readonly AlaTreatmentDiagnosticCase[] =>
+  cases.map((entry) => ({
+    caseId: entry.caseId,
+    scheduledCaseId: entry.scheduledCaseId,
+    receiverRole: entry.receiverRole,
+    target: entry.targetTypeCode,
+    candidates: entry.candidateTypeCodes,
+    selection: entry.selectedToken,
+    shuffledSource: entry.shuffledSourceCaseId,
+    shuffledDelivered: entry.shuffledDeliveredToken,
+  }));
+
+/**
+ * Repaired construction: one batch per role across distinct scheduled
+ * cases from a precomputed schedule. Selection/derangement mechanics are
+ * the frozen v1 mechanics; the batch binds under the v2 domain so no v1
+ * commitment is ever rewritten. The collection-entry gate runs before
+ * return and fails closed on any sham shape.
+ */
+export function buildValidLedgerTreatmentBatch(input: {
+  readonly entries: readonly Lv01ScheduledTreatmentEntry[];
+  readonly nativeIndexes: Lv01RoleNativeIndexes;
+  readonly symbolInventory: readonly string[];
+  readonly derangementSeed: string;
+}): Lv01LedgerTreatmentBatchV2 {
+  if (input.entries.length === 0) fail('valid treatment batch requires at least one case');
+  for (const entry of input.entries) {
+    if (entry.scheduledCaseId.length === 0) {
+      fail('valid treatment batch requires a scheduled identity per case');
+    }
+  }
+  for (const role of ['baby-a', 'baby-b'] as const) {
+    const roleEntries = input.entries.filter((entry) => entry.treatmentCase.receiverRole === role);
+    if (roleEntries.length === 0) continue;
+    if (roleEntries.length < 2) {
+      fail(`valid treatment batch requires at least two cases for role ${role}`);
+    }
+    const distinct = new Set(roleEntries.map((entry) => entry.scheduledCaseId));
+    if (distinct.size < 2) {
+      fail(`valid treatment batch requires distinct scheduled cases for role ${role}`);
+    }
+  }
+  const inner = buildLedgerTreatmentBatch({
+    cases: input.entries.map((entry) => entry.treatmentCase),
+    nativeIndexes: input.nativeIndexes,
+    symbolInventory: [...input.symbolInventory],
+    derangementSeed: input.derangementSeed,
+  });
+  const byCaseId = new Map(inner.cases.map((entry) => [entry.caseId, entry]));
+  const cases: Lv01ValidTreatedCase[] = input.entries.map((entry) => {
+    const treated = byCaseId.get(entry.treatmentCase.caseId);
+    if (treated === undefined) fail(`valid treatment batch lost case ${entry.treatmentCase.caseId}`);
+    return { ...treated, scheduledCaseId: entry.scheduledCaseId };
+  });
+  const batch: Lv01LedgerTreatmentBatchV2 = {
+    version: 2,
+    derangementSeed: input.derangementSeed,
+    cases,
+    batchCommitment: hashCanonical(LV01_LEDGER_TREATMENT_BATCH_DOMAIN_V2, {
+      derangementSeed: input.derangementSeed,
+      cases,
+    }),
+  };
+  assertValidLedgerBatch(toDiagnosticCases(cases));
+  return batch;
 }

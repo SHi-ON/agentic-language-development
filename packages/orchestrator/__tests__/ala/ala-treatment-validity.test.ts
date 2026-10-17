@@ -1,9 +1,10 @@
 /** Offline semantic fixtures: branch IDs, scheduled IDs, ordered content,
  * and token identity are distinct fields. The diagnostic trusts selections
- * as recorded and is not a collection-entry gate. See the source module.
+ * as recorded; the historical collector never calls the collection-entry
+ * gate, while repaired construction must. See the source modules.
  */
 import { describe, expect, it } from 'vitest';
-import { diagnoseLedgerBatch, type AlaTreatmentDiagnosticCase } from './helpers/treatment-diagnostic.js';
+import { assertValidLedgerBatch, diagnoseLedgerBatch, type AlaTreatmentDiagnosticCase } from './helpers/treatment-diagnostic.js';
 import { SeededPrng } from '@ald/hashing';
 import {
   LV01_PREDICTION_FUNCTION_VERSION,
@@ -11,6 +12,7 @@ import {
 } from '@ald/learners';
 import {
   buildLedgerTreatmentBatch,
+  buildValidLedgerTreatmentBatch,
   type Lv01TreatedCase,
 } from '../../src/experiments/lv01-ledger-treatments.js';
 import { buildLv01TreatmentCases } from '../../src/experiments/lv01-collector.js';
@@ -295,6 +297,87 @@ describe('N1.3 ledger treatment validity', () => {
     expect(wrongDelivery.ok).toBe(false);
     expect(wrongDelivery.repeatedContent).toBe(2);
     expect(wrongDelivery.genuineCollisions).toBe(0);
+  });
+});
+
+describe('collection-entry gate on the repaired path', () => {
+  const mkEntry = (caseId: string, scheduledCaseId: string, target: number, cands: number[]) => ({
+    scheduledCaseId,
+    treatmentCase: {
+      caseId,
+      receiverRole: 'baby-b' as const,
+      targetTypeCode: target,
+      candidateTypeCodes: cands,
+    },
+  });
+
+  it('accepts a cross-case batch built through the repaired constructor', () => {
+    const batch = buildValidLedgerTreatmentBatch({
+      entries: [
+        mkEntry('valid-a', 'scheduled-a', 1, [1, 2, 3, 4]),
+        mkEntry('valid-b', 'scheduled-b', 6, [6, 7, 8, 9]),
+      ],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    expect(batch.version).toBe(2);
+    expect(batch.batchCommitment).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const verdict = assertValidLedgerBatch(batch.cases.map((c) => ({
+      caseId: c.caseId,
+      scheduledCaseId: c.scheduledCaseId,
+      receiverRole: c.receiverRole,
+      target: c.targetTypeCode,
+      candidates: c.candidateTypeCodes,
+      selection: c.selectedToken,
+      shuffledSource: c.shuffledSourceCaseId,
+      shuffledDelivered: c.shuffledDeliveredToken,
+    })));
+    expect(verdict.ok).toBe(true);
+  });
+
+  it('refuses the historical sham shape at collection entry', () => {
+    const [consistent, shuffled] = buildLv01TreatmentCases(
+      {
+        targetTypeCode: 1,
+        candidateTypeCodes: [3, 2, 1, 11],
+        candidateRefs: ['a', 'b', 'c', 'd'],
+        receiver: 'baby-b',
+        stateHash: 'state',
+        scheduledCaseId: 'scheduled-1',
+      },
+      'prefix',
+    );
+    const batch = buildLedgerTreatmentBatch({
+      cases: [consistent, shuffled],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    const diagnostic = batch.cases.map((c) => ({
+      caseId: c.caseId,
+      scheduledCaseId: 'scheduled-1',
+      receiverRole: c.receiverRole,
+      target: c.targetTypeCode,
+      candidates: c.candidateTypeCodes,
+      selection: c.selectedToken,
+      shuffledSource: c.shuffledSourceCaseId,
+      shuffledDelivered: c.shuffledDeliveredToken,
+    }));
+    expect(diagnoseLedgerBatch(diagnostic).ok).toBe(false);
+    expect(() => assertValidLedgerBatch(diagnostic)).toThrowError(/LV01 treatment gate:.*sham shuffle/);
+  });
+
+  it('refuses duplicate scheduled identities at construction', () => {
+    expect(() => buildValidLedgerTreatmentBatch({
+      entries: [
+        mkEntry('dup-a', 'scheduled-1', 1, [1, 2, 3, 4]),
+        mkEntry('dup-b', 'scheduled-1', 6, [6, 7, 8, 9]),
+      ],
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    })).toThrowError(/distinct scheduled cases for role baby-b/);
   });
 });
 
