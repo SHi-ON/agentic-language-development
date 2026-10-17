@@ -80,3 +80,25 @@ restoration through a real worker before any study dyad runs.
 - A valid chance-level or negative dyad stays included. Never
   stop/continue on observed effects. Missing evidence never becomes
   eligible silently.
+
+## Corrected-campaign preconditions (record only; none executed)
+
+A corrected ledger-value campaign is a new study, not a continuation.
+In dependency order, before any new reservation may be considered:
+
+1. D6 heads-cut payload redesign (storage/CPU bottleneck): pre-action
+   commitments bind the training-ledger cutoff by digest instead of
+   embedding full heads; heads retained once per dyad for audit.
+2. Per-case seed derivation: independent case context streams so no
+   two cases share first-draw context.
+3. Cross-case sender-shuffle design: the shuffle permutes distinct
+   scheduled examples with a prospectively specified intervention rule.
+4. D9 slot-to-case repair with a complete-coverage predicate: every
+   expected scheduled identity executed exactly once (membership-only
+   calls do not qualify).
+5. New prospective allowance and protocol v2 (frozen before execution).
+6. Requalification of the rebuilt machinery end to end.
+7. A new P5 reservation sized to the measured corrected workload
+   (the retained partial-workload cost is not a lower bound).
+
+No step in the audit program claims any of this is done.
