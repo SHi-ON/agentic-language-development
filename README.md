@@ -69,7 +69,9 @@ diagnosis; the gate is `pnpm run test:paper`.
 - Historical E03/LV01 originals: still **absent** on this host. Retained
   summaries are unreproduced summaries.
 - New retained calibration: one complete dyad (`evidence/ala-lv/`,
-  ~4.6 GiB) plus two failed/aborted slots with journal + logs. See the
+  ~4.6 GiB) plus two failed/aborted slots with journal + logs, held on
+  the collection host and absent from fresh clones of this branch
+  (`evidence/` is gitignored). See the
   discrepancy record for what this evidence does and does not support.
 - Eligible ALA-LV study results: **0**. P5 admission was refused; no
   cohort ran. The sealed paper export is FEASIBILITY-ONLY (methods
