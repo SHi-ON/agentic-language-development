@@ -9,4 +9,6 @@ allowBuilds:
 
 overrides:
   source-map-js: '>=1.2.2'
+  # GHSA-587h-7wmj-h5pm (high, vite <=8.3.2 via vitest): pin past the
+  # advisory. Remove when upstream vitest ships a vite floor >=8.3.3.
   vite: 8.3.3
