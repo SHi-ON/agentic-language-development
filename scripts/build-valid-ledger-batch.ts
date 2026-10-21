@@ -42,23 +42,27 @@ function association(token: string, weights: number[]) {
   };
 }
 
-/** Synthetic test-grade native index (same shape as the validity-test
- * fixture): deterministic selections without training. Disclosed, not
- * a trained ledger.
+/** Synthetic test-grade native index: each eligible type maps to one
+ * distinct token (weight 10 on its type, 0 elsewhere), so distinct
+ * scheduled targets select distinct tokens without training. Fully
+ * disclosed fixture weights, not a trained ledger; collisions in the
+ * batch therefore reflect chance overlap, not engineered coincidences.
  */
+const ELIGIBLE_TYPES = [1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14];
+// Members of the real fixedTokenInventory(32) (S01..S32): the
+// association token must be an inventory member to ever be selected.
+const TYPE_TOKENS = ['S03', 'S05', 'S07', 'S09', 'S11', 'S13', 'S15', 'S17', 'S19', 'S21', 'S23', 'S25'];
+
 function syntheticIndex(role: 'baby-a' | 'baby-b'): Lv01NativeLedgerIndex {
-  const w05 = new Array(16).fill(0);
-  w05[1] = 10;
-  w05[2] = 10;
-  const w17 = new Array(16).fill(0);
-  w17[5] = 10;
-  const w21 = new Array(16).fill(0);
-  w21[6] = 10;
   return {
     predictionFunctionVersion: LV01_PREDICTION_FUNCTION_VERSION,
     receiverRole: role,
     cutoff: { sequence: 2, turn: 1 },
-    selectedAssociations: [association('T05', w05), association('T17', w17), association('T21', w21)],
+    selectedAssociations: ELIGIBLE_TYPES.map((type, i) => {
+      const weights = new Array(16).fill(0);
+      weights[type] = 10;
+      return association(TYPE_TOKENS[i] as string, weights);
+    }),
   };
 }
 
@@ -73,7 +77,7 @@ const engine = new ReferentialScenarioEngine(
 );
 const schedule = buildLv01Schedule({
   engine,
-  counts: { training: 0, 'validation-fit': 0, 'validation-selection': 0, 'within-support-test': 2 },
+  counts: { training: 0, 'validation-fit': 0, 'validation-selection': 0, 'within-support-test': 6 },
 });
 const inventory = fixedTokenInventory(32);
 const derangementSeed = deriveLv01DerangementSeed({
@@ -86,7 +90,7 @@ const derangementSeed = deriveLv01DerangementSeed({
   partition: SLOT.partition,
 });
 const entries = (['baby-a', 'baby-b'] as const).flatMap((role) =>
-  [0, 1].map((caseIndex) => {
+  [0, 1, 2, 3, 4, 5].map((caseIndex) => {
     const scheduled = scheduledCaseFor(schedule, 'within-support-test', role, caseIndex);
     return {
       scheduledCaseId: scheduled.caseId,
@@ -127,9 +131,9 @@ process.stdout.write(`${JSON.stringify({
       ...SLOT,
       policyVersion: 'v1',
     },
-    nativeIndex: 'synthetic test-grade fixture (no training; selections deterministic from fixture weights)',
+    nativeIndex: 'synthetic test-grade fixture (no training): each of the 12 eligible types maps to one distinct token at weight 10, so distinct scheduled targets select distinct tokens deterministically',
     roles: ['baby-a', 'baby-b'],
-    casesPerRole: 2,
+    casesPerRole: 6,
   },
   batch,
   verdict,

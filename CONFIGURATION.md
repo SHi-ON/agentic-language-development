@@ -5,6 +5,16 @@ only non-secret operational values or short-lived file paths materialized by `fo
 Private key material, signer seeds, RPC credentials, and API tokens must never be
 stored directly in environment variables or repository files.
 
+## Toolchain
+
+Node.js is pinned at `24.21.0` (see `.node-version`; `package.json`
+`engines` requires pnpm `12.3.4`). Newer runtimes break the pinned
+native modules: Node 26 reports `better-sqlite3` as compiled against a
+different `NODE_MODULE_VERSION` and fails the checkpoint/service
+suites that are green under Node 24. Run the test suites with Node
+`24.21.0` (e.g. `PATH=/usr/bin:$PATH` where that is the pinned
+interpreter).
+
 ## Variables
 
 | Variable | Type | Default | Required |

@@ -181,6 +181,70 @@ describe('LV01 collector pure planning', () => {
     ).toThrow(/wrong case/);
   });
 
+  it('v2 batch-version selection enforces the gate at collection entry', () => {
+    const parent = fixtureParent();
+    const { indexA, indexB } = fixtureIndex();
+    const schedule = buildLv01Schedule({
+      engine: new ReferentialScenarioEngine(
+        {
+          version: 1,
+          symbolInventory: fixedTokenInventory(32),
+          interactionMode: 'cooperative-signaling',
+          heldOutTypeCodes: [0, 5, 10, 15],
+        },
+        hash('v2-gate'),
+      ),
+      counts: { training: 0, 'validation-fit': 0, 'validation-selection': 0, 'within-support-test': 2 },
+    });
+    const scheduledA = scheduledLv01BranchTarget({ schedule, partition: 'within-support-test', caseIndex: 0, receiver: 'baby-b' });
+    const scheduledB = scheduledLv01BranchTarget({ schedule, partition: 'within-support-test', caseIndex: 1, receiver: 'baby-b' });
+    const base = {
+      parent,
+      parentCheckpointHash: hash('c'),
+      babyAInitialPolicyRef: 'policies/baby-a-latest.json',
+      babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+      actionDrawScope: { stage: 'development' as const, slotKind: 'primary' as const, slotIndex: '0001', partition: 'dev' as const },
+      nativeIndexes: { babyA: indexA, babyB: indexB },
+      symbolInventory: [...inventory],
+      derangementSeed: hash('d'),
+      slotSeeds: fixtureSlotSeeds(),
+      scheduledCase: { partition: 'within-support-test' as const, caseIndex: 0, receiverRole: 'baby-b' as const },
+    };
+    // A sham construction attempt throws at collection entry, before any
+    // plan exists: the historical two-branch shape under one scheduled id.
+    const shamPrefix = 'lv01-collector-sham';
+    expect(() => prepareLv01PairedCase({
+      ...base,
+      childRunIdPrefix: shamPrefix,
+      treatmentCases: [...buildLv01TreatmentCases(scheduledA, shamPrefix)],
+      treatmentBatchVersion: 2,
+      scheduledCaseIds: [scheduledA.scheduledCaseId, scheduledA.scheduledCaseId],
+    })).toThrowError(/distinct scheduled cases for role baby-b/);
+    // Cross-case construction passes the gate and returns the v2 batch
+    // alongside the v1 plan batch; the default stays version 1.
+    const crossA = buildLv01TreatmentCases(scheduledA, 'lv01-collector-cross-a');
+    const crossB = buildLv01TreatmentCases(scheduledB, 'lv01-collector-cross-b');
+    const { plan, batch, validBatch } = prepareLv01PairedCase({
+      ...base,
+      childRunIdPrefix: 'lv01-collector-cross-a',
+      treatmentCases: [...crossA, ...crossB],
+      treatmentBatchVersion: 2,
+      scheduledCaseIds: [
+        scheduledA.scheduledCaseId, scheduledA.scheduledCaseId,
+        scheduledB.scheduledCaseId, scheduledB.scheduledCaseId,
+      ],
+    });
+    expect(validBatch?.version).toBe(2);
+    expect(plan.branches).toHaveLength(7);
+    expect(batch.cases).toHaveLength(4);
+    const replay = prepareLv01PairedCase({
+      ...base,
+      childRunIdPrefix: 'lv01-collector-sham',
+      treatmentCases: [...buildLv01TreatmentCases(scheduledA, 'lv01-collector-sham')],
+    });
+    expect(replay.validBatch).toBeUndefined();
+  });
+
   it('rebuilds the registered plan from branch run-configs alone', () => {
     const parent = fixtureParent();
     const { indexA, indexB } = fixtureIndex();

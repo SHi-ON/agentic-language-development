@@ -88,9 +88,11 @@ import {
 import { auditLv01PairedCase } from './lv01-auditor.js';
 import {
   buildLedgerTreatmentBatch,
+  buildValidLedgerTreatmentBatch,
   deriveLv01DerangementSeed,
   sliceLedgerTreatment,
   type Lv01LedgerTreatmentBatch,
+  type Lv01LedgerTreatmentBatchV2,
   type Lv01RoleNativeIndexes,
   type Lv01TreatmentCase,
 } from './lv01-ledger-treatments.js';
@@ -301,6 +303,15 @@ export interface Lv01PairedCaseInputs {
     readonly partition: 'dev' | 'within-support' | 'novel-composition';
   };
   readonly treatmentCases: readonly Lv01TreatmentCase[];
+  /**
+   * Batch-version selection. Version 1 (default) replays the historical
+   * construction byte-identically for the retained audit. Version 2
+   * routes construction through the repaired cross-case path with the
+   * fail-closed collection-entry gate and requires one scheduled
+   * identity per treatment case; live collection must select 2.
+   */
+  readonly treatmentBatchVersion?: 1 | 2;
+  readonly scheduledCaseIds?: readonly string[];
   readonly nativeIndexes: Lv01RoleNativeIndexes;
   readonly symbolInventory: readonly string[];
   readonly derangementSeed: string;
@@ -322,7 +333,28 @@ export interface Lv01PairedCaseInputs {
 export function prepareLv01PairedCase(input: Lv01PairedCaseInputs): {
   readonly plan: Lv01PairedCasePlan;
   readonly batch: Lv01LedgerTreatmentBatch;
+  readonly validBatch?: Lv01LedgerTreatmentBatchV2;
 } {
+  // Collection-entry enforcement point: version 2 routes through the
+  // repaired constructor, whose fail-closed gate throws on any sham
+  // shape before the plan is built or anything is persisted. Version 1
+  // (default) replays the historical construction untouched.
+  let validBatch: Lv01LedgerTreatmentBatchV2 | undefined;
+  if ((input.treatmentBatchVersion ?? 1) === 2) {
+    const ids = input.scheduledCaseIds;
+    if (ids === undefined || ids.length !== input.treatmentCases.length) {
+      fail('v2 treatment batches require one scheduled identity per treatment case');
+    }
+    validBatch = buildValidLedgerTreatmentBatch({
+      entries: input.treatmentCases.map((treatmentCase, position) => ({
+        scheduledCaseId: (ids as readonly string[])[position] as string,
+        treatmentCase,
+      })),
+      nativeIndexes: input.nativeIndexes,
+      symbolInventory: [...input.symbolInventory],
+      derangementSeed: input.derangementSeed,
+    });
+  }
   const batch = buildLedgerTreatmentBatch({
     cases: [...input.treatmentCases],
     nativeIndexes: input.nativeIndexes,
@@ -348,7 +380,7 @@ export function prepareLv01PairedCase(input: Lv01PairedCaseInputs): {
       'ledger-shuffled': sliceFor('ledger-shuffled'),
     },
   });
-  return { plan, batch };
+  return validBatch === undefined ? { plan, batch } : { plan, batch, validBatch };
 }
 
 /* ------------------------------------------------------------------ */
