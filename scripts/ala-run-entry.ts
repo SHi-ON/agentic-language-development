@@ -3,7 +3,12 @@
  *
  * Usage:
  *   tsx scripts/ala-run-entry.ts --manifest <path> --cohort A|B|development|calibration
- *     --kind primary|reserve --index <n> [--evidence-root <dir>] [--resume]
+ *     --kind primary|reserve --index <n> --treatment-batch-version 1|2
+ *     [--evidence-root <dir>] [--resume]
+ *
+ * Batch version is required with no default: 1 is historical replay of
+ * the retained sham audit; 2 is new collection, refused until
+ * cross-slot scheduling lands.
  *
  * Collects the retained-identity corpus from tracked records and runs one
  * ALA dyad through the manifest-verified runner.
@@ -64,6 +69,11 @@ if (!Number.isInteger(index) || index < 0) {
 const evidenceRoot = process.argv.includes('--evidence-root')
   ? arg('--evidence-root')
   : join(ROOT, 'evidence/ala-lv');
+const batchVersion = arg('--treatment-batch-version');
+if (batchVersion !== '1' && batchVersion !== '2') {
+  console.error('FAIL: --treatment-batch-version must be 1|2');
+  process.exit(11);
+}
 
 const receipt = await runAlaDyad({
   root: ROOT,
@@ -74,5 +84,6 @@ const receipt = await runAlaDyad({
   evidenceRoot,
   retainedCorpus: collectRetainedSeedCorpus(),
   resume: process.argv.includes('--resume'),
+  treatmentBatchVersion: batchVersion === '2' ? 2 : 1,
 });
 console.log(JSON.stringify({ state: receipt.state, reason: receipt.reason, casesValid: receipt.casesValid }));

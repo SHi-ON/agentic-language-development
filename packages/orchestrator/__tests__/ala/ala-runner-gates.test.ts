@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,6 +32,7 @@ describe('ALA runner gates (no training runs)', () => {
         index: 0,
         evidenceRoot: evidenceRoot(),
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
       }),
     ).rejects.toThrowError(/no P5 admission record/);
   });
@@ -57,6 +58,7 @@ describe('ALA runner gates (no training runs)', () => {
         index: 3,
         evidenceRoot: dir,
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
       }),
     ).rejects.toThrowError(/attempt budget \(3\) is exhausted/);
   });
@@ -76,6 +78,7 @@ describe('ALA runner gates (no training runs)', () => {
         index: 0,
         evidenceRoot: dir,
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
       }),
     ).rejects.toThrowError(/already attempted/);
   });
@@ -90,6 +93,7 @@ describe('ALA runner gates (no training runs)', () => {
         index: 9,
         evidenceRoot: evidenceRoot(),
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
         resume: true,
       }),
     ).rejects.toThrowError(/nothing to resume/);
@@ -110,9 +114,31 @@ describe('ALA runner gates (no training runs)', () => {
         index: 0,
         evidenceRoot: dir,
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
         resume: true,
       }),
     ).rejects.toThrowError(/terminal receipt/);
+  });
+
+  it('refuses new collection (version 2) before anything is written', async () => {
+    // The per-slot flow builds both branch records from one scheduled
+    // case, which the collection-entry gate rejects: version 2 must
+    // refuse outright until cross-slot scheduling lands, writing
+    // neither journal entries nor treatment-batch.json.
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 2,
+      }),
+    ).rejects.toThrowError(/cross-slot scheduling/);
+    expect(readdirSync(dir)).toEqual([]);
   });
 
   it('resume bypasses the attempted refusal but keeps downstream gates', async () => {
@@ -133,6 +159,7 @@ describe('ALA runner gates (no training runs)', () => {
         index: 0,
         evidenceRoot: dir,
         retainedCorpus: [],
+        treatmentBatchVersion: 1,
         resume: true,
       }),
     ).rejects.toThrowError(/no P5 admission record/);

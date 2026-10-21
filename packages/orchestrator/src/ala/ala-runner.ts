@@ -176,6 +176,14 @@ export async function runAlaDyad(input: {
   readonly evidenceRoot: string;
   readonly retainedCorpus: readonly string[];
   readonly resume?: boolean;
+  /**
+   * Explicit batch-version selection: no silent default on this path.
+   * Version 1 is historical replay of the retained sham audit only.
+   * Version 2 is new collection, refused outright until cross-slot
+   * scheduling lands (Phase-5 precondition): the per-slot flow builds
+   * both branch records from one scheduled case, which the gate rejects.
+   */
+  readonly treatmentBatchVersion: 1 | 2;
 }): Promise<AlaDyadReceipt> {
   const wallStart = Date.now();
   const cpuStart = process.cpuUsage();
@@ -215,6 +223,11 @@ export async function runAlaDyad(input: {
     if (admission.manifestSha256 !== manifestSha256) fail('admission record binds a different execution manifest');
   } else if (!resuming && alaDevAttemptsUsed(journal) >= 3) {
     fail('development/calibration attempt budget (3) is exhausted');
+  }
+  if (input.treatmentBatchVersion === 2) {
+    fail('new collection requires cross-slot scheduling (Phase-5 precondition): '
+      + 'the per-slot flow builds both branch records from one scheduled case, '
+      + 'which the collection-entry gate rejects; refusing before anything is written');
   }
   await appendAlaJournal(input.evidenceRoot, {
     at: new Date().toISOString(),
@@ -369,6 +382,8 @@ export async function runAlaDyad(input: {
         parentCheckpointHash,
         babyAInitialPolicyRef: 'policies/baby-a-latest.json',
         babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+        // Explicit historical replay: the retained per-slot audit shape.
+        treatmentBatchVersion: 1,
         childRunIdPrefix,
         // Engine-internal draw scope: stage is the LV01-family constant;
         // uniqueness across ALA dyads comes from the ALA slot scenario
