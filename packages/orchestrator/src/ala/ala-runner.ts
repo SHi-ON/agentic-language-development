@@ -137,6 +137,12 @@ export interface AlaJournalEntry {
   readonly index: number;
   readonly state: AlaDyadState;
   readonly reason?: string;
+  /**
+   * Historical-replay acknowledgement for version 1 attempt records:
+   * the v1 path replays the retained sham construction byte-identically,
+   * so the caller acknowledges that explicitly and the attempt keeps it.
+   */
+  readonly historicalReplayAck?: 'historical-sham-replay';
 }
 
 export async function readAlaJournal(evidenceRoot: string): Promise<AlaJournalEntry[]> {
@@ -184,6 +190,14 @@ export async function runAlaDyad(input: {
    * both branch records from one scheduled case, which the gate rejects.
    */
   readonly treatmentBatchVersion: 1 | 2;
+  /**
+   * Explicit historical-replay acknowledgement, required for version 1.
+   * Version 1 is not ordinary construction: it replays the historical
+   * sham construction byte-identically, so selecting 1 alone is refused
+   * and the caller must also pass 'historical-sham-replay', which the
+   * attempt record journals. Version 2 refuses before this is read.
+   */
+  readonly historicalReplayAcknowledgement?: 'historical-sham-replay';
 }): Promise<AlaDyadReceipt> {
   const wallStart = Date.now();
   const cpuStart = process.cpuUsage();
@@ -229,12 +243,17 @@ export async function runAlaDyad(input: {
       + 'the per-slot flow builds both branch records from one scheduled case, '
       + 'which the collection-entry gate rejects; refusing before anything is written');
   }
+  if (input.historicalReplayAcknowledgement !== 'historical-sham-replay') {
+    fail('version 1 replays the historical sham construction byte-identically: '
+      + 'pass historicalReplayAcknowledgement "historical-sham-replay" explicitly; refusing');
+  }
   await appendAlaJournal(input.evidenceRoot, {
     at: new Date().toISOString(),
     cohort: input.cohort,
     kind: input.kind,
     index: input.index,
     state: resuming ? 'resumed' : 'attempted',
+    historicalReplayAck: 'historical-sham-replay',
   });
 
   const slotLabel = pad4(input.index);
@@ -382,7 +401,8 @@ export async function runAlaDyad(input: {
         parentCheckpointHash,
         babyAInitialPolicyRef: 'policies/baby-a-latest.json',
         babyBInitialPolicyRef: 'policies/baby-b-latest.json',
-        // Explicit historical replay: the retained per-slot audit shape.
+        // Explicit historical replay, acknowledged at the runner gate
+        // above: the retained per-slot audit shape.
         treatmentBatchVersion: 1,
         childRunIdPrefix,
         // Engine-internal draw scope: stage is the LV01-family constant;

@@ -4,11 +4,14 @@
  * Usage:
  *   tsx scripts/ala-run-entry.ts --manifest <path> --cohort A|B|development|calibration
  *     --kind primary|reserve --index <n> --treatment-batch-version 1|2
- *     [--evidence-root <dir>] [--resume]
+ *     [--acknowledge-historical-replay] [--evidence-root <dir>] [--resume]
  *
  * Batch version is required with no default: 1 is historical replay of
  * the retained sham audit; 2 is new collection, refused until
- * cross-slot scheduling lands.
+ * cross-slot scheduling lands. Version 1 additionally requires
+ * --acknowledge-historical-replay (byte-identical sham replay is
+ * acknowledged, never a silent default); the flag is rejected with
+ * version 2.
  *
  * Collects the retained-identity corpus from tracked records and runs one
  * ALA dyad through the manifest-verified runner.
@@ -74,6 +77,15 @@ if (batchVersion !== '1' && batchVersion !== '2') {
   console.error('FAIL: --treatment-batch-version must be 1|2');
   process.exit(11);
 }
+const acknowledged = process.argv.includes('--acknowledge-historical-replay');
+if (batchVersion === '1' && !acknowledged) {
+  console.error('FAIL: version 1 replays the historical sham construction; pass --acknowledge-historical-replay');
+  process.exit(11);
+}
+if (batchVersion === '2' && acknowledged) {
+  console.error('FAIL: --acknowledge-historical-replay is for version 1 replay only');
+  process.exit(11);
+}
 
 const receipt = await runAlaDyad({
   root: ROOT,
@@ -85,5 +97,6 @@ const receipt = await runAlaDyad({
   retainedCorpus: collectRetainedSeedCorpus(),
   resume: process.argv.includes('--resume'),
   treatmentBatchVersion: batchVersion === '2' ? 2 : 1,
+  historicalReplayAcknowledgement: acknowledged ? 'historical-sham-replay' : undefined,
 });
 console.log(JSON.stringify({ state: receipt.state, reason: receipt.reason, casesValid: receipt.casesValid }));

@@ -237,6 +237,26 @@ describe('LV01 collector pure planning', () => {
     expect(validBatch?.version).toBe(2);
     expect(plan.branches).toHaveLength(7);
     expect(batch.cases).toHaveLength(4);
+    // Every planned v2 ledger slice's donor and delivered token equals
+    // the corresponding gate-validated v2 case, field by field: the
+    // parallel v1 plan batch cannot drift from the validated batch.
+    for (const branch of ['ledger-consistent', 'ledger-shuffled'] as const) {
+      const caseId = `lv01-collector-cross-a-${branch}:turn:0`;
+      const slice = plan.branches.find((entry) => entry.branch === branch)?.config.lv01PairedCase?.ledgerTreatment;
+      const validated = validBatch?.cases.find((entry) => entry.caseId === caseId);
+      expect(slice).toBeDefined();
+      expect(validated).toBeDefined();
+      expect(slice?.selectedToken).toBe(validated?.selectedToken);
+      if (branch === 'ledger-consistent') {
+        expect(slice?.deliveredToken).toBe(validated?.selectedToken);
+        expect(slice?.sourceCaseId).toBe(caseId);
+      } else {
+        expect(slice?.deliveredToken).toBe(validated?.shuffledDeliveredToken);
+        expect(slice?.sourceCaseId).toBe(validated?.shuffledSourceCaseId);
+      }
+      const donor = validBatch?.cases.find((entry) => entry.caseId === slice?.sourceCaseId);
+      expect(donor?.selectedToken).toBe(slice?.deliveredToken);
+    }
     const replay = prepareLv01PairedCase({
       ...base,
       childRunIdPrefix: 'lv01-collector-sham',

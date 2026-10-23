@@ -361,6 +361,29 @@ export function prepareLv01PairedCase(input: Lv01PairedCaseInputs): {
     symbolInventory: [...input.symbolInventory],
     derangementSeed: input.derangementSeed,
   });
+  if (validBatch !== undefined) {
+    // Planned v2 slices come from the parallel v1 plan batch above, so
+    // every planned slice's donor and delivered token must equal the
+    // corresponding gate-validated v2 case field-by-field; any drift
+    // between the two constructions fails closed here, before planning.
+    const planCases = new Map(batch.cases.map((entry) => [entry.caseId, entry]));
+    for (const validated of validBatch.cases) {
+      const planned = planCases.get(validated.caseId);
+      if (planned === undefined) fail(`v2 plan batch lost validated case ${validated.caseId}`);
+      const fields = [
+        'receiverRole', 'targetTypeCode', 'selectedToken',
+        'shuffledSourceCaseId', 'shuffledDeliveredToken',
+      ] as const;
+      for (const field of fields) {
+        if (planned[field] !== validated[field]) {
+          fail(`v2 plan batch ${field} for ${validated.caseId} diverges from the validated batch`);
+        }
+      }
+      if (JSON.stringify([...planned.candidateTypeCodes]) !== JSON.stringify([...validated.candidateTypeCodes])) {
+        fail(`v2 plan batch candidates for ${validated.caseId} diverge from the validated batch`);
+      }
+    }
+  }
   const sliceFor = (branch: 'ledger-consistent' | 'ledger-shuffled') => {
     const found = batch.cases.find((entry) => entry.caseId === `${input.childRunIdPrefix}-${branch}:turn:0`);
     if (found === undefined) fail(`treatment batch has no case for ${branch}`);

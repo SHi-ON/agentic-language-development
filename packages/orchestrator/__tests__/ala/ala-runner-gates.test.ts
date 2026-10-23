@@ -1,4 +1,4 @@
-import { mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { alaDevAttemptsUsed, runAlaDyad } from '../../src/ala/ala-runner.js';
+import { alaDyadSeeds } from '../../src/ala/ala-seeds.js';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
 const temporary: string[] = [];
@@ -33,6 +34,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: evidenceRoot(),
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
       }),
     ).rejects.toThrowError(/no P5 admission record/);
   });
@@ -59,6 +61,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: dir,
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
       }),
     ).rejects.toThrowError(/attempt budget \(3\) is exhausted/);
   });
@@ -79,6 +82,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: dir,
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
       }),
     ).rejects.toThrowError(/already attempted/);
   });
@@ -94,6 +98,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: evidenceRoot(),
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
         resume: true,
       }),
     ).rejects.toThrowError(/nothing to resume/);
@@ -115,6 +120,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: dir,
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
         resume: true,
       }),
     ).rejects.toThrowError(/terminal receipt/);
@@ -141,6 +147,56 @@ describe('ALA runner gates (no training runs)', () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
+  it('refuses fresh version 1 without the historical-replay acknowledgement', async () => {
+    // Version selection alone is not consent to replay the sham
+    // construction: v1 without the explicit acknowledgement refuses
+    // before anything is written.
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 1,
+      }),
+    ).rejects.toThrowError(/historicalReplayAcknowledgement/);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('journals the historical-replay acknowledgement in the attempt record', async () => {
+    // Acknowledge v1, then stop at the retained-identity audit (before
+    // training) so the test stays cheap: the attempted entry must carry
+    // the acknowledgement for the audit trail.
+    const dir = evidenceRoot();
+    const colliding = Object.values(alaDyadSeeds('development', 'primary', '0000'));
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: colliding,
+        treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
+      }),
+    ).rejects.toThrowError(/collides with a retained identity/);
+    const lines = readFileSync(join(dir, 'journal.jsonl'), 'utf8').trim().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0] as string)).toMatchObject({
+      cohort: 'development',
+      kind: 'primary',
+      index: 0,
+      state: 'attempted',
+      historicalReplayAck: 'historical-sham-replay',
+    });
+  });
+
   it('resume bypasses the attempted refusal but keeps downstream gates', async () => {
     // Cohort A with a crashed (attempted, never terminal) slot: resume must
     // pass the attempted gate and then fail at P5 admission — proving the
@@ -160,6 +216,7 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: dir,
         retainedCorpus: [],
         treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
         resume: true,
       }),
     ).rejects.toThrowError(/no P5 admission record/);
