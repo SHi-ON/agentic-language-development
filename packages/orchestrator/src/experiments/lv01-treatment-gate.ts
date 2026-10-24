@@ -1,6 +1,17 @@
 /** Collection-entry gate for ledger-treatment batches (promoted from the
  * offline test helper `__tests__/ala/helpers/treatment-diagnostic.ts`).
  *
+ * Layered contract (DC-01): this predicate validates
+ * identity/donor/delivery construction only, over schedule-validated
+ * inputs. It assumes the target and candidate list come from a
+ * validated schedule (`lv01-schedule.ts` requires four
+ * receiver-order candidates, target inclusion, and eligible type
+ * codes); it does NOT check referential-game domain membership. A
+ * batch that violates the target/candidate domain yet passes here is
+ * out of scope, not a gate bug. "Valid" below and in
+ * {@link assertValidLedgerBatch} means construction-valid, never
+ * full study-domain validity.
+ *
  * `diagnoseLedgerBatch` is byte-for-byte the helper logic: scheduled
  * identity is an explicit recorded input, never inferred from branch
  * names; selections are trusted records, never re-derived from policy
