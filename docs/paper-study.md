@@ -61,7 +61,7 @@ older optimistic description in this guide.**
 - `packages/learners/src/{recurrent-model,recurrent-scratch-policy,ledger-value-prediction,game}.ts`
 - `packages/analysis/src/ledger-value.ts` (predictor/scoring primitives;
   `analyzeLv01Family` must not classify ALA cohorts)
-- `packages/orchestrator/src/experiments/lv01-{collector,auditor,paired-predictions,ordinary-wiring,ordinary-loader,audit-loader,action-draw,ledger-treatments,schedule,snapshots,order-check}.ts`
+- `packages/orchestrator/src/experiments/lv01-{collector,auditor,paired-predictions,ordinary-wiring,ordinary-loader,audit-loader,action-draw,ledger-treatments,treatment-gate,schedule,snapshots,order-check}.ts`
 - Integrity spine: `packages/{hashing,merkle,evidence,verifier,checkpoint,types,config,scenario,lifecycle}` + `tools/integrity-auditor`
 
 Populated files and `passed:true` fields are not proof of integrated

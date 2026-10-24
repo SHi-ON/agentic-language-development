@@ -120,6 +120,19 @@ Original calibration is partial machinery with invalid control
 construction; its compute/storage measurements describe that
 historical workload, not a complete valid study.
 
+## D7-supplement. Promoted treatment gate + acknowledged v1 replay (2026-10-23)
+
+Superseding note; D7's historical text above stands and describes the
+executed construction. Since D7, the treatment diagnostic was promoted
+to a fail-closed collection-entry gate on the direct v2 construction
+path (`packages/orchestrator/src/experiments/lv01-treatment-gate.ts`,
+enforced inside the repaired batch constructor before any plan exists
+or anything is persisted). The live runner refuses new v2 collection
+outright until cross-slot scheduling exists, and historical v1 replay
+requires an explicit historical-replay acknowledgement that the attempt
+record journals; fresh v1 without it refuses. None of this re-runs the
+original calibration or changes what D7 records about it.
+
 ## D8. Census follow-ups + audit-text corrections (round 2, 2026-10-10)
 
 Seed census (`worksheets/ala-seed-census.py`;

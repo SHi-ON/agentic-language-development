@@ -1,6 +1,6 @@
 # Agentic Language Development — ALA Workshop Paper Source
 
-**Engineering snapshot:** v0.1.539 · P0 backlog re-audit 258/261 (historical).
+**Engineering snapshot:** version in `package.json` · P0 backlog re-audit 258/261 (historical).
 
 **Status: FEASIBILITY-ONLY. The original ALA-LV cohort study is NO-GO
 (P5 admission refused on measured cost); no study estimates exist. The
@@ -47,7 +47,7 @@ acquisition, or human-language claim.
 
 ```sh
 pnpm install
-pnpm run check            # lint + secrets + deps + build + paper tests (24 files / 178 tests)
+pnpm run check            # lint + secrets + deps + build + paper tests (test:paper lane)
 pnpm run paper:validate   # secrets + frozen claim boundary + protocol binding
 ```
 
