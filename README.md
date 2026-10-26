@@ -83,5 +83,7 @@ diagnosis; the gate is `pnpm run test:paper`.
 ## Reproduction without this checkout
 
 Reviewers reproduce the paper's numbers from the sealed compact export in
-the paper repo (`make reproduce`) without rerunning training. Optional
-fresh training uses the public source archive at its frozen commit.
+the paper repo (`make reproduce`) without rerunning training. The
+public source archive at its frozen commits is available for
+inspection only: fresh ALA-LV study training is unavailable and
+unauthorized under the P5 NO-GO and the spent development allowance.

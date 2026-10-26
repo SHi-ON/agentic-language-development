@@ -12,8 +12,10 @@ repository (sibling `agentic-language-development-paper`):
 make reproduce
 ```
 
-Inputs: `results/summary.json` (sealed export), `results/manifest.json`
-(provenance), `results/per-dyad.tsv` (sufficient analysis inputs), pinned
+Inputs: `results/summary.json` (sealed export), the provenance chain
+`results/manifest.json` through `results/manifest.v4.json` (the v4
+per-source table is authoritative), `results/per-dyad.tsv` (sufficient
+analysis inputs), pinned
 `pyproject.toml` + `uv.lock` (self-contained uv environment). No private token,
 sibling repo, network fetch, or host path is required.
 
