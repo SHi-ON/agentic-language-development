@@ -1,16 +1,15 @@
 /** Collection-entry gate for ledger-treatment batches (promoted from the
  * offline test helper `__tests__/ala/helpers/treatment-diagnostic.ts`).
  *
- * Layered contract (DC-01): this predicate validates
- * identity/donor/delivery construction only, over schedule-validated
- * inputs. It assumes the target and candidate list come from a
- * validated schedule (`lv01-schedule.ts` requires four
- * receiver-order candidates, target inclusion, and eligible type
- * codes); it does NOT check referential-game domain membership. A
- * batch that violates the target/candidate domain yet passes here is
- * out of scope, not a gate bug. "Valid" below and in
- * {@link assertValidLedgerBatch} means construction-valid, never
- * full study-domain validity.
+ * Hardened contract: this predicate validates recorded-field shape,
+ * scheduled-case domain, identity, donor assignment, and delivery.
+ * For each case it requires an eligible target, exactly four
+ * distinct eligible candidate codes, and target inclusion. It still
+ * trusts recorded scheduled IDs and selections; it does not
+ * re-derive selections or prove runtime injection. Therefore
+ * "valid" below and in {@link assertValidLedgerBatch} means
+ * domain-valid + construction-valid over recorded fields, not
+ * behavioral, causal-listening, or full study validity.
  *
  * `diagnoseLedgerBatch` is byte-for-byte the helper logic: scheduled
  * identity is an explicit recorded input, never inferred from branch
@@ -40,6 +39,8 @@ export interface AlaTreatmentVerdict {
   readonly repeatedContent: number;
 }
 
+const ELIGIBLE_TYPE_CODES = new Set([1, 2, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14]);
+
 export function diagnoseLedgerBatch(cases: readonly AlaTreatmentDiagnosticCase[]): AlaTreatmentVerdict {
   const reasons: string[] = [];
   let genuineCollisions = 0;
@@ -60,6 +61,27 @@ export function diagnoseLedgerBatch(cases: readonly AlaTreatmentDiagnosticCase[]
       || !Number.isInteger(c.target) || !Array.isArray(c.candidates)
       || c.candidates.length === 0 || !c.candidates.every(Number.isInteger)) {
       reasons.push('case has malformed recorded fields');
+      continue;
+    }
+    if (!ELIGIBLE_TYPE_CODES.has(c.target)) {
+      reasons.push(`${c.caseId}: target ${c.target} is not an eligible type code`);
+      continue;
+    }
+    if (c.candidates.length !== 4) {
+      reasons.push(`${c.caseId}: candidates must contain exactly four type codes`);
+      continue;
+    }
+    const invalid = c.candidates.find((code) => !ELIGIBLE_TYPE_CODES.has(code));
+    if (invalid !== undefined) {
+      reasons.push(`${c.caseId}: candidate ${invalid} is not an eligible type code`);
+      continue;
+    }
+    if (new Set(c.candidates).size !== c.candidates.length) {
+      reasons.push(`${c.caseId}: candidates must be distinct`);
+      continue;
+    }
+    if (!c.candidates.includes(c.target)) {
+      reasons.push(`${c.caseId}: target ${c.target} is not among candidates`);
       continue;
     }
     if (recordIds.has(c.caseId)) reasons.push(`${c.caseId}: duplicate branch record id`);

@@ -100,7 +100,11 @@ describe('N1.3 ledger treatment validity', () => {
     expect(verdict.reasons.join('\n')).toMatch(/sham shuffle/);
   });
 
-  it('passes two distinct scheduled examples per role with distinct selections', () => {
+  it('rejects the previously accepted out-of-domain positive (type 5) under the hardened gate', () => {
+    // Hardened contract: the earlier positive used type 5, outside the
+    // eligibleTypeCodes [1,2,3,4,6,7,8,9,11,12,13,14]. Construction still
+    // runs, but the gate now refuses the batch with a domain reason.
+    // The in-domain accept case lives in the next test.
     const mk = (id: string, target: number, cands: number[]) => ({
       caseId: id,
       receiverRole: 'baby-b' as const,
@@ -117,13 +121,10 @@ describe('N1.3 ledger treatment validity', () => {
     expect(first.selectedToken).toBe('T05');
     expect(second.selectedToken).toBe('T17');
     const verdict = checkLedgerBatchValidity(batch.cases);
-    expect(verdict.reasons).toEqual([]);
-    expect(verdict.ok).toBe(true);
-    // Donor permutation, role match, exclusion hold on distinct examples.
-    for (const c of batch.cases) {
-      expect(c.shuffledSourceCaseId).not.toBe(c.caseId);
-      expect(c.shuffledDeliveredToken).not.toBe(c.selectedToken);
-    }
+    expect(verdict.ok).toBe(false);
+    expect(verdict.genuineCollisions).toBe(0);
+    expect(verdict.repeatedContent).toBe(0);
+    expect(verdict.reasons.join('\n')).toContain('ex2: target 5 is not an eligible type code');
   });
 
   it('passes in-domain distinct examples (eligible off-diagonal types only)', () => {
@@ -149,6 +150,33 @@ describe('N1.3 ledger treatment validity', () => {
     expect(verdict.reasons).toEqual([]);
     expect(verdict.ok).toBe(true);
     expect(verdict.genuineCollisions).toBe(0);
+  });
+
+  it('rejects domain-invalid cases with exact reasons while the valid baseline accepts', () => {
+    const baseline: AlaTreatmentDiagnosticCase[] = [
+      { caseId: 'd-a', scheduledCaseId: 'sched-a', receiverRole: 'baby-b', target: 1, candidates: [1, 2, 3, 4], selection: 'T05', shuffledSource: 'd-b', shuffledDelivered: 'T21' },
+      { caseId: 'd-b', scheduledCaseId: 'sched-b', receiverRole: 'baby-b', target: 6, candidates: [6, 7, 8, 9], selection: 'T21', shuffledSource: 'd-a', shuffledDelivered: 'T05' },
+    ];
+    const accepted = diagnoseLedgerBatch(baseline);
+    expect(accepted.ok).toBe(true);
+    expect(accepted.genuineCollisions).toBe(0);
+    expect(accepted.repeatedContent).toBe(0);
+    const subcases: Array<{ target: number; candidates: number[]; fragment: string }> = [
+      { target: 1, candidates: [2, 3, 4, 6], fragment: 'd-a: target 1 is not among candidates' },
+      { target: 5, candidates: [5, 6, 7, 8], fragment: 'd-a: target 5 is not an eligible type code' },
+      { target: 1, candidates: [1, 2, 3, 5], fragment: 'd-a: candidate 5 is not an eligible type code' },
+      { target: 1, candidates: [1, 1, 2, 3], fragment: 'd-a: candidates must be distinct' },
+      { target: 1, candidates: [1, 2, 3], fragment: 'd-a: candidates must contain exactly four type codes' },
+      { target: 1, candidates: [1, 2, 3, 4, 6], fragment: 'd-a: candidates must contain exactly four type codes' },
+    ];
+    for (const sub of subcases) {
+      const batch = [{ ...baseline[0], target: sub.target, candidates: sub.candidates }, baseline[1]];
+      const verdict = diagnoseLedgerBatch(batch);
+      expect(verdict.ok).toBe(false);
+      expect(verdict.genuineCollisions).toBe(0);
+      expect(verdict.repeatedContent).toBe(0);
+      expect(verdict.reasons.join('\n')).toContain(sub.fragment);
+    }
   });
 
   it('allows and counts genuine token collisions', () => {
