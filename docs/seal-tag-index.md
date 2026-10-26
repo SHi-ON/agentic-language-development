@@ -8,7 +8,7 @@ names stay and are recorded here instead of rewritten.
 
 | Tag | Peeled commit | Role |
 | --- | --- | --- |
-| `pin/f17ea7752` | `f17ea77523ac429b72c44f2536b9486f0fbca82a` | Canonical seal tag (paper seal) |
+| `pin/f157a856a` | `f157a856a4e3855dac54c151d911a0f21528f7c9` | Canonical seal tag (paper seal) |
 
 ## Earlier canonical/alias history
 
@@ -16,6 +16,7 @@ Superseded by the current seal tag above; tags and bytes untouched.
 
 | Tag | Peeled commit | Role |
 | --- | --- | --- |
+| `pin/f17ea7752` | `f17ea77523ac429b72c44f2536b9486f0fbca82a` | Earlier canonical seal tag |
 | `pin/1137e1a9` | `1137e1a879bf0b4f8c78ae563684315ebfbb79c5` | Earlier canonical seal tag |
 | `pin/1df2177` | `1137e1a879bf0b4f8c78ae563684315ebfbb79c5` | Alias: same peeled commit, wrong name |
 | `pin/f0b6e9f` | `ad2c528fb056046cc7cfc39deefb8be24119f87c` | Prior seal-candidate tag |
