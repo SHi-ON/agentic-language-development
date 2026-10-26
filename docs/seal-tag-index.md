@@ -10,6 +10,14 @@ names stay and are recorded here instead of rewritten.
 | --- | --- | --- |
 | `pin/f157a856a` | `f157a856a4e3855dac54c151d911a0f21528f7c9` | Canonical seal tag (paper seal) |
 
+Branch consolidation (2026-10-26): `ala-workshop` and
+`feat/verifiable-core` were merged into `main` (`0bdc375` records the
+superseded Sep main line as second parent; tree unchanged) and both
+branches were then deleted locally and on `origin`. The sealed
+commits below are ancestors of `main`; the `pin/*` tags remain the
+canonical seal pointers. Historical text elsewhere that names
+`ala-workshop` records where the seal was made and is left as-is.
+
 ## Earlier canonical/alias history
 
 Superseded by the current seal tag above; tags and bytes untouched.
