@@ -71,7 +71,7 @@ export function diagnoseLedgerBatch(cases: readonly AlaTreatmentDiagnosticCase[]
       reasons.push(`${c.caseId}: candidates must contain exactly four type codes`);
       continue;
     }
-    const invalid = c.candidates.find((code) => !ELIGIBLE_TYPE_CODES.has(code));
+    const invalid = c.candidates.find((code: number) => !ELIGIBLE_TYPE_CODES.has(code));
     if (invalid !== undefined) {
       reasons.push(`${c.caseId}: candidate ${invalid} is not an eligible type code`);
       continue;
