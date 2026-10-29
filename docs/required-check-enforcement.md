@@ -12,10 +12,14 @@ job IDs in every step.
 
 ## Current state
 
-- Workflow `.github/workflows/book-integrity.yml` triggers on every
-  `pull_request` plus `push` to `main`, with jobs `paper-check`
+- Workflow `.github/workflows/paper-checks.yml` triggers on
+  `pull_request` plus `push` to `main`, path-filtered to the paper
+  surface (packages, paper scripts, ALA protocols, worksheets,
+  package.json, pnpm lockfile), with jobs `paper-check`
   (`pnpm run check`: lint, secrets, dependency audit, build, focused
-  paper tests) and `paper-validate` (`pnpm run paper:validate`).
+  paper tests, plus the conformance-matrix check),
+  `paper-validate` (`pnpm run paper:validate`), `worksheet-tests`,
+  and schedule-only `full-suite-weekly`.
 - Fresh read-only evidence:
   `reports/research/upstream-enforcement-observation-2026-10-04.json`
   (upstream `main`: `protected=false`, zero rulesets; fork `main` likewise;

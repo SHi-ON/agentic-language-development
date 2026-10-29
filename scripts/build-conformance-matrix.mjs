@@ -98,7 +98,7 @@ function testSelectors(text) {
 
 function commandFor(path) {
   const commands = {
-    '.github/workflows/book-integrity.yml': 'hosted consolidated-suite or mode-r job',
+    '.github/workflows/paper-checks.yml': 'hosted paper-checks workflow (paper gate, validate, worksheets)',
     'scripts/check-api-docs.mjs': 'pnpm run lint:api-docs',
     'scripts/check-project-status.mjs': 'pnpm run lint:project-status',
     'scripts/check-readiness-gates.mjs': 'pnpm run lint:readiness',

@@ -5,7 +5,7 @@
   "researchFinding": false,
   "candidate": {
     "baselineCommit": "559436fee0d7a95ea38fd92fbcbcccf762d10f92",
-    "version": "0.1.547"
+    "version": "0.1.548"
   },
   "sourcePolicy": {
     "checkedBacklogCriteria": "Every checked criterion must have one or more concrete executable assertion paths.",
@@ -13,9 +13,9 @@
     "limitation": "File and selector mappings are not execution results; V04–V11 receipts determine behavioral disposition."
   },
   "assertionCatalog": {
-    ".github/workflows/book-integrity.yml": {
+    ".github/workflows/paper-checks.yml": {
       "selectors": [
-        "hosted consolidated-suite or mode-r job"
+        "hosted paper-checks workflow (paper gate, validate, worksheets)"
       ],
       "requiredReceipt": "hosted workflow receipt for the exact commit"
     },
@@ -4271,7 +4271,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "external-blocked",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4282,7 +4282,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4293,7 +4293,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4373,7 +4373,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4384,7 +4384,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4395,7 +4395,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4609,7 +4609,7 @@
       ],
       "disposition": "not-applicable-definition",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4623,7 +4623,7 @@
       ],
       "disposition": "not-applicable-definition",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -4637,7 +4637,7 @@
       ],
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml"
+        ".github/workflows/paper-checks.yml"
       ]
     },
     {
@@ -7111,7 +7111,7 @@
       ],
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/book-integrity.yml",
+        ".github/workflows/paper-checks.yml",
         "packages/gateway/__tests__/affect-conformance.test.ts",
         "packages/gateway/__tests__/carrier-registry.test.ts",
         "packages/gateway/__tests__/carriers.test.ts",
