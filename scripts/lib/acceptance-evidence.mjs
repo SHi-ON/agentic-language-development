@@ -22,10 +22,10 @@ export const explicitCoverage = Object.freeze({
   'ALD-073': ['scripts/check-readiness-gates.mjs'],
   'ALD-074': ['scripts/check-readiness-gates.mjs'],
   'ALD-076': ['scripts/check-readiness-gates.mjs'],
-  'ALD-078': ['.github/workflows/paper-checks.yml'],
+  'ALD-078': ['package.json'],
   'ALD-079': ['scripts/check-api-docs.mjs', 'scripts/run-mode-r-smoke.mjs'],
   'ALD-080': ['scripts/check-readiness-gates.mjs'],
-  'ALD-081': ['.github/workflows/paper-checks.yml'],
+  'ALD-081': ['package.json'],
   'ALD-082': ['packages/analysis/__tests__/e03-design.test.ts'],
   'ALD-083': ['packages/analysis/__tests__/e03-registration.test.ts'],
   'ALD-084': ['packages/ops/__tests__/research-preflight.test.ts'],
@@ -75,7 +75,7 @@ export async function buildEvidenceIndex() {
     ...await walkIfPresent('packages'),
     ...await walkIfPresent('twins'),
     ...await walkIfPresent('scripts'),
-    '.github/workflows/paper-checks.yml',
+    'package.json',
   ].filter((path) => !excludedScripts.has(path));
   const text = new Map(
     await Promise.all(paths.map(async (path) => [path, await readFile(path, 'utf8')])),

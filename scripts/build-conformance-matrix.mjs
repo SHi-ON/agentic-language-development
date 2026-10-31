@@ -98,7 +98,7 @@ function testSelectors(text) {
 
 function commandFor(path) {
   const commands = {
-    '.github/workflows/paper-checks.yml': 'hosted paper-checks workflow (paper gate, validate, worksheets)',
+    'package.json': 'pnpm run check (local gate: lint, secrets, audit, build, paper tests)',
     'scripts/check-api-docs.mjs': 'pnpm run lint:api-docs',
     'scripts/check-project-status.mjs': 'pnpm run lint:project-status',
     'scripts/check-readiness-gates.mjs': 'pnpm run lint:readiness',

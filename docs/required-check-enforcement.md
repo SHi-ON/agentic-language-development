@@ -1,5 +1,10 @@
 # Required-check enforcement runbook (ALD-078)
 
+> 2026-10-31: retired. CI workflows were removed from this fork; all
+> gates run locally (`pnpm run check`, `pnpm run paper:validate`) and
+> nothing runs on GitHub Actions. The runbook below is preserved as
+> history.
+
 Goal: every proposed change runs CI, and merge to `main` is blocked while any
 suite fails. The workflow half is done in-repo; the blocking half is a
 server-side setting that only a repository administrator can enable. This

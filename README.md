@@ -51,6 +51,9 @@ pnpm run check            # lint + secrets + deps + build + paper tests (test:pa
 pnpm run paper:validate   # secrets + frozen claim boundary + protocol binding
 ```
 
+All gates run locally; CI was removed from this fork on 2026-10-31
+(no workflows remain under `.github/`).
+
 Study collection is disabled: `paper:run --manifest <path>
 --cohort <name> --index <n>` refuses cohorts A/B without a P5 admission
 record (none exists; NO-GO recorded), and the 3-slot development budget

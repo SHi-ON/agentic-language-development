@@ -13,11 +13,11 @@
     "limitation": "File and selector mappings are not execution results; V04–V11 receipts determine behavioral disposition."
   },
   "assertionCatalog": {
-    ".github/workflows/paper-checks.yml": {
+    "package.json": {
       "selectors": [
-        "hosted paper-checks workflow (paper gate, validate, worksheets)"
+        "pnpm run check (local gate: lint, secrets, audit, build, paper tests)"
       ],
-      "requiredReceipt": "hosted workflow receipt for the exact commit"
+      "requiredReceipt": "pnpm run check (local gate: lint, secrets, audit, build, paper tests)"
     },
     "packages/analysis/__tests__/affect-leakage.test.ts": {
       "selectors": [
@@ -4271,7 +4271,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "external-blocked",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4282,7 +4282,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4293,7 +4293,7 @@
       "itemTitle": "CI pipeline and consolidated test suite",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4373,7 +4373,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4384,7 +4384,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4395,7 +4395,7 @@
       "itemTitle": "Dependency-integrity enforcement",
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4609,7 +4609,7 @@
       ],
       "disposition": "not-applicable-definition",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4623,7 +4623,7 @@
       ],
       "disposition": "not-applicable-definition",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -4637,7 +4637,7 @@
       ],
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml"
+        "package.json"
       ]
     },
     {
@@ -7111,7 +7111,7 @@
       ],
       "disposition": "provisional-mapped",
       "assertionPaths": [
-        ".github/workflows/paper-checks.yml",
+        "package.json",
         "packages/gateway/__tests__/affect-conformance.test.ts",
         "packages/gateway/__tests__/carrier-registry.test.ts",
         "packages/gateway/__tests__/carriers.test.ts",

@@ -52,3 +52,8 @@ runbook requires.
 paper:validate`). The `consolidated-suite` / `mode-r` job IDs above are
 history. No hosted run of the new jobs exists yet; the runbook's admin
 sequence applies to the new job names when a hosted run registers them.
+
+2026-10-31 zero-CI closure: fork workflows removed
+(`paper-checks.yml` deleted; nothing remains under `.github/`). All
+gates run locally only; no hosted runs will register new check names.
+Past runs above stay as sealed history.
