@@ -504,4 +504,41 @@ describe('explicit diagnostic identities and malformed batches', () => {
     expect(verdict.ok).toBe(false);
     expect(verdict.genuineCollisions).toBe(0);
   });
+  it('covers singleton, cycle, mixed-role, permuted, and malformed-scalar shapes', () => {
+    const solo: AlaTreatmentDiagnosticCase = { caseId: 'solo', scheduledCaseId: 'schedule-solo',
+      receiverRole: 'baby-b', target: 1, candidates: [1, 2, 3, 4], selection: 'T05',
+      shuffledSource: 'solo', shuffledDelivered: 'T05' };
+    const singleton = diagnoseLedgerBatch([solo]);
+    expect(singleton.ok).toBe(false);
+    expect(singleton.reasons.join(' ')).toMatch(/one distinct scheduled case/);
+    const third: AlaTreatmentDiagnosticCase = { caseId: 'branch-c', scheduledCaseId: 'schedule-c',
+      receiverRole: 'baby-b', target: 11, candidates: [11, 12, 13, 14], selection: 'T09',
+      shuffledSource: 'branch-a', shuffledDelivered: 'T05' };
+    const cycle = diagnoseLedgerBatch([
+      explicitCases[0],
+      { ...explicitCases[1], shuffledSource: 'branch-c', shuffledDelivered: 'T09' },
+      third,
+    ]);
+    expect(cycle).toMatchObject({ ok: true, genuineCollisions: 0, repeatedContent: 0 });
+    const mixed = diagnoseLedgerBatch([...explicitCases,
+      { caseId: 'branch-d', scheduledCaseId: 'schedule-d', receiverRole: 'baby-a' as const, target: 2,
+        candidates: [2, 3, 4, 6], selection: 'T11', shuffledSource: 'branch-e', shuffledDelivered: 'T13' },
+      { caseId: 'branch-e', scheduledCaseId: 'schedule-e', receiverRole: 'baby-a' as const, target: 7,
+        candidates: [7, 8, 9, 11], selection: 'T13', shuffledSource: 'branch-d', shuffledDelivered: 'T11' },
+    ]);
+    expect(mixed.ok).toBe(true);
+    const repeatedBase = explicitCases.map((c) => ({ ...c, target: 1, candidates: [1, 2, 3, 4],
+      selection: 'T05', shuffledDelivered: 'T05' }));
+    expect(diagnoseLedgerBatch(repeatedBase).repeatedContent).toBe(2);
+    const permuted = [repeatedBase[0], { ...repeatedBase[1], candidates: [4, 3, 2, 1] }];
+    expect(diagnoseLedgerBatch(permuted)).toMatchObject({ ok: true, genuineCollisions: 2, repeatedContent: 0 });
+    for (const bad of [true, '1', 1.5]) {
+      const batch = [{ ...explicitCases[0], target: bad }, explicitCases[1]] as unknown as readonly AlaTreatmentDiagnosticCase[];
+      const verdict = diagnoseLedgerBatch(batch);
+      expect(verdict.ok).toBe(false);
+      expect(verdict.reasons.join(' ')).toMatch(/malformed/);
+    }
+    const floatDuplicate = [{ ...explicitCases[0], candidates: [1, 1, 2, 3] }, explicitCases[1]];
+    expect(diagnoseLedgerBatch(floatDuplicate).reasons.join(' ')).toMatch(/candidates must be distinct/);
+  });
 });
