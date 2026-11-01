@@ -41,15 +41,20 @@ def training_tokens(dyad: str):
         for line in (parent / f"{baby}-ledger.jsonl").read_text().splitlines():
             e = json.loads(line)
             if e.get("eventType") == "intention.recorded" and isinstance(e.get("turn"), int):
+                key = (baby, e["turn"])
+                if key in symbols:
+                    raise SystemExit(f"FAIL: duplicate training intention for {key}")
                 syms = ((e.get("content") or {}).get("symbols") or [None])
-                symbols[e["turn"]] = syms[0]
-    skipped = sorted(n for n in scen if symbols.get(n) is None)
+                symbols[key] = syms[0]
+    def joined(n: int):
+        return symbols.get((sender.get(n), n))
+    skipped = sorted(n for n in scen if joined(n) is None)
     if skipped:
         # Fail closed: silently dropping running turns would bias every
         # training rate below. Current data joins 3000/3000 on both dyads.
         raise SystemExit(f"FAIL: {len(skipped)} running turns lack recorded symbols: {skipped[:5]}")
     rows = [
-        {"turn": n, "token": symbols.get(n), "scenario": scen.get(n), "sender": sender.get(n)}
+        {"turn": n, "token": joined(n), "scenario": scen.get(n), "sender": sender.get(n)}
         for n in sorted(scen)
     ]
     return rows
@@ -105,12 +110,16 @@ def census_test() -> dict:
             # branch is everything after the slot label (ledger branches
             # contain a hyphen, so rsplit would truncate them).
             branch = bdir.name.split(f"-s{slot.name.split('-')[1]}-", 1)[-1]
-            found = None
+            matches = []
             for line in (bdir / f"{baby}-ledger.jsonl").read_text().splitlines():
                 e = json.loads(line)
                 if e.get("eventType") == "intention.recorded" and e.get("turn") == 0:
-                    found = ((e.get("content") or {}).get("symbols") or [None])[0]
-            if found is None and branch != "disabled":
+                    matches.append(((e.get("content") or {}).get("symbols") or [None])[0])
+            found = matches[0] if len(matches) == 1 else None
+            if len(matches) > 1:
+                missing_intention.append(
+                    f"{slot.name}/{branch} (turn-0 multiplicity {len(matches)})")
+            elif found is None and branch != "disabled":
                 missing_intention.append(f"{slot.name}/{branch}")
             toks[branch] = found
             per_treatment.setdefault(branch, Counter())[found if found else "NULL"] += 1

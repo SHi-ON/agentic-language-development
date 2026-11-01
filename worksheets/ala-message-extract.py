@@ -30,6 +30,48 @@ DYAD = ROOT / "evidence/ala-lv/calibration/primary-0002"
 OUT = ROOT / "reports/research/ala-message-extract.v1.json"
 
 
+def turn0_symbol(lines: list[str]):
+    """The branch's sole turn-0 intention token (None if none recorded).
+
+    Fails closed on multiplicity > 1: a last-match projection would
+    silently keep one of several distinct intentions. The retained
+    corpus records exactly one per branch (intention census).
+    """
+    found = []
+    for line in lines:
+        e = json.loads(line)
+        if e.get("eventType") == "intention.recorded" and e.get("turn") == 0:
+            found.append(((e.get("content") or {}).get("symbols") or [None])[0])
+    if len(found) > 1:
+        raise SystemExit(f"FAIL: {len(found)} turn-0 intentions in one branch ledger")
+    return found[0] if found else None
+
+
+def label_cases(cases: list[dict]) -> tuple[dict, dict]:
+    """(consistent, shuffled) identified by caseId branch, never by order."""
+    consistent = [c for c in cases if "-ledger-consistent:" in c["caseId"]]
+    shuffled = [c for c in cases if "-ledger-shuffled:" in c["caseId"]]
+    if len(consistent) != 1 or len(shuffled) != 1 or len(cases) != 2:
+        raise SystemExit(
+            f"FAIL: expected one ledger-consistent and one ledger-shuffled "
+            f"case, got {[c.get('caseId') for c in cases]}")
+    return consistent[0], shuffled[0]
+
+
+def training_symbols(parent: Path) -> dict:
+    """(baby, turn) -> first intention symbol; duplicate key fails closed."""
+    symbols = {}
+    for baby in ("baby-a", "baby-b"):
+        for line in (parent / f"{baby}-ledger.jsonl").read_text().splitlines():
+            e = json.loads(line)
+            if e.get("eventType") == "intention.recorded" and isinstance(e.get("turn"), int):
+                key = (baby, e["turn"])
+                if key in symbols:
+                    raise SystemExit(f"FAIL: duplicate training intention for {key}")
+                symbols[key] = ((e.get("content") or {}).get("symbols") or [None])[0]
+    return symbols
+
+
 def main() -> int:
     test_rows = []
     for slot in sorted(p for p in DYAD.glob("slot-*") if p.is_dir()):
@@ -41,13 +83,9 @@ def main() -> int:
             cfg = json.loads((bdir / "configuration" / "run-config.json").read_text())
             seeds.add(cfg["randomSeed"])
             baby = batch["cases"][0]["receiverRole"]
-            found = None
-            for line in (bdir / f"{baby}-ledger.jsonl").read_text().splitlines():
-                e = json.loads(line)
-                if e.get("eventType") == "intention.recorded" and e.get("turn") == 0:
-                    found = ((e.get("content") or {}).get("symbols") or [None])[0]
-            branches[branch] = found
-        a, b = batch["cases"]
+            branches[branch] = turn0_symbol(
+                (bdir / f"{baby}-ledger.jsonl").read_text().splitlines())
+        a, b = label_cases(batch["cases"])
         test_rows.append({
             "slot": slot.name,
             "role": a["receiverRole"],
@@ -69,13 +107,9 @@ def main() -> int:
         if t.get("phase") == "running":
             scen[t["turn"]] = t.get("scenarioStateHash")
             sender[t["turn"]] = (t.get("roles") or {}).get("sender")
-    symbols = {}
-    for baby in ("baby-a", "baby-b"):
-        for line in (parent / f"{baby}-ledger.jsonl").read_text().splitlines():
-            e = json.loads(line)
-            if e.get("eventType") == "intention.recorded" and isinstance(e.get("turn"), int):
-                symbols[e["turn"]] = ((e.get("content") or {}).get("symbols") or [None])[0]
-    train_rows = [{"turn": n, "sender": sender.get(n), "token": symbols.get(n),
+    symbols = training_symbols(parent)
+    train_rows = [{"turn": n, "sender": sender.get(n),
+                   "token": symbols.get((sender.get(n), n)),
                    "scenario": scen.get(n)} for n in sorted(scen)]
     out = {
         "extractVersion": "v1",

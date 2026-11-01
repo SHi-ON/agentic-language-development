@@ -28,12 +28,25 @@ def branch_key(slot_name: str, bdir_name: str) -> str:
     return bdir_name.split(f"-s{slot_name.split('-')[1]}-", 1)[-1]
 
 
+def index_extract(rows: list[dict]) -> dict:
+    """slot -> extract row; duplicate slot rows are fatal, never last-wins."""
+    out = {}
+    for row in rows:
+        if row["slot"] in out:
+            raise SystemExit(f"FAIL: duplicate extract row for slot {row['slot']}")
+        out[row["slot"]] = row
+    return out
+
+
 def main() -> int:
     if not DYAD.is_dir():
         print(f"FAIL: dyad evidence missing: {DYAD}", file=sys.stderr)
         return 1
-    extract = {row["slot"]: row for row in
-               json.loads(EXTRACT.read_text())["testRows"]}
+    try:
+        extract = index_extract(json.loads(EXTRACT.read_text())["testRows"])
+    except SystemExit as e:
+        print(str(e), file=sys.stderr)
+        return 1
     multiplicity: dict[int, int] = {}
     null_agree = null_total = 0
     branches_checked = 0
@@ -65,14 +78,17 @@ def main() -> int:
                     found = ((e.get("content") or {}).get("symbols") or [None])[0]
             multiplicity[count] = multiplicity.get(count, 0) + 1
             branches_checked += 1
-            if key in expected_tokens:
-                null_total += 1
-                if (found is None) == (expected_tokens[key] is None) and \
-                        found == expected_tokens[key]:
-                    null_agree += 1
-                else:
-                    mismatches.append(f"{slot.name}/{key}: token {found!r} "
-                                      f"vs extract {expected_tokens[key]!r}")
+            null_total += 1
+            if count > 1:
+                mismatches.append(f"{slot.name}/{key}: turn-0 multiplicity {count}")
+            elif key not in expected_tokens:
+                mismatches.append(f"{slot.name}/{key}: missing branchTokens key")
+            elif (found is None) == (expected_tokens[key] is None) and \
+                    found == expected_tokens[key]:
+                null_agree += 1
+            else:
+                mismatches.append(f"{slot.name}/{key}: token {found!r} "
+                                  f"vs extract {expected_tokens[key]!r}")
             hashes = set()
             for line in (bdir / "turn-records.jsonl").read_text().splitlines():
                 e = json.loads(line)
