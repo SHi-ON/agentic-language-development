@@ -8,11 +8,12 @@ active program is a feasibility/methods case study from retained
 calibration evidence. See `docs/ala-implementation-discrepancy-record.md`
 for promised-vs-actual implementation status.**
 
-One question governed the original design: **does a learner's
-contemporaneous token-association record predict its receiver actions
-better than a validation-selected predictor trained on ordinary
-observations and transcripts?** That question is unresolved: the
-comparison was never executed with fitted baselines (discrepancy D2).
+One question governed the original design: **does a learner's latest
+retained pre-test policy summary (its per-token policy readout)
+predict its receiver actions better than a validation-selected
+predictor trained on ordinary observations and transcripts?** That
+question is unresolved: the comparison was never executed with
+fitted baselines (discrepancy D2).
 
 ## Active authorities
 
@@ -42,6 +43,21 @@ referential game, scratch recurrent policies, fixed 32-token inventory,
 within-support test cases, Prototype disposable execution. No
 adversarial-process, timing-channel, hardware-isolation, generalization,
 acquisition, or human-language claim.
+
+## Repository basis (fork-only, local-only)
+
+All work happens on the owner's fork,
+`SHi-ON/agentic-language-development` (`origin`, branch `main`).
+The upstream `Ethical-Tech-CoLab/agentic-language-development`
+remote is a fetch-only reference: its push URL is disabled, no work
+is based on upstream branches, and nothing is pushed or proposed
+upstream. The manuscript lives in the owner's sibling repository
+`SHi-ON/agentic-language-development-paper`, which has no upstream.
+Neither repository runs CI: no workflows exist under `.github/` in
+either tree, and every gate, build, and bundle step runs locally
+(the paper PDF builds locally in its pinned TeX Live container).
+Historical hosted-run records stay as sealed history in
+`docs/hosted-ci-evidence.md`; they authorize nothing current.
 
 ## Runnable workflow
 

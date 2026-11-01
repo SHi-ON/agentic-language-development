@@ -4,8 +4,8 @@ Study identity: `ALA-LV`.
 
 **Status: FEASIBILITY-ONLY. The original cohort study is NO-GO (P5
 admission refused on measured cost); its question — whether a learner's
-token-association record predicts receiver actions better than a
-validation-selected ordinary predictor — is unresolved. The active
+latest retained pre-test policy summary predicts receiver actions
+better than a validation-selected ordinary predictor — is unresolved. The active
 program is a feasibility/methods case study from retained calibration
 evidence. That evidence is partial machinery with invalid control
 construction (seven branch labels, ineffective shuffle/random/sender

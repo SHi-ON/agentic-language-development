@@ -39,12 +39,17 @@ of the v1 campaign.
 
 ## Environment
 
-- Node v24.21.0, pnpm (CI pins 12.3.4), uv-managed Python 3.13 with
-  `pyproject.toml` + `uv.lock` (numpy/scipy/marimo; no R/Rscript; no Homebrew/system
-  installers; no Docker). Paper PDFs build via the paper repo: pinned
-  TeX Live image in CI or an approved local TeX installation.
-- Paper PDF builds in CI from the pinned TeX Live image; the PDF and log
-  are downloaded for local inspection with `pdfinfo`/`pdftotext`/rendering.
+Everything runs locally; neither this fork nor the paper repository
+has CI (no `.github/` workflows in either tree).
+
+- Node 24.x (`.node-version`), pnpm 12.3.4 (`engines`), uv-managed
+  Python (paper repo `pyproject.toml` + `uv.lock`, stdlib-only
+  scripts; no R/Rscript).
+- Paper PDFs build locally via the paper repo in the pinned
+  `texlive/texlive` container (digest in the paper README) or an
+  approved local TeX installation; inspect the local PDF and log
+  with `pdfinfo`/`pdftotext`/rendering. Nothing is uploaded
+  anywhere and no hosted run registers checks.
 
 ## Provenance checks
 
