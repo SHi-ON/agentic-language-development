@@ -541,4 +541,24 @@ describe('explicit diagnostic identities and malformed batches', () => {
     const floatDuplicate = [{ ...explicitCases[0], candidates: [1, 1, 2, 3] }, explicitCases[1]];
     expect(diagnoseLedgerBatch(floatDuplicate).reasons.join(' ')).toMatch(/candidates must be distinct/);
   });
+  it('accepts a six-case cyclic derangement and rejects single-fault mutations', () => {
+    const domains: ReadonlyArray<readonly [number, number[]]> = [
+      [1, [1, 2, 3, 4]], [2, [2, 3, 4, 6]], [3, [3, 4, 6, 7]],
+      [4, [4, 6, 7, 8]], [6, [6, 7, 8, 9]], [7, [7, 8, 9, 11]],
+    ];
+    const batch: AlaTreatmentDiagnosticCase[] = domains.map(([target, candidates], i) => ({
+      caseId: `sweep-${i}`, scheduledCaseId: `sweep-schedule-${i}`,
+      receiverRole: 'baby-a', target, candidates, selection: `S0${i + 1}`,
+      shuffledSource: `sweep-${(i + 1) % domains.length}`,
+      shuffledDelivered: `S0${((i + 1) % domains.length) + 1}`,
+    }));
+    expect(diagnoseLedgerBatch(batch)).toMatchObject({ ok: true, genuineCollisions: 0, repeatedContent: 0 });
+    const wrongDelivery = batch.map((c, i) => (i === 0 ? { ...c, shuffledDelivered: 'S31' } : c));
+    expect(diagnoseLedgerBatch(wrongDelivery).reasons.join(' ')).toMatch(/delivery mismatch/);
+    const sharedIdentity = batch.map((c, i) => (i === 1 ? { ...c, scheduledCaseId: 'sweep-schedule-0' } : c));
+    expect(diagnoseLedgerBatch(sharedIdentity).reasons.join(' ')).toMatch(/inconsistent conditioning/);
+    const sharedDonor = batch.map((c, i) => (i === 2
+      ? { ...c, shuffledSource: batch[0].shuffledSource, shuffledDelivered: batch[0].shuffledDelivered } : c));
+    expect(diagnoseLedgerBatch(sharedDonor).reasons.join(' ')).toMatch(/not injective/);
+  });
 });
