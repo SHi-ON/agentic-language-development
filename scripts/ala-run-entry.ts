@@ -8,11 +8,11 @@
  *     [--evidence-root <dir>] [--resume]
  *
  * Batch version is required with no default: 1 is historical replay of
- * the retained sham audit; 2 is new collection, refused until
- * cross-slot scheduling lands. Version 1 additionally requires
- * --acknowledge-historical-replay (byte-identical sham replay is
- * acknowledged, never a silent default); the flag is rejected with
- * version 2.
+ * the retained sham audit; 2 is corrected-study collection from
+ * gate-validated cross-case blocks (requires --protocol-version 2).
+ * Version 1 additionally requires --acknowledge-historical-replay
+ * (byte-identical sham replay is acknowledged, never a silent
+ * default); the flag is rejected with version 2.
  *
  * Collects the retained-identity corpus from tracked records and runs one
  * ALA dyad through the manifest-verified runner.

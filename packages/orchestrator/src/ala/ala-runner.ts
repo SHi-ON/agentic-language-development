@@ -31,7 +31,12 @@ import {
   buildLv01Schedule,
   verifyLv01ScheduleCoverage,
 } from '../experiments/lv01-schedule.js';
-import { deriveLv01DerangementSeed } from '../experiments/lv01-ledger-treatments.js';
+import {
+  buildValidLedgerTreatmentBlock,
+  deriveLv01DerangementSeed,
+  type Lv01AnyLedgerTreatmentBatch,
+  type Lv01LedgerTreatmentBatchV2,
+} from '../experiments/lv01-ledger-treatments.js';
 import {
   authenticateFromManifest,
   loadLv01AuditShared,
@@ -44,6 +49,7 @@ import {
   executeLv01PairedCaseBranches,
   lv01ParentCheckpointHash,
   prepareLv01PairedCase,
+  prepareLv01PairedCaseFromBlock,
   readLv01BundleDocs,
   scheduledLv01BranchTarget,
 } from '../experiments/lv01-collector.js';
@@ -52,7 +58,7 @@ import {
   mapLv01LedgerAssociations,
 } from '../experiments/lv01-paired-predictions.js';
 import { trainLv01SlotParent } from '../experiments/lv01-parent-training.js';
-import { LV01_BRANCHES } from '../experiments/ledger-value.js';
+import { LV01_BRANCHES, type Lv01PairedCasePlan } from '../experiments/ledger-value.js';
 
 import {
   ALA_POLICY_VERSION,
@@ -149,6 +155,27 @@ export interface AlaJournalEntry {
   readonly historicalReplayAck?: 'historical-sham-replay';
 }
 
+/**
+ * Attempt/resumed journal entry. Version 1 carries the historical-replay
+ * acknowledgement; version 2 attempts never do.
+ */
+export function alaAttemptJournalEntry(input: {
+  readonly cohort: AlaCohort;
+  readonly kind: AlaSlotKind;
+  readonly index: number;
+  readonly resuming: boolean;
+  readonly protocolVersion: 1 | 2;
+}): AlaJournalEntry {
+  return {
+    at: new Date().toISOString(),
+    cohort: input.cohort,
+    kind: input.kind,
+    index: input.index,
+    state: input.resuming ? 'resumed' : 'attempted',
+    ...(input.protocolVersion === 1 ? { historicalReplayAck: 'historical-sham-replay' as const } : {}),
+  };
+}
+
 export async function readAlaJournal(evidenceRoot: string): Promise<AlaJournalEntry[]> {
   const path = join(evidenceRoot, 'journal.jsonl');
   if (!existsSync(path)) return [];
@@ -189,9 +216,8 @@ export async function runAlaDyad(input: {
   /**
    * Explicit batch-version selection: no silent default on this path.
    * Version 1 is historical replay of the retained sham audit only.
-   * Version 2 is new collection, refused outright until cross-slot
-   * scheduling lands (Phase-5 precondition): the per-slot flow builds
-   * both branch records from one scheduled case, which the gate rejects.
+   * Version 2 is corrected-study collection from gate-validated
+   * cross-case blocks; it requires study protocol version 2.
    */
   readonly treatmentBatchVersion: 1 | 2;
   /**
@@ -256,23 +282,26 @@ export async function runAlaDyad(input: {
   if (input.treatmentBatchVersion === 1 && protocolVersion === 2) {
     fail('study protocol version 2 requires batch version 2; refusing before anything is written');
   }
-  if (input.treatmentBatchVersion === 2) {
-    fail('new collection requires cross-slot scheduling (Phase-5 precondition): '
-      + 'the per-slot flow builds both branch records from one scheduled case, '
-      + 'which the collection-entry gate rejects; refusing before anything is written');
+  if (input.treatmentBatchVersion === 2 && protocolVersion === 1) {
+    fail('batch version 2 (cross-slot scheduling) requires study protocol version 2; refusing before anything is written');
   }
-  if (input.historicalReplayAcknowledgement !== 'historical-sham-replay') {
+  if (protocolVersion === 1 && input.historicalReplayAcknowledgement !== 'historical-sham-replay') {
     fail('version 1 replays the historical sham construction byte-identically: '
       + 'pass historicalReplayAcknowledgement "historical-sham-replay" explicitly; refusing');
   }
-  await appendAlaJournal(input.evidenceRoot, {
-    at: new Date().toISOString(),
-    cohort: input.cohort,
-    kind: input.kind,
-    index: input.index,
-    state: resuming ? 'resumed' : 'attempted',
-    historicalReplayAck: 'historical-sham-replay',
-  });
+  if (protocolVersion === 2 && input.historicalReplayAcknowledgement !== undefined) {
+    fail('the historical-replay acknowledgement is forbidden on the corrected-study path; refusing');
+  }
+  await appendAlaJournal(
+    input.evidenceRoot,
+    alaAttemptJournalEntry({
+      cohort: input.cohort,
+      kind: input.kind,
+      index: input.index,
+      resuming,
+      protocolVersion,
+    }),
+  );
 
   const slotLabel = pad4(input.index);
   const engineSlot = alaEngineSlotNumber(input.cohort, input.kind, input.index);
@@ -392,7 +421,12 @@ export async function runAlaDyad(input: {
     let verificationMilliseconds = 0;
     let peakBytes = Math.max(rssStart, process.memoryUsage().rss);
     const slotCount = 2 * workload.withinSupportTestCases;
-    for (let slot = 1; slot <= slotCount; slot += 1) {
+    const planSlot = (slot: number): {
+      receiver: 'baby-a' | 'baby-b';
+      caseIndex: number;
+      scheduled: ReturnType<typeof scheduledLv01BranchTarget>;
+      childRunIdPrefix: string;
+    } => {
       const receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a';
       const caseIndex = (slot - 1) % workload.withinSupportTestCases;
       const scheduled = scheduledLv01BranchTarget({
@@ -402,45 +436,116 @@ export async function runAlaDyad(input: {
         receiver,
       });
       const childRunIdPrefix = `ala-${input.cohort}-${input.kind}-${slotLabel}-s${pad4(slot)}`;
-      const treatmentCases = buildLv01TreatmentCases(scheduled, childRunIdPrefix);
-      const derangementSeed = deriveLv01DerangementSeed({
-        root: seedRoot,
-        studyId: ALA_STUDY_ID,
-        stage: `ala-${input.cohort}`,
-        policyVersion,
-        slotKind: input.kind,
-        slotIndex: engineSlotLabel,
-        partition: 'within-support',
-      });
-      const recordsA = mapLv01LedgerAssociations(parentDocs.ledgerA as never, 'baby-a', authenticate);
-      const recordsB = mapLv01LedgerAssociations(parentDocs.ledgerB as never, 'baby-b', authenticate);
-      const { plan, batch } = prepareLv01PairedCase({
-        parent,
-        parentCheckpointHash,
-        babyAInitialPolicyRef: 'policies/baby-a-latest.json',
-        babyBInitialPolicyRef: 'policies/baby-b-latest.json',
-        // Explicit historical replay, acknowledged at the runner gate
-        // above: the retained per-slot audit shape.
-        treatmentBatchVersion: 1,
-        childRunIdPrefix,
-        // Engine-internal draw scope: stage is the LV01-family constant;
-        // uniqueness across ALA dyads comes from the ALA slot scenario
-        // seed root. External identity stays cohort/kind/index.
-        actionDrawScope: { stage: 'pilot', slotKind: input.kind, slotIndex: engineSlotLabel, partition: 'within-support' },
-        treatmentCases: [...treatmentCases],
-        nativeIndexes: {
-          babyA: indexLv01TrainingLedger(recordsA, 'baby-a', deriveLv01LedgerCutoff(recordsA)),
-          babyB: indexLv01TrainingLedger(recordsB, 'baby-b', deriveLv01LedgerCutoff(recordsB)),
-        },
-        symbolInventory: inventory,
-        derangementSeed,
-        slotSeeds: { scenario: seeds.scenario, babyA: seeds.babyA, babyB: seeds.babyB, gateway: seeds.channel, analysis: seeds.analysis },
-        scheduledCase: { partition: 'within-support-test', caseIndex, receiverRole: receiver },
-      });
+      return { receiver, caseIndex, scheduled, childRunIdPrefix };
+    };
+    // Corrected path: gate-validated treatment blocks per role, built and
+    // persisted BEFORE the slot loop (and before any branch runs). A sham
+    // block refuses here with the attempt already journalled as attempted,
+    // leaving the audit trail intact; terminal refusal states arrive in A6.
+    const blockBatches = new Map<string, Lv01LedgerTreatmentBatchV2>();
+    if (protocolVersion === 2) {
+      const blockRecordsA = mapLv01LedgerAssociations(parentDocs.ledgerA as never, 'baby-a', authenticate);
+      const blockRecordsB = mapLv01LedgerAssociations(parentDocs.ledgerB as never, 'baby-b', authenticate);
+      const blockIndexes = {
+        babyA: indexLv01TrainingLedger(blockRecordsA, 'baby-a', deriveLv01LedgerCutoff(blockRecordsA)),
+        babyB: indexLv01TrainingLedger(blockRecordsB, 'baby-b', deriveLv01LedgerCutoff(blockRecordsB)),
+      };
+      for (const role of ['baby-a', 'baby-b'] as const) {
+        const entries: { scheduledCaseId: string; treatmentCase: ReturnType<typeof buildLv01TreatmentCases>[number] }[] = [];
+        for (let slot = 1; slot <= slotCount; slot += 1) {
+          const planned = planSlot(slot);
+          if (planned.receiver !== role) continue;
+          for (const treatmentCase of buildLv01TreatmentCases(planned.scheduled, planned.childRunIdPrefix)) {
+            entries.push({ scheduledCaseId: planned.scheduled.scheduledCaseId, treatmentCase });
+          }
+        }
+        const block = buildValidLedgerTreatmentBlock({
+          entries,
+          nativeIndexes: blockIndexes,
+          symbolInventory: inventory,
+          derangementSeed: deriveLv01DerangementSeed({
+            root: seedRoot,
+            studyId: ALA_STUDY_ID,
+            stage: `ala-${input.cohort}`,
+            policyVersion,
+            slotKind: input.kind,
+            slotIndex: engineSlotLabel,
+            partition: 'within-support-test',
+          }),
+        });
+        await writeFile(
+          join(dyadDir, `treatment-batch-within-support-test-${role}.json`),
+          `${JSON.stringify(block, null, 2)}\n`,
+          'utf8',
+        );
+        blockBatches.set(role, block);
+      }
+    }
+    for (let slot = 1; slot <= slotCount; slot += 1) {
+      const { receiver, caseIndex, scheduled, childRunIdPrefix } = planSlot(slot);
+      let plan: Lv01PairedCasePlan;
+      let batch: Lv01AnyLedgerTreatmentBatch;
+      if (protocolVersion === 1) {
+        const treatmentCases = buildLv01TreatmentCases(scheduled, childRunIdPrefix);
+        const derangementSeed = deriveLv01DerangementSeed({
+          root: seedRoot,
+          studyId: ALA_STUDY_ID,
+          stage: `ala-${input.cohort}`,
+          policyVersion,
+          slotKind: input.kind,
+          slotIndex: engineSlotLabel,
+          partition: 'within-support',
+        });
+        const recordsA = mapLv01LedgerAssociations(parentDocs.ledgerA as never, 'baby-a', authenticate);
+        const recordsB = mapLv01LedgerAssociations(parentDocs.ledgerB as never, 'baby-b', authenticate);
+        const prepared = prepareLv01PairedCase({
+          parent,
+          parentCheckpointHash,
+          babyAInitialPolicyRef: 'policies/baby-a-latest.json',
+          babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+          // Explicit historical replay, acknowledged at the runner gate
+          // above: the retained per-slot audit shape.
+          treatmentBatchVersion: 1,
+          childRunIdPrefix,
+          // Engine-internal draw scope: stage is the LV01-family constant;
+          // uniqueness across ALA dyads comes from the ALA slot scenario
+          // seed root. External identity stays cohort/kind/index.
+          actionDrawScope: { stage: 'pilot', slotKind: input.kind, slotIndex: engineSlotLabel, partition: 'within-support' },
+          treatmentCases: [...treatmentCases],
+          nativeIndexes: {
+            babyA: indexLv01TrainingLedger(recordsA, 'baby-a', deriveLv01LedgerCutoff(recordsA)),
+            babyB: indexLv01TrainingLedger(recordsB, 'baby-b', deriveLv01LedgerCutoff(recordsB)),
+          },
+          symbolInventory: inventory,
+          derangementSeed,
+          slotSeeds: { scenario: seeds.scenario, babyA: seeds.babyA, babyB: seeds.babyB, gateway: seeds.channel, analysis: seeds.analysis },
+          scheduledCase: { partition: 'within-support-test', caseIndex, receiverRole: receiver },
+        });
+        plan = prepared.plan;
+        batch = prepared.batch;
+      } else {
+        const block = blockBatches.get(receiver);
+        if (block === undefined) fail(`treatment block for role ${receiver} was not built`);
+        const prepared = prepareLv01PairedCaseFromBlock({
+          parent,
+          parentCheckpointHash,
+          babyAInitialPolicyRef: 'policies/baby-a-latest.json',
+          babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+          childRunIdPrefix,
+          actionDrawScope: { stage: 'pilot', slotKind: input.kind, slotIndex: engineSlotLabel, partition: 'within-support' },
+          slotSeeds: { scenario: seeds.scenario, babyA: seeds.babyA, babyB: seeds.babyB, gateway: seeds.channel, analysis: seeds.analysis },
+          scheduledCase: { partition: 'within-support-test', caseIndex, receiverRole: receiver },
+          blockBatch: block,
+        });
+        plan = prepared.plan;
+        batch = prepared.batch;
+      }
       const caseDir = join(dyadDir, `slot-${pad4(slot)}`);
       await mkdir(caseDir, { recursive: true });
       // Treatment batch commits BEFORE any branch runs.
-      await writeFile(join(caseDir, 'treatment-batch.json'), `${JSON.stringify(batch, null, 2)}\n`, 'utf8');
+      if (protocolVersion === 1) {
+        await writeFile(join(caseDir, 'treatment-batch.json'), `${JSON.stringify(batch, null, 2)}\n`, 'utf8');
+      }
       await writeFile(
         join(caseDir, 'schedule.json'),
         `${JSON.stringify({ commitment: schedule.commitment, executedCaseId: scheduled.scheduledCaseId }, null, 2)}\n`,

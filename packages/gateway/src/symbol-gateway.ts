@@ -816,7 +816,7 @@ export class SymbolGatewayImpl implements SymbolGateway {
    */
   private validateArtifact(
     artifact: PublicArtifact,
-    origin: 'constant' | 'oracle' | 'shuffled-batch' | 'ledger-treatment',
+    origin: 'constant' | 'oracle' | 'shuffled-batch' | 'ledger-treatment' | 'message-shuffle-treatment',
   ): PublicArtifact {
     const kind = this.module.allowedKinds[0] as AgentActionProposal['kind'];
     const validation = this.module.validate(
@@ -872,8 +872,16 @@ export class SymbolGatewayImpl implements SymbolGateway {
           this.conditionPrng.derive(String(turn.turn)),
           this.carrierContext,
         );
-      case 'shuffled':
+      case 'shuffled': {
+        const committed = this.runContext.config.lv01PairedCase?.messageShuffleTreatment;
+        if (committed !== undefined) {
+          return this.validateArtifact(
+            { symbols: [committed.deliveredToken] } as PublicArtifact,
+            'message-shuffle-treatment',
+          );
+        }
         return this.shuffledArtifact(turn);
+      }
       case 'oracle':
         throw new OracleRequiresControlArtifactError();
     }

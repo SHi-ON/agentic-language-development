@@ -55,6 +55,18 @@ export interface Lv01PairedCasePlanInput {
     readonly sourceCaseId: string;
   }>>;
   /**
+   * Committed message-shuffle delivery for the case's `shuffled` branch.
+   * Carries only that branch; any other branch carrying one fails closed.
+   * Absent on the historical path, where the runtime batch of size one
+   * delivers the branch's own artifact.
+   */
+  readonly messageShuffleTreatment?: {
+    readonly selectedToken: string;
+    readonly deliveredToken: string;
+    readonly batchCommitment: string;
+    readonly sourceCaseId: string;
+  };
+  /**
    * Shared action-draw scope. One seed per case (no branch part); the
    * receiver role follows the scheduled case (turn 0 is always baby-b by
    * role math, so baby-a cases name their receiver explicitly).
@@ -144,6 +156,7 @@ export function createLv01PairedCasePlan(input: Lv01PairedCasePlanInput): Lv01Pa
     const isLedgerBranch = treatment.predictionTreatment !== 'ordinary-records';
     if (isLedgerBranch && ledgerSlice === undefined) fail(`branch ${branch} requires a committed ledger-treatment slice`);
     if (!isLedgerBranch && ledgerSlice !== undefined) fail(`branch ${branch} must not carry a ledger-treatment slice`);
+    const messageShuffle = branch === 'shuffled' ? input.messageShuffleTreatment : undefined;
     const config = createDerivedRunConfig(
       input.parent,
       input.parentCheckpointHash,
@@ -185,6 +198,7 @@ export function createLv01PairedCasePlan(input: Lv01PairedCasePlanInput): Lv01Pa
             predictionTreatment: treatment.predictionTreatment,
             preStateCommitment,
             ...(ledgerSlice === undefined ? {} : { ledgerTreatment: { ...ledgerSlice } }),
+            ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: { ...messageShuffle } }),
             actionDraw: { ...drawScope, drawSeedCommitment },
             scheduledCase: { ...input.scheduledCase },
           },

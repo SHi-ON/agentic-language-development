@@ -132,11 +132,15 @@ export {
   sliceLedgerTreatment,
   verifyLedgerTreatmentSlice,
   verifyLv01TreatmentTargets,
+  type Lv01AnyLedgerTreatmentBatch,
   type Lv01LedgerTreatmentBatch,
+  type Lv01LedgerTreatmentBatchV2,
   type Lv01RoleNativeIndexes,
+  type Lv01ScheduledTreatmentEntry,
   type Lv01TreatedCase,
   type Lv01TreatmentCase,
   type Lv01TreatmentSlice,
+  type Lv01ValidTreatedCase,
 } from './lv01-ledger-treatments.js';
 export {
   LV01_SCHEDULE_PARTITIONS,

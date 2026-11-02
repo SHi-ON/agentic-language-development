@@ -201,9 +201,11 @@ export interface Lv01TreatmentSlice {
   readonly sourceCaseId: string;
 }
 
+export type Lv01AnyLedgerTreatmentBatch = Lv01LedgerTreatmentBatch | Lv01LedgerTreatmentBatchV2;
+
 /** The committed per-run slice: consistent delivers the selection, shuffled the deranged source. */
 export function sliceLedgerTreatment(
-  batch: Lv01LedgerTreatmentBatch,
+  batch: Lv01AnyLedgerTreatmentBatch,
   caseId: string,
   branch: Lv01Branch,
 ): Lv01TreatmentSlice {
@@ -230,7 +232,7 @@ export function sliceLedgerTreatment(
 
 /** Re-derive the slice from the sealed batch; rejects any substituted token. */
 export function verifyLedgerTreatmentSlice(
-  batch: Lv01LedgerTreatmentBatch,
+  batch: Lv01AnyLedgerTreatmentBatch,
   caseId: string,
   branch: Lv01Branch,
   slice: Lv01TreatmentSlice,
@@ -244,7 +246,9 @@ export function verifyLedgerTreatmentSlice(
   ) {
     fail('ledger treatment slice does not match the sealed batch');
   }
-  const recomputed = hashCanonical(LV01_LEDGER_TREATMENT_BATCH_DOMAIN, {
+  const domain =
+    batch.version === 2 ? LV01_LEDGER_TREATMENT_BATCH_DOMAIN_V2 : LV01_LEDGER_TREATMENT_BATCH_DOMAIN;
+  const recomputed = hashCanonical(domain, {
     derangementSeed: batch.derangementSeed,
     cases: batch.cases,
   });
@@ -258,7 +262,7 @@ export function verifyLedgerTreatmentSlice(
  * for other targets delivers consistently-selected but wrong-case tokens.
  */
 export function verifyLv01TreatmentTargets(
-  batch: Lv01LedgerTreatmentBatch,
+  batch: Lv01AnyLedgerTreatmentBatch,
   served: readonly { readonly caseId: string; readonly targetTypeCode: number }[],
 ): void {
   for (const entry of batch.cases) {
@@ -308,6 +312,122 @@ const toDiagnosticCases = (
     shuffledSource: entry.shuffledSourceCaseId,
     shuffledDelivered: entry.shuffledDeliveredToken,
   }));
+
+/** Re-verify an already-built v2 batch through the collection-entry gate. */
+export function assertValidLedgerTreatmentBatchV2(batch: Lv01LedgerTreatmentBatchV2): void {
+  assertValidLedgerBatch(toDiagnosticCases(batch.cases));
+}
+
+/**
+ * Corrected-study block construction: one entry per branch record across
+ * many scheduled cases of one role. Selections use the frozen mechanics;
+ * the donor assignment deranges distinct scheduled cases, then maps
+ * records to donor records positionally within the deranged case pair
+ * (both sides sorted by record id), which is injective because every
+ * case carries the same record count. No record can draw its sibling,
+ * so the gate cannot fail on sibling pairing; it still runs as the
+ * final check and fails closed on anything else.
+ */
+export function buildValidLedgerTreatmentBlock(input: {
+  readonly entries: readonly Lv01ScheduledTreatmentEntry[];
+  readonly nativeIndexes: Lv01RoleNativeIndexes;
+  readonly symbolInventory: readonly string[];
+  readonly derangementSeed: string;
+}): Lv01LedgerTreatmentBatchV2 {
+  if (input.entries.length === 0) fail('valid treatment block requires at least one case');
+  for (const entry of input.entries) {
+    if (entry.scheduledCaseId.length === 0) {
+      fail('valid treatment block requires a scheduled identity per case');
+    }
+  }
+  const roles = new Set(input.entries.map((entry) => entry.treatmentCase.receiverRole));
+  if (roles.size !== 1) fail('valid treatment block covers exactly one role');
+  const role = [...roles][0] as 'baby-a' | 'baby-b';
+  const byScheduled = new Map<string, number>();
+  for (const entry of input.entries) {
+    byScheduled.set(entry.scheduledCaseId, (byScheduled.get(entry.scheduledCaseId) ?? 0) + 1);
+  }
+  if (byScheduled.size < 2) fail(`valid treatment block requires distinct scheduled cases for role ${role}`);
+  if (new Set(byScheduled.values()).size !== 1) {
+    fail(`valid treatment block has uneven record counts for role ${role}`);
+  }
+  const inner = buildLedgerTreatmentBatch({
+    cases: input.entries.map((entry) => entry.treatmentCase),
+    nativeIndexes: input.nativeIndexes,
+    symbolInventory: [...input.symbolInventory],
+    derangementSeed: input.derangementSeed,
+  });
+  assignCaseAwareDonors(inner.cases, input.entries, input.derangementSeed);
+  const byCaseId = new Map(inner.cases.map((entry) => [entry.caseId, entry]));
+  const cases: Lv01ValidTreatedCase[] = input.entries.map((entry) => {
+    const treated = byCaseId.get(entry.treatmentCase.caseId);
+    if (treated === undefined) fail(`valid treatment block lost case ${entry.treatmentCase.caseId}`);
+    return { ...treated, scheduledCaseId: entry.scheduledCaseId };
+  });
+  const batch: Lv01LedgerTreatmentBatchV2 = {
+    version: 2,
+    derangementSeed: input.derangementSeed,
+    cases,
+    batchCommitment: hashCanonical(LV01_LEDGER_TREATMENT_BATCH_DOMAIN_V2, {
+      derangementSeed: input.derangementSeed,
+      cases,
+    }),
+  };
+  assertValidLedgerBatch(toDiagnosticCases(cases));
+  return batch;
+}
+
+type MutableTreatedCase = {
+  -readonly [K in keyof Lv01TreatedCase]: Lv01TreatedCase[K];
+};
+
+/**
+ * Scheduled-case derangement for multi-record blocks. Deranges the
+ * distinct scheduled cases per role, then assigns donor records to
+ * recipient records positionally within the deranged case pair (both
+ * sides sorted by record id), which is injective because every case in
+ * the role carries the same record count. Mutates only shuffle fields;
+ * selections keep the frozen mechanics.
+ */
+function assignCaseAwareDonors(
+  treated: readonly Lv01TreatedCase[],
+  entries: readonly Lv01ScheduledTreatmentEntry[],
+  derangementSeed: string,
+): void {
+  const mutable = treated as MutableTreatedCase[];
+  const scheduledOf = new Map(entries.map((entry) => [entry.treatmentCase.caseId, entry.scheduledCaseId]));
+  for (const role of ['baby-a', 'baby-b'] as const) {
+    const roleCases = mutable.filter((entry) => entry.receiverRole === role);
+    if (roleCases.length === 0) continue;
+    const byScheduled = new Map<string, MutableTreatedCase[]>();
+    for (const entry of roleCases) {
+      const scheduled = scheduledOf.get(entry.caseId);
+      if (scheduled === undefined) fail(`valid treatment batch lost scheduled identity for ${entry.caseId}`);
+      const group = byScheduled.get(scheduled) ?? [];
+      group.push(entry);
+      byScheduled.set(scheduled, group);
+    }
+    const scheduledIds = [...byScheduled.keys()].sort();
+    const counts = new Set([...byScheduled.values()].map((group) => group.length));
+    if (counts.size !== 1) fail(`valid treatment batch has uneven record counts for role ${role}`);
+    const permutation = ledgerShuffledDerangement(scheduledIds.length, `${derangementSeed}${role}`);
+    scheduledIds.forEach((scheduled, position) => {
+      const donorScheduled = scheduledIds[permutation[position] as number] as string;
+      const recipients = (byScheduled.get(scheduled) as MutableTreatedCase[]).sort((a, b) =>
+        a.caseId < b.caseId ? -1 : 1,
+      );
+      const donors = (byScheduled.get(donorScheduled) as MutableTreatedCase[]).sort((a, b) =>
+        a.caseId < b.caseId ? -1 : 1,
+      );
+      recipients.forEach((recipient, index) => {
+        const donor = donors[index] as MutableTreatedCase;
+        recipient.shuffledSourceCaseId = donor.caseId;
+        recipient.shuffledDeliveredToken = donor.selectedToken;
+        recipient.identicalTokenCoincidence = donor.selectedToken === recipient.selectedToken;
+      });
+    });
+  }
+}
 
 /**
  * Repaired construction: one batch per role across distinct scheduled

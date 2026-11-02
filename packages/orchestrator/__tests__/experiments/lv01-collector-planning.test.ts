@@ -21,7 +21,10 @@ import {
 } from './lv01-collector-fixtures.js';
 import { LV01_BRANCHES } from '../../src/experiments/ledger-value.js';
 import { buildLv01Schedule } from '../../src/experiments/lv01-schedule.js';
-import { verifyLv01TreatmentTargets } from '../../src/experiments/lv01-ledger-treatments.js';
+import {
+  buildValidLedgerTreatmentBlock,
+  verifyLv01TreatmentTargets,
+} from '../../src/experiments/lv01-ledger-treatments.js';
 import {
   assertLv01SlotBranchCensus,
   assertLv01SlotSingleServedCase,
@@ -29,6 +32,7 @@ import {
   lv01SlotSeeds,
   lv01WorkloadForCollection,
   prepareLv01PairedCase,
+  prepareLv01PairedCaseFromBlock,
   rebuildLv01CasePlan,
   scheduledLv01BranchTarget,
 } from '../../src/experiments/lv01-collector.js';
@@ -263,6 +267,131 @@ describe('LV01 collector pure planning', () => {
       treatmentCases: [...buildLv01TreatmentCases(scheduledA, 'lv01-collector-sham')],
     });
     expect(replay.validBatch).toBeUndefined();
+  });
+
+  it('plans every slot slice from a prebuilt cross-case block', () => {
+    const parent = fixtureParent();
+    const { indexA, indexB } = fixtureIndex();
+    const schedule = buildLv01Schedule({
+      engine: new ReferentialScenarioEngine(
+        {
+          version: 1,
+          symbolInventory: fixedTokenInventory(32),
+          interactionMode: 'cooperative-signaling',
+          heldOutTypeCodes: [0, 5, 10, 15],
+        },
+        hash('block-plan'),
+      ),
+      counts: { training: 0, 'validation-fit': 0, 'validation-selection': 0, 'within-support-test': 4 },
+    });
+    const cases = [0, 1, 2, 3].map((caseIndex) => {
+      const scheduled = scheduledLv01BranchTarget({ schedule, partition: 'within-support-test', caseIndex, receiver: 'baby-b' });
+      const prefix = `lv01-block-${caseIndex}`;
+      return { scheduled, prefix, records: [...buildLv01TreatmentCases(scheduled, prefix)] };
+    });
+    const block = buildValidLedgerTreatmentBlock({
+      entries: cases.flatMap(({ scheduled, records }) =>
+        records.map((treatmentCase) => ({ scheduledCaseId: scheduled.scheduledCaseId, treatmentCase })),
+      ),
+      nativeIndexes: { babyA: indexA, babyB: indexB },
+      symbolInventory: [...inventory],
+      derangementSeed: hash('d'),
+    });
+    // Every slot in the block plans from the same validated source: each
+    // slice equals its block entry field by field, and the shuffled
+    // message delivery equals the ledger-shuffled slice.
+    for (const { scheduled, prefix } of cases) {
+      const { plan, batch } = prepareLv01PairedCaseFromBlock({
+        parent,
+        parentCheckpointHash: hash('c'),
+        babyAInitialPolicyRef: 'policies/baby-a-latest.json',
+        babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+        childRunIdPrefix: prefix,
+        actionDrawScope: { stage: 'development', slotKind: 'primary', slotIndex: '0003', partition: 'dev' },
+        slotSeeds: fixtureSlotSeeds(),
+        scheduledCase: {
+          partition: 'within-support-test',
+          caseIndex: Number(prefix.slice('lv01-block-'.length)),
+          receiverRole: 'baby-b',
+        },
+        blockBatch: block,
+      });
+      expect(batch).toBe(block);
+      expect(plan.branches).toHaveLength(7);
+      for (const branch of ['ledger-consistent', 'ledger-shuffled'] as const) {
+        const caseId = `${prefix}-${branch}:turn:0`;
+        const slice = plan.branches.find((entry) => entry.branch === branch)?.config.lv01PairedCase?.ledgerTreatment;
+        const validated = block.cases.find((entry) => entry.caseId === caseId);
+        expect(slice?.selectedToken).toBe(validated?.selectedToken);
+        expect(slice?.deliveredToken).toBe(
+          branch === 'ledger-consistent' ? validated?.selectedToken : validated?.shuffledDeliveredToken,
+        );
+        expect(slice?.batchCommitment).toBe(block.batchCommitment);
+        expect(slice?.sourceCaseId).toBe(
+          branch === 'ledger-consistent' ? caseId : validated?.shuffledSourceCaseId,
+        );
+      }
+      const messageShuffle = plan.branches.find((entry) => entry.branch === 'shuffled')?.config.lv01PairedCase
+        ?.messageShuffleTreatment;
+      const ledgerShuffled = plan.branches.find((entry) => entry.branch === 'ledger-shuffled')?.config.lv01PairedCase
+        ?.ledgerTreatment;
+      expect(messageShuffle).toEqual(ledgerShuffled);
+      expect(scheduled.scheduledCaseId.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('refuses block plans for unknown records and sham blocks', () => {
+    const parent = fixtureParent();
+    const { indexA, indexB } = fixtureIndex();
+    const schedule = buildLv01Schedule({
+      engine: new ReferentialScenarioEngine(
+        {
+          version: 1,
+          symbolInventory: fixedTokenInventory(32),
+          interactionMode: 'cooperative-signaling',
+          heldOutTypeCodes: [0, 5, 10, 15],
+        },
+        hash('block-plan-refuse'),
+      ),
+      counts: { training: 0, 'validation-fit': 0, 'validation-selection': 0, 'within-support-test': 2 },
+    });
+    const scheduledA = scheduledLv01BranchTarget({ schedule, partition: 'within-support-test', caseIndex: 0, receiver: 'baby-b' });
+    const scheduledB = scheduledLv01BranchTarget({ schedule, partition: 'within-support-test', caseIndex: 1, receiver: 'baby-b' });
+    const recordsA = [...buildLv01TreatmentCases(scheduledA, 'lv01-block-ok-a')];
+    const recordsB = [...buildLv01TreatmentCases(scheduledB, 'lv01-block-ok-b')];
+    const block = buildValidLedgerTreatmentBlock({
+      entries: [
+        ...recordsA.map((treatmentCase) => ({ scheduledCaseId: scheduledA.scheduledCaseId, treatmentCase })),
+        ...recordsB.map((treatmentCase) => ({ scheduledCaseId: scheduledB.scheduledCaseId, treatmentCase })),
+      ],
+      nativeIndexes: { babyA: indexA, babyB: indexB },
+      symbolInventory: [...inventory],
+      derangementSeed: hash('d'),
+    });
+    const base = {
+      parent,
+      parentCheckpointHash: hash('c'),
+      babyAInitialPolicyRef: 'policies/baby-a-latest.json',
+      babyBInitialPolicyRef: 'policies/baby-b-latest.json',
+      actionDrawScope: { stage: 'development' as const, slotKind: 'primary' as const, slotIndex: '0004', partition: 'dev' as const },
+      slotSeeds: fixtureSlotSeeds(),
+      scheduledCase: { partition: 'within-support-test' as const, caseIndex: 0, receiverRole: 'baby-b' as const },
+      blockBatch: block,
+    };
+    expect(() => prepareLv01PairedCaseFromBlock({ ...base, childRunIdPrefix: 'lv01-block-absent' })).toThrowError(
+      /has no case for/,
+    );
+    const sham = {
+      ...block,
+      cases: block.cases.map((entry, i, all) => {
+        if (i !== 0) return entry;
+        const sibling = all.find((candidate) => candidate.scheduledCaseId === entry.scheduledCaseId && candidate.caseId !== entry.caseId);
+        return { ...entry, shuffledSourceCaseId: sibling?.caseId ?? entry.caseId, shuffledDeliveredToken: sibling?.selectedToken ?? entry.selectedToken };
+      }),
+    };
+    expect(() => prepareLv01PairedCaseFromBlock({ ...base, childRunIdPrefix: 'lv01-block-ok-a', blockBatch: sham })).toThrowError(
+      /sham shuffle/,
+    );
   });
 
   it('rebuilds the registered plan from branch run-configs alone', () => {

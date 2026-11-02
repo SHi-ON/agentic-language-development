@@ -145,7 +145,7 @@ export class ControlArtifactNotPermittedError extends GatewayError {
 export class InvalidControlArtifactError extends GatewayError {
   constructor(
     readonly reasonCode: GatewayReasonCode,
-    readonly origin: 'constant' | 'oracle' | 'shuffled-batch' | 'ledger-treatment',
+    readonly origin: 'constant' | 'oracle' | 'shuffled-batch' | 'ledger-treatment' | 'message-shuffle-treatment',
     detail: string,
   ) {
     super(

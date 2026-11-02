@@ -13,6 +13,7 @@ import {
 import {
   buildLedgerTreatmentBatch,
   buildValidLedgerTreatmentBatch,
+  buildValidLedgerTreatmentBlock,
   type Lv01TreatedCase,
 } from '../../src/experiments/lv01-ledger-treatments.js';
 import { buildLv01TreatmentCases } from '../../src/experiments/lv01-collector.js';
@@ -406,6 +407,99 @@ describe('collection-entry gate on the repaired path', () => {
       symbolInventory: INVENTORY,
       derangementSeed: DERANGEMENT_SEED,
     })).toThrowError(/distinct scheduled cases for role baby-b/);
+  });
+});
+
+describe('corrected-study block construction', () => {
+  const mkRecord = (scheduled: string, record: string, target: number, cands: number[]) => ({
+    scheduledCaseId: scheduled,
+    treatmentCase: {
+      caseId: record,
+      receiverRole: 'baby-b' as const,
+      targetTypeCode: target,
+      candidateTypeCodes: cands,
+    },
+  });
+  const blockEntries = () => [
+    mkRecord('sched-1', 'rec-1-consistent', 1, [3, 2, 1, 11]),
+    mkRecord('sched-1', 'rec-1-shuffled', 1, [3, 2, 1, 11]),
+    mkRecord('sched-2', 'rec-2-consistent', 2, [2, 3, 4, 6]),
+    mkRecord('sched-2', 'rec-2-shuffled', 2, [2, 3, 4, 6]),
+    mkRecord('sched-3', 'rec-3-consistent', 6, [6, 7, 8, 9]),
+    mkRecord('sched-3', 'rec-3-shuffled', 6, [6, 7, 8, 9]),
+  ];
+
+  it('deranges scheduled cases with injective cross-case donors', () => {
+    const block = buildValidLedgerTreatmentBlock({
+      entries: blockEntries(),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    expect(block.version).toBe(2);
+    expect(block.batchCommitment).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const scheduledOf = new Map(block.cases.map((entry) => [entry.caseId, entry.scheduledCaseId]));
+    const donors = block.cases.map((entry) => entry.shuffledSourceCaseId);
+    expect(new Set(donors).size).toBe(donors.length);
+    for (const entry of block.cases) {
+      expect(scheduledOf.get(entry.shuffledSourceCaseId)).not.toBe(entry.scheduledCaseId);
+      const donor = block.cases.find((candidate) => candidate.caseId === entry.shuffledSourceCaseId);
+      expect(entry.shuffledDeliveredToken).toBe(donor?.selectedToken);
+    }
+    const rebuilt = buildValidLedgerTreatmentBlock({
+      entries: blockEntries(),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    expect(rebuilt.batchCommitment).toBe(block.batchCommitment);
+  });
+
+  it('counts genuine token collisions instead of treating them as invalidity', () => {
+    const block = buildValidLedgerTreatmentBlock({
+      entries: blockEntries(),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    });
+    const verdict = diagnoseLedgerBatch(block.cases.map((entry) => ({
+      caseId: entry.caseId,
+      scheduledCaseId: entry.scheduledCaseId,
+      receiverRole: entry.receiverRole,
+      target: entry.targetTypeCode,
+      candidates: entry.candidateTypeCodes,
+      selection: entry.selectedToken,
+      shuffledSource: entry.shuffledSourceCaseId,
+      shuffledDelivered: entry.shuffledDeliveredToken,
+    })));
+    expect(verdict.ok).toBe(true);
+    expect(verdict.genuineCollisions).toBeGreaterThanOrEqual(2);
+  });
+
+  it('fails closed on uneven, mixed-role, or single-case blocks', () => {
+    const entries = blockEntries();
+    expect(() => buildValidLedgerTreatmentBlock({
+      entries: entries.slice(0, 5),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    })).toThrowError(/uneven record counts/);
+    expect(() => buildValidLedgerTreatmentBlock({
+      entries: entries.map((entry, i) =>
+        i === 0
+          ? { ...entry, treatmentCase: { ...entry.treatmentCase, receiverRole: 'baby-a' as const } }
+          : entry,
+      ),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    })).toThrowError(/exactly one role/);
+    expect(() => buildValidLedgerTreatmentBlock({
+      entries: entries.slice(0, 2),
+      nativeIndexes: NATIVE_INDEXES,
+      symbolInventory: INVENTORY,
+      derangementSeed: DERANGEMENT_SEED,
+    })).toThrowError(/distinct scheduled cases/);
   });
 });
 

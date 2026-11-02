@@ -87,6 +87,7 @@ import {
 } from './lv01-audit-loader.js';
 import { auditLv01PairedCase } from './lv01-auditor.js';
 import {
+  assertValidLedgerTreatmentBatchV2,
   buildLedgerTreatmentBatch,
   buildValidLedgerTreatmentBatch,
   deriveLv01DerangementSeed,
@@ -406,6 +407,71 @@ export function prepareLv01PairedCase(input: Lv01PairedCaseInputs): {
   return validBatch === undefined ? { plan, batch } : { plan, batch, validBatch };
 }
 
+export interface Lv01PairedCaseBlockInputs {
+  readonly parent: RunConfig;
+  readonly parentCheckpointHash: string;
+  readonly babyAInitialPolicyRef: string;
+  readonly babyBInitialPolicyRef: string;
+  readonly childRunIdPrefix: string;
+  readonly actionDrawScope: {
+    readonly stage: 'development' | 'qualification' | 'shadow' | 'generalization' | 'pilot';
+    readonly slotKind: 'primary' | 'reserve';
+    readonly slotIndex: string;
+    readonly partition: 'dev' | 'within-support' | 'novel-composition';
+  };
+  readonly slotSeeds: {
+    readonly scenario: string;
+    readonly babyA: string;
+    readonly babyB: string;
+    readonly gateway: string;
+    readonly analysis: string;
+  };
+  readonly scheduledCase: {
+    readonly partition: 'training' | 'validation-fit' | 'validation-selection' | 'within-support-test';
+    readonly caseIndex: number;
+    readonly receiverRole: 'baby-a' | 'baby-b';
+  };
+  /** Prebuilt gate-validated block batch; slices come only from this batch. */
+  readonly blockBatch: Lv01LedgerTreatmentBatchV2;
+}
+
+/**
+ * Plan one paired case from a prebuilt cross-case block batch. The batch
+ * was gate-validated at build; it is re-verified here (defense in depth)
+ * and every planned slice is taken directly from it, so no parallel
+ * construction can drift from the validated source.
+ */
+export function prepareLv01PairedCaseFromBlock(input: Lv01PairedCaseBlockInputs): {
+  readonly plan: Lv01PairedCasePlan;
+  readonly batch: Lv01LedgerTreatmentBatchV2;
+} {
+  assertValidLedgerTreatmentBatchV2(input.blockBatch);
+  const sliceFor = (branch: 'ledger-consistent' | 'ledger-shuffled') => {
+    const found = input.blockBatch.cases.find(
+      (entry) => entry.caseId === `${input.childRunIdPrefix}-${branch}:turn:0`,
+    );
+    if (found === undefined) fail(`treatment block has no case for ${branch}`);
+    return { ...sliceLedgerTreatment(input.blockBatch, found.caseId, branch) };
+  };
+  const shuffledSlice = sliceFor('ledger-shuffled');
+  const plan = createLv01PairedCasePlan({
+    parent: input.parent,
+    parentCheckpointHash: input.parentCheckpointHash,
+    babyAInitialPolicyRef: input.babyAInitialPolicyRef,
+    babyBInitialPolicyRef: input.babyBInitialPolicyRef,
+    childRunIdPrefix: input.childRunIdPrefix,
+    actionDrawScope: input.actionDrawScope,
+    slotSeeds: input.slotSeeds,
+    scheduledCase: input.scheduledCase,
+    ledgerTreatments: {
+      'ledger-consistent': sliceFor('ledger-consistent'),
+      'ledger-shuffled': shuffledSlice,
+    },
+    messageShuffleTreatment: { ...shuffledSlice },
+  });
+  return { plan, batch: input.blockBatch };
+}
+
 /* ------------------------------------------------------------------ */
 /* Bundle IO                                                           */
 /* ------------------------------------------------------------------ */
@@ -631,6 +697,13 @@ async function executeOneBranch(input: {
       const expected = hashCarrierMark(config.carrierMode, { symbols: [slice.deliveredToken] });
       if (channel.publicArtifactHash !== expected) {
         fail(`branch ${planned.branch} delivered a token outside its committed slice`);
+      }
+    }
+    const messageShuffle = pairedCase.messageShuffleTreatment;
+    if (planned.branch === 'shuffled' && messageShuffle !== undefined) {
+      const expected = hashCarrierMark(config.carrierMode, { symbols: [messageShuffle.deliveredToken] });
+      if (channel.publicArtifactHash !== expected) {
+        fail(`branch ${planned.branch} delivered a token outside its committed shuffle delivery`);
       }
     }
   }
@@ -1123,6 +1196,12 @@ export function rebuildLv01CasePlan(input: {
     readonly batchCommitment: string;
     readonly sourceCaseId: string;
   }>> = {};
+  let messageShuffle: {
+    readonly selectedToken: string;
+    readonly deliveredToken: string;
+    readonly batchCommitment: string;
+    readonly sourceCaseId: string;
+  } | undefined;
   for (const docs of input.branchDocs) {
     const parsed = RunConfigSchema.safeParse(docs.runConfig);
     if (!parsed.success) fail('branch run-config is invalid');
@@ -1131,6 +1210,10 @@ export function rebuildLv01CasePlan(input: {
     if (parsed.data.derivedFromCheckpointHash !== checkpoint) fail('branch derivations disagree on the parent checkpoint');
     if (section.ledgerTreatment !== undefined) {
       slices[section.branch] = { ...section.ledgerTreatment };
+    }
+    if (section.messageShuffleTreatment !== undefined) {
+      if (section.branch !== 'shuffled') fail('only the shuffled branch may carry a message-shuffle delivery');
+      messageShuffle = { ...section.messageShuffleTreatment };
     }
   }
   return createLv01PairedCasePlan({
@@ -1158,6 +1241,7 @@ export function rebuildLv01CasePlan(input: {
       receiverRole: scheduledCase.receiverRole,
     },
     ledgerTreatments: slices,
+    ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: messageShuffle }),
   });
 }
 

@@ -564,6 +564,66 @@ describe('LV01 independent auditor', () => {
     expect(() => auditLv01PairedCase({ ...input, branches: rebuilt })).toThrow(/null-token rule/u);
   });
 
+  it('accepts a committed message-shuffle delivery that matches the batch', () => {
+    const input = validCase();
+    const plan = structuredClone(input.plan);
+    const shuffledPlan = plan.branches.find((entry) => entry.branch === 'shuffled')!;
+    const ledgerSlice = plan.branches.find((entry) => entry.branch === 'ledger-shuffled')!.config.lv01PairedCase!
+      .ledgerTreatment!;
+    shuffledPlan.config.lv01PairedCase = { ...shuffledPlan.config.lv01PairedCase!, messageShuffleTreatment: { ...ledgerSlice } };
+    const branches = structuredClone(input.branches);
+    const index = branches.findIndex((entry) => entry.branch === 'shuffled');
+    const target = branches[index]!;
+    const records = mapLv01LedgerAssociations(input.shared.parentLedgerEvents.babyB, 'baby-b', () => true);
+    const { payload, commitment } = buildLv01PairedPredictionPayload({
+      branch: 'shuffled',
+      predictionTreatment: 'ordinary-records',
+      turn: 0,
+      receiver: 'baby-b',
+      caseId: target.payload.caseId,
+      candidateRefs: refs,
+      candidateTypeCodes: candidates,
+      deliveredToken: ledgerSlice.deliveredToken,
+      symbolInventory: [...inventory],
+      ledgerRecords: records,
+      cutoff: deriveLv01LedgerCutoff(records),
+      frozenModel: input.shared.frozenModel,
+      ordinaryId: target.payload.ordinary.id,
+      ordinaryFit: target.payload.ordinary.fit,
+      state: target.payload.state,
+      scheduleDigest: target.payload.scheduleDigest,
+    });
+    const action = { ...(target.transcript[3]!.body as Record<string, unknown>), deliveredToken: ledgerSlice.deliveredToken };
+    const transcript = [...target.transcript];
+    transcript[1] = { ...transcript[1]!, body: { commitment } };
+    transcript[3] = { ...transcript[3]!, body: action };
+    branches[index] = {
+      ...target,
+      payload,
+      predictionCommitment: commitment,
+      transcript,
+      messageShuffle: { ...ledgerSlice },
+    };
+    const { caseCommitment } = auditLv01PairedCase({ ...input, plan, branches });
+    expect(caseCommitment).toMatch(/^sha256:[0-9a-f]{64}$/);
+  });
+
+  it('rejects a message-shuffle delivery that disagrees with plan or batch', () => {
+    const input = validCase();
+    const plan = structuredClone(input.plan);
+    const shuffledPlan = plan.branches.find((entry) => entry.branch === 'shuffled')!;
+    const ledgerSlice = plan.branches.find((entry) => entry.branch === 'ledger-shuffled')!.config.lv01PairedCase!
+      .ledgerTreatment!;
+    shuffledPlan.config.lv01PairedCase = { ...shuffledPlan.config.lv01PairedCase!, messageShuffleTreatment: { ...ledgerSlice } };
+    const branches = structuredClone(input.branches);
+    const target = branches.find((entry) => entry.branch === 'shuffled')!;
+    target.messageShuffle = { ...ledgerSlice, deliveredToken: 'S31' };
+    expect(() => auditLv01PairedCase({ ...input, plan, branches })).toThrow(/disagrees with the registered plan delivery/u);
+    const unplanned = structuredClone(input.branches);
+    unplanned.find((entry) => entry.branch === 'normal')!.messageShuffle = { ...ledgerSlice };
+    expect(() => auditLv01PairedCase({ ...input, branches: unplanned })).toThrow(/must not carry a message-shuffle delivery/u);
+  });
+
   it('ignores collector flags: they cannot rescue a missing restore', () => {
     const input = validCase();
     const branches = structuredClone(input.branches);

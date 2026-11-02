@@ -567,4 +567,32 @@ describe('LV01 ledger interventions', () => {
     );
     expect(symbolsOf(result.delivery?.publicArtifact)).toEqual(PROPOSED);
   });
+
+  it('delivers the committed shuffle token instead of the batch artifact', async () => {
+    const token = fixedTokenInventory(32)[9] as string;
+    const { gateway, context } = harness({
+      communicationCondition: 'shuffled',
+      ...lv01Run,
+      lv01PairedCase: {
+        version: 1,
+        branch: 'shuffled',
+        predictionTreatment: 'ordinary-records',
+        preStateCommitment: hashCanonical('test-pre-state-v1', 'shuffled'),
+        messageShuffleTreatment: {
+          selectedToken: 'S01',
+          deliveredToken: token,
+          batchCommitment: hashCanonical('test-batch-v1', 'b'),
+          sourceCaseId: 'donor-case',
+        },
+      },
+    });
+    await prepareShuffledBatch(gateway, [{ symbols: ['S01'] }]);
+    const result = accepted(
+      await gateway.submitPreparedShuffledProposal(turn({ turn: 1 })),
+    );
+    expect(symbolsOf(result.delivery?.publicArtifact)).toEqual([token]);
+    expect(result.deliveredArtifactHash).toBe(
+      hashCarrierMark(context.config.carrierMode, { symbols: [token] }),
+    );
+  });
 });

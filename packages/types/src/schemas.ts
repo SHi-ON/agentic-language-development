@@ -199,6 +199,12 @@ export const Lv01PairedCaseSchema = z.object({
     batchCommitment: hashString,
     sourceCaseId: nonEmptyString,
   }).strict().optional(),
+  messageShuffleTreatment: z.object({
+    selectedToken: nonEmptyString,
+    deliveredToken: nonEmptyString,
+    batchCommitment: hashString,
+    sourceCaseId: nonEmptyString,
+  }).strict().optional(),
   actionDraw: z.object({
     stage: z.enum(['development', 'qualification', 'shadow', 'generalization', 'pilot']),
     slotKind: z.enum(['primary', 'reserve']),

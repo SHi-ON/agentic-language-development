@@ -34,7 +34,7 @@ import {
   type Lv01AuditedBranch,
 } from './lv01-auditor.js';
 import { LV01_BRANCHES } from './ledger-value.js';
-import type { Lv01LedgerTreatmentBatch } from './lv01-ledger-treatments.js';
+import type { Lv01AnyLedgerTreatmentBatch } from './lv01-ledger-treatments.js';
 import type { Lv01PairedPredictionPayload } from './lv01-paired-predictions.js';
 
 export const LV01_AUDIT_TRANSCRIPT_DOMAIN = 'lv01-audit-transcript/v1' as const;
@@ -258,6 +258,9 @@ export function loadLv01AuditedBranch(docs: Lv01BundleDocs): Lv01AuditedBranch {
     disclosure,
     transcript,
     ...(pairedCase.ledgerTreatment === undefined ? {} : { treatmentSlice: { ...pairedCase.ledgerTreatment } }),
+    ...(pairedCase.messageShuffleTreatment === undefined
+      ? {}
+      : { messageShuffle: { ...pairedCase.messageShuffleTreatment } }),
   };
 }
 
@@ -299,7 +302,7 @@ export function loadLv01AuditShared(input: {
   readonly parentDocs: Lv01BundleDocs;
   readonly branchDocs: Lv01BundleDocs;
   readonly firstBranch: Lv01AuditedBranch;
-  readonly treatmentBatch: Lv01LedgerTreatmentBatch;
+  readonly treatmentBatch: Lv01AnyLedgerTreatmentBatch;
 }): Lv01AuditSharedInput {
   const parentConfig = RunConfigSchema.safeParse(input.parentDocs.runConfig);
   if (!parentConfig.success) fail(`parent run-config is invalid: ${parentConfig.error.issues[0]?.message ?? 'unknown'}`);

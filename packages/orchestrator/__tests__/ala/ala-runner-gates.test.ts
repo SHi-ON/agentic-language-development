@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { alaDevAttemptsUsed, runAlaDyad } from '../../src/ala/ala-runner.js';
+import { alaAttemptJournalEntry, alaDevAttemptsUsed, runAlaDyad } from '../../src/ala/ala-runner.js';
 import { alaDyadSeeds } from '../../src/ala/ala-seeds.js';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -216,7 +216,46 @@ describe('ALA runner gates (no training runs)', () => {
     expect(readdirSync(dir)).toEqual([]);
   });
 
-  it('keeps the cross-slot refusal for protocol 2 with batch version 2', async () => {
+  it('admits protocol 2 with batch version 2 past the gates without a historical ack', async () => {
+    // Corrected-study collection passes coherence and admission gates, then
+    // stops at the retained-identity audit (before training) so the test
+    // stays cheap: the attempted entry must carry no acknowledgement.
+    const dir = evidenceRoot();
+    const colliding = Object.values(alaDyadSeeds('development', 'primary', '0000', 'ala-ledger-value-v2'));
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: colliding,
+        treatmentBatchVersion: 2,
+        protocolVersion: 2,
+      }),
+    ).rejects.toThrowError(/collides with a retained identity/);
+    const lines = readFileSync(join(dir, 'journal.jsonl'), 'utf8').trim().split('\n');
+    expect(lines).toHaveLength(1);
+    expect(JSON.parse(lines[0] as string)).toMatchObject({
+      cohort: 'development',
+      kind: 'primary',
+      index: 0,
+      state: 'attempted',
+    });
+    expect(JSON.parse(lines[0] as string)).not.toHaveProperty('historicalReplayAck');
+  });
+
+  it('journals the acknowledgement only for version 1 attempts', () => {
+    expect(
+      alaAttemptJournalEntry({ cohort: 'A', kind: 'primary', index: 0, resuming: false, protocolVersion: 1 }),
+    ).toMatchObject({ state: 'attempted', historicalReplayAck: 'historical-sham-replay' });
+    const v2 = alaAttemptJournalEntry({ cohort: 'A', kind: 'primary', index: 0, resuming: true, protocolVersion: 2 });
+    expect(v2.state).toBe('resumed');
+    expect(v2).not.toHaveProperty('historicalReplayAck');
+  });
+
+  it('forbids the historical acknowledgement on the corrected-study path', async () => {
     const dir = evidenceRoot();
     await expect(
       runAlaDyad({
@@ -228,9 +267,10 @@ describe('ALA runner gates (no training runs)', () => {
         evidenceRoot: dir,
         retainedCorpus: [],
         treatmentBatchVersion: 2,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
         protocolVersion: 2,
       }),
-    ).rejects.toThrowError(/cross-slot scheduling/);
+    ).rejects.toThrowError(/forbidden on the corrected-study path/);
     expect(readdirSync(dir)).toEqual([]);
   });
 

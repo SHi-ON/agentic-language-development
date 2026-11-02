@@ -40,7 +40,7 @@ import {
 } from './lv01-paired-predictions.js';
 import {
   verifyLedgerTreatmentSlice,
-  type Lv01LedgerTreatmentBatch,
+  type Lv01AnyLedgerTreatmentBatch,
   type Lv01TreatmentSlice,
 } from './lv01-ledger-treatments.js';
 
@@ -65,7 +65,7 @@ export interface Lv01AuditSharedInput {
   readonly frozenModel: unknown;
   readonly authenticate: Lv01LedgerAuthenticate;
   readonly parent: Lv01AuditParentBundle;
-  readonly treatmentBatch: Lv01LedgerTreatmentBatch;
+  readonly treatmentBatch: Lv01AnyLedgerTreatmentBatch;
   /** The parent's frozen ledger streams, referenced by every branch. */
   readonly parentLedgerEvents: {
     readonly babyA: readonly LedgerEvent[];
@@ -99,6 +99,8 @@ export interface Lv01AuditedBranch {
   readonly transcript: readonly Lv01AuditTranscriptEntry[];
   /** Ledger branches only; ordinary branches must not carry one. */
   readonly treatmentSlice?: Lv01TreatmentSlice;
+  /** Message-shuffled branch only, when the plan commits its delivery. */
+  readonly messageShuffle?: Lv01TreatmentSlice;
 }
 
 const sameStrings = (left: readonly string[], right: readonly string[]): boolean =>
@@ -219,7 +221,7 @@ function verifyTranscript(input: {
   }
 }
 
-function verifyTreatmentBatch(batch: Lv01LedgerTreatmentBatch): void {
+function verifyTreatmentBatch(batch: Lv01AnyLedgerTreatmentBatch): void {
   const caseIds = batch.cases.map((entry) => entry.caseId);
   if (new Set(caseIds).size !== caseIds.length) fail('treatment batch case identities collide');
   for (const entry of batch.cases) {
@@ -361,6 +363,34 @@ export function auditLv01PairedCase(input: {
       if (branch.treatmentSlice !== undefined) fail(`${branch.branch} must not carry a ledger-treatment slice`);
       if ((branch.payload.deliveredToken === null) !== (branch.branch === 'disabled')) {
         fail(`${branch.branch} null-token rule is violated`);
+      }
+    }
+    const plannedShuffle = planned.config.lv01PairedCase?.messageShuffleTreatment;
+    if (branch.branch !== 'shuffled' && (branch.messageShuffle !== undefined || plannedShuffle !== undefined)) {
+      fail(`${branch.branch} must not carry a message-shuffle delivery`);
+    }
+    if (branch.branch === 'shuffled' && (branch.messageShuffle !== undefined || plannedShuffle !== undefined)) {
+      if (branch.messageShuffle === undefined || plannedShuffle === undefined) {
+        fail('shuffled branch evidence and plan disagree on carrying a committed shuffle delivery');
+      }
+      if (
+        plannedShuffle.selectedToken !== branch.messageShuffle.selectedToken ||
+        plannedShuffle.deliveredToken !== branch.messageShuffle.deliveredToken ||
+        plannedShuffle.batchCommitment !== branch.messageShuffle.batchCommitment ||
+        plannedShuffle.sourceCaseId !== branch.messageShuffle.sourceCaseId
+      ) {
+        fail('shuffled branch evidence delivery disagrees with the registered plan delivery');
+      }
+      const ledgerShuffled = input.branches.find((entry) => entry.branch === 'ledger-shuffled');
+      if (ledgerShuffled === undefined) fail('shuffled branch has no ledger-shuffled sibling to verify against');
+      verifyLedgerTreatmentSlice(
+        input.shared.treatmentBatch,
+        ledgerShuffled.payload.caseId,
+        'ledger-shuffled',
+        branch.messageShuffle,
+      );
+      if (branch.payload.deliveredToken !== branch.messageShuffle.deliveredToken) {
+        fail('shuffled branch committed token disagrees with its shuffle delivery');
       }
     }
 
