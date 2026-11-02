@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ALA_SEED_ROOT,
+  ALA_SEED_ROOT_V2,
   ALA_STUDY_ID,
   alaDyadSeeds,
   alaEngineSlotNumber,
@@ -77,5 +78,15 @@ describe('ALA seed namespace', () => {
     const seed = deriveAlaSeed({ cohort: 'A', slotKind: 'primary', slotIndex: '0000', purpose: 'scenario', role: 'shared' });
     expect(() => auditAlaSeedsAgainstRetained([seed], ['deadbeef'])).not.toThrow();
     expect(() => auditAlaSeedsAgainstRetained([seed], [seed])).toThrowError(/collides/);
+  });
+
+  it('derives a disjoint v2 namespace and refuses unknown roots', () => {
+    const base = { cohort: 'A' as const, slotKind: 'primary' as const, slotIndex: '0000', purpose: 'scenario' as const, role: 'shared' as const };
+    const v1 = deriveAlaSeed(base);
+    const v2 = deriveAlaSeed({ ...base, seedRoot: ALA_SEED_ROOT_V2 });
+    expect(v1).not.toBe(v2);
+    expect(alaDyadSeeds('A', 'primary', '0000', ALA_SEED_ROOT_V2).scenario).toBe(v2);
+    expect(alaDyadSeeds('A', 'primary', '0000').scenario).toBe(v1);
+    expect(() => deriveAlaSeed({ ...base, seedRoot: 'bogus-root' })).toThrowError(/not a known ALA namespace root/);
   });
 });

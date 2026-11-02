@@ -56,7 +56,9 @@ import { LV01_BRANCHES } from '../experiments/ledger-value.js';
 
 import {
   ALA_POLICY_VERSION,
+  ALA_POLICY_VERSION_V2,
   ALA_SEED_ROOT,
+  ALA_SEED_ROOT_V2,
   ALA_STUDY_ID,
   alaDyadSeeds,
   alaEngineSlotNumber,
@@ -64,7 +66,7 @@ import {
   type AlaCohort,
   type AlaSlotKind,
 } from './ala-seeds.js';
-import { verifyAlaExecutionManifest, type AlaExecutionManifest } from './ala-manifest.js';
+import { alaProtocolPaths, verifyAlaExecutionManifest, type AlaExecutionManifest } from './ala-manifest.js';
 import { alaPrototypeWorkload, alaStudyCounts } from './ala-workload.js';
 
 export type AlaDyadState =
@@ -82,6 +84,8 @@ export interface AlaDyadReceipt {
   readonly cohort: AlaCohort;
   readonly kind: AlaSlotKind;
   readonly index: number;
+  readonly protocolVersion: 1 | 2;
+  readonly studyVersion: string;
   readonly state: 'valid' | 'invalid';
   readonly reason: string;
   readonly runIdPrefix: string;
@@ -198,6 +202,13 @@ export async function runAlaDyad(input: {
    * attempt record journals. Version 2 refuses before this is read.
    */
   readonly historicalReplayAcknowledgement?: 'historical-sham-replay';
+  /**
+   * Study protocol selection. Version 1 is the retained audit (default,
+   * reproducing today's behavior byte-identically). Version 2 is the
+   * corrected study and requires batch version 2; batch version 2
+   * still refuses outright until cross-slot scheduling lands (A1).
+   */
+  readonly protocolVersion?: 1 | 2;
 }): Promise<AlaDyadReceipt> {
   const wallStart = Date.now();
   const cpuStart = process.cpuUsage();
@@ -238,6 +249,13 @@ export async function runAlaDyad(input: {
   } else if (!resuming && alaDevAttemptsUsed(journal) >= 3) {
     fail('development/calibration attempt budget (3) is exhausted');
   }
+  const protocolVersion = input.protocolVersion ?? 1;
+  const protocolPaths = alaProtocolPaths(protocolVersion);
+  const seedRoot = protocolVersion === 2 ? ALA_SEED_ROOT_V2 : ALA_SEED_ROOT;
+  const policyVersion = protocolVersion === 2 ? ALA_POLICY_VERSION_V2 : ALA_POLICY_VERSION;
+  if (input.treatmentBatchVersion === 1 && protocolVersion === 2) {
+    fail('study protocol version 2 requires batch version 2; refusing before anything is written');
+  }
   if (input.treatmentBatchVersion === 2) {
     fail('new collection requires cross-slot scheduling (Phase-5 precondition): '
       + 'the per-slot flow builds both branch records from one scheduled case, '
@@ -268,7 +286,7 @@ export async function runAlaDyad(input: {
   await mkdir(dyadDir, { recursive: true });
 
   // 3. Seeds in the ALA namespace; audit against retained LV01 identities.
-  const seeds = alaDyadSeeds(input.cohort, input.kind, slotLabel);
+  const seeds = alaDyadSeeds(input.cohort, input.kind, slotLabel, seedRoot);
   auditAlaSeedsAgainstRetained(Object.values(seeds), input.retainedCorpus);
 
   // 4. Disposable worker: fresh store, fresh signers, Prototype topology.
@@ -289,7 +307,7 @@ export async function runAlaDyad(input: {
     return created;
   };
 
-  const studyCounts = alaStudyCounts(join(input.root, 'protocols/ala-lv-study.v1.json'));
+  const studyCounts = alaStudyCounts(join(input.root, protocolPaths.study));
   const workload = alaPrototypeWorkload(studyCounts);
 
   try {
@@ -311,9 +329,9 @@ export async function runAlaDyad(input: {
       },
       ledgerValuePlan: {
         version: 1,
-        designCommitmentHash: manifest.protocols['protocols/ala-lv-study.v1.json']!.sha256,
-        analysisCommitmentHash: manifest.protocols['protocols/ala-lv-analysis.v1.json']!.sha256,
-        seedResourceCommitmentHash: manifest.protocols['protocols/ala-lv-scope-and-resource-amendment.v1.json']!.sha256,
+        designCommitmentHash: manifest.protocols[protocolPaths.study]!.sha256,
+        analysisCommitmentHash: manifest.protocols[protocolPaths.analysis]!.sha256,
+        seedResourceCommitmentHash: manifest.protocols[protocolPaths.amendment]!.sha256,
         predictionFunctionVersion: 'lv01-ledger-value-prediction/v1',
         partitionContractVersion: 'lv01-within-support/v1',
       },
@@ -386,10 +404,10 @@ export async function runAlaDyad(input: {
       const childRunIdPrefix = `ala-${input.cohort}-${input.kind}-${slotLabel}-s${pad4(slot)}`;
       const treatmentCases = buildLv01TreatmentCases(scheduled, childRunIdPrefix);
       const derangementSeed = deriveLv01DerangementSeed({
-        root: ALA_SEED_ROOT,
+        root: seedRoot,
         studyId: ALA_STUDY_ID,
         stage: `ala-${input.cohort}`,
-        policyVersion: ALA_POLICY_VERSION,
+        policyVersion,
         slotKind: input.kind,
         slotIndex: engineSlotLabel,
         partition: 'within-support',
@@ -481,6 +499,8 @@ export async function runAlaDyad(input: {
       cohort: input.cohort,
       kind: input.kind,
       index: input.index,
+      protocolVersion,
+      studyVersion: `ala-lv-study/v${protocolVersion}`,
       state: 'valid',
       reason: 'all paired cases executed and audited',
       runIdPrefix: `ala-${input.cohort}-${input.kind}-${slotLabel}`,

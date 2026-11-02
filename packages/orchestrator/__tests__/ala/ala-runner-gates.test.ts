@@ -197,6 +197,61 @@ describe('ALA runner gates (no training runs)', () => {
     });
   });
 
+  it('refuses study protocol 2 with batch version 1 before anything is written', async () => {
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
+        protocolVersion: 2,
+      }),
+    ).rejects.toThrowError(/requires batch version 2/);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('keeps the cross-slot refusal for protocol 2 with batch version 2', async () => {
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 2,
+        protocolVersion: 2,
+      }),
+    ).rejects.toThrowError(/cross-slot scheduling/);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
+  it('treats explicit protocol 1 exactly like the default', async () => {
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 2,
+        protocolVersion: 1,
+      }),
+    ).rejects.toThrowError(/cross-slot scheduling/);
+    expect(readdirSync(dir)).toEqual([]);
+  });
+
   it('resume bypasses the attempted refusal but keeps downstream gates', async () => {
     // Cohort A with a crashed (attempted, never terminal) slot: resume must
     // pass the attempted gate and then fail at P5 admission — proving the

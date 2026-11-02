@@ -4,7 +4,8 @@
  * Usage:
  *   tsx scripts/ala-run-entry.ts --manifest <path> --cohort A|B|development|calibration
  *     --kind primary|reserve --index <n> --treatment-batch-version 1|2
- *     [--acknowledge-historical-replay] [--evidence-root <dir>] [--resume]
+ *     [--protocol-version 1|2] [--acknowledge-historical-replay]
+ *     [--evidence-root <dir>] [--resume]
  *
  * Batch version is required with no default: 1 is historical replay of
  * the retained sham audit; 2 is new collection, refused until
@@ -86,6 +87,11 @@ if (batchVersion === '2' && acknowledged) {
   console.error('FAIL: --acknowledge-historical-replay is for version 1 replay only');
   process.exit(11);
 }
+const protocolVersion = process.argv.includes('--protocol-version') ? arg('--protocol-version') : '1';
+if (protocolVersion !== '1' && protocolVersion !== '2') {
+  console.error('FAIL: --protocol-version must be 1|2');
+  process.exit(11);
+}
 
 const receipt = await runAlaDyad({
   root: ROOT,
@@ -98,5 +104,6 @@ const receipt = await runAlaDyad({
   resume: process.argv.includes('--resume'),
   treatmentBatchVersion: batchVersion === '2' ? 2 : 1,
   historicalReplayAcknowledgement: acknowledged ? 'historical-sham-replay' : undefined,
+  protocolVersion: protocolVersion === '2' ? 2 : 1,
 });
 console.log(JSON.stringify({ state: receipt.state, reason: receipt.reason, casesValid: receipt.casesValid }));

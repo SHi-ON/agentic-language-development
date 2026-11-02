@@ -3,8 +3,8 @@
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
   "amendmentCommit": "a1fc53924df22e8260ccffee019b25de09a8511d",
-  "sourceTree": "60c27c66cf0cb075e9ca38bff181b46ea980b635",
-  "createdAtUtc": "2026-11-01T22:32:23.031Z",
+  "sourceTree": "9d3eae89bde9336dbeb9d27a21e5c2f340951abf",
+  "createdAtUtc": "2026-11-02T23:07:11.356Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -20,8 +20,8 @@
     }
   },
   "executionClosure": {
-    "fileCount": 361,
-    "sha256": "sha256:5e19452f03cfc4d01b754e83ebf89fb103f5235ff7afdcdf1851cf0980f5a8ad"
+    "fileCount": 367,
+    "sha256": "sha256:14967633bd139f8e0c3a6e5f95c8dee660ae2ab9fe35b8f17413eedd1294d4a6"
   },
   "closureFiles": [
     "package.json",
@@ -325,11 +325,17 @@
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "protocols/ala-lv-analysis.v1.json",
+    "protocols/ala-lv-analysis.v2.json",
     "protocols/ala-lv-scope-and-resource-amendment.v1.json",
+    "protocols/ala-lv-scope-and-resource-amendment.v2.json",
     "protocols/ala-lv-study.v1.json",
+    "protocols/ala-lv-study.v2.json",
     "protocols/schemas/ala-lv-analysis.schema.json",
+    "protocols/schemas/ala-lv-analysis.v2.schema.json",
     "protocols/schemas/ala-lv-study.schema.json",
+    "protocols/schemas/ala-lv-study.v2.schema.json",
     "scripts/admit-lv01-stage.mjs",
+    "scripts/ala-admission-entry.ts",
     "scripts/ala-overhead-benchmark.ts",
     "scripts/ala-run-entry.ts",
     "scripts/ala-run.mjs",

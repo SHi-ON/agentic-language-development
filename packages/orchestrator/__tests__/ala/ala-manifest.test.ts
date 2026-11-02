@@ -6,6 +6,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  alaProtocolPaths,
+  buildAlaAdmissionRecord,
   buildAlaExecutionManifest,
   verifyAlaExecutionManifest,
 } from '../../src/ala/ala-manifest.js';
@@ -156,5 +158,84 @@ describe('ALA execution manifest', () => {
     expect(() => verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v1.json')).toThrowError(
       /amendmentCommit drifted/,
     );
+  });
+
+  it('selects disjoint protocol triplets per study version', () => {
+    expect(alaProtocolPaths(1)).toEqual({
+      manifest: 'protocols/ala-lv-execution-manifest.v1.json',
+      study: 'protocols/ala-lv-study.v1.json',
+      analysis: 'protocols/ala-lv-analysis.v1.json',
+      amendment: 'protocols/ala-lv-scope-and-resource-amendment.v1.json',
+    });
+    const v2 = alaProtocolPaths(2);
+    expect(v2.study).toBe('protocols/ala-lv-study.v2.json');
+    expect(v2.analysis).toBe('protocols/ala-lv-analysis.v2.json');
+    expect(v2.amendment).toBe('protocols/ala-lv-scope-and-resource-amendment.v2.json');
+    expect(v2.manifest).toBe('protocols/ala-lv-execution-manifest.v2.json');
+  });
+
+  it('binds the v2 triplet and its seed root without touching v1', () => {
+    const root = fixtureRoot();
+    const study2 = {
+      task: {
+        partitions: {
+          training: { cases: 3000 },
+          validationFit: { cases: 240 },
+          validationSelection: { cases: 240 },
+          withinSupportTest: { cases: 240 },
+        },
+      },
+      seeds: { partValues: { root: 'ala-ledger-value-v2' } },
+    };
+    writeFileSync(join(root, 'protocols/ala-lv-study.v2.json'), JSON.stringify(study2));
+    writeFileSync(join(root, 'protocols/ala-lv-analysis.v2.json'), JSON.stringify({ studyId: 'ALA-LV' }));
+    writeFileSync(
+      join(root, 'protocols/ala-lv-scope-and-resource-amendment.v2.json'),
+      JSON.stringify({ studyIdentity: 'ALA-LV' }),
+    );
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'add', '-A'], { cwd: root });
+    execFileSync('git', ['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-qm', 'v2'], { cwd: root });
+    const manifest = buildAlaExecutionManifest(root, 2);
+    expect(Object.keys(manifest.protocols).sort()).toEqual([
+      'protocols/ala-lv-analysis.v2.json',
+      'protocols/ala-lv-scope-and-resource-amendment.v2.json',
+      'protocols/ala-lv-study.v2.json',
+    ]);
+    expect(manifest.seedPolicy.root).toBe('ala-ledger-value-v2');
+    expect(manifest.workload.withinSupportTestCases).toBe(240);
+    writeFileSync(join(root, 'protocols/ala-lv-execution-manifest.v2.json'), JSON.stringify(manifest));
+    const verified = verifyAlaExecutionManifest(root, 'protocols/ala-lv-execution-manifest.v2.json');
+    expect(verified.protocolCommit).toBe(manifest.protocolCommit);
+    const v1 = buildAlaExecutionManifest(root);
+    expect(Object.keys(v1.protocols).sort()).toEqual([
+      'protocols/ala-lv-analysis.v1.json',
+      'protocols/ala-lv-scope-and-resource-amendment.v1.json',
+      'protocols/ala-lv-study.v1.json',
+    ]);
+    expect(v1.seedPolicy.root).toBe('ala-ledger-value-v1');
+  });
+
+  it('builds admission records bound to exact manifest bytes', () => {
+    const record = buildAlaAdmissionRecord({
+      manifestSha256: 'sha256:abc',
+      cohort: 'A',
+      primaries: 20,
+      reserves: 2,
+      admittedAtUtc: '2026-11-02T00:00:00Z',
+    });
+    expect(record).toEqual({
+      status: 'admitted',
+      manifestSha256: 'sha256:abc',
+      cohort: 'A',
+      primaries: 20,
+      reserves: 2,
+      admittedAtUtc: '2026-11-02T00:00:00Z',
+    });
+    expect(() =>
+      buildAlaAdmissionRecord({ manifestSha256: 'sha256:abc', cohort: 'B', primaries: 0, reserves: 2 }),
+    ).toThrowError(/at least one primary/);
+    expect(() =>
+      buildAlaAdmissionRecord({ manifestSha256: 'sha256:abc', cohort: 'B', primaries: 10, reserves: -1 }),
+    ).toThrowError(/non-negative integer/);
   });
 });

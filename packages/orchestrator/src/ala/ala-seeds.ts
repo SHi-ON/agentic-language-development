@@ -13,6 +13,8 @@ import { deriveSeedHex } from '@ald/hashing';
 export const ALA_SEED_ROOT = 'ala-ledger-value-v1' as const;
 export const ALA_STUDY_ID = 'ALA-LV' as const;
 export const ALA_POLICY_VERSION = 'v1' as const;
+export const ALA_SEED_ROOT_V2 = 'ala-ledger-value-v2' as const;
+export const ALA_POLICY_VERSION_V2 = 'v2' as const;
 
 export type AlaCohort = 'development' | 'calibration' | 'A' | 'B';
 export type AlaSlotKind = 'primary' | 'reserve';
@@ -53,11 +55,15 @@ export function deriveAlaSeed(input: {
   readonly partition?: AlaSeedPartition;
   readonly caseId?: string;
   readonly branch?: string;
+  readonly seedRoot?: string;
 }): string {
   for (const [name, value] of Object.entries(input)) assertPart(String(value), name);
   if (!/^\d{4}$/u.test(input.slotIndex)) fail('slotIndex must be zero-padded');
+  if (input.seedRoot !== undefined && input.seedRoot !== ALA_SEED_ROOT && input.seedRoot !== ALA_SEED_ROOT_V2) {
+    fail('seedRoot is not a known ALA namespace root');
+  }
   const parts = [
-    ALA_SEED_ROOT,
+    input.seedRoot ?? ALA_SEED_ROOT,
     ALA_STUDY_ID,
     input.cohort,
     input.slotKind,
@@ -72,7 +78,12 @@ export function deriveAlaSeed(input: {
 }
 
 /** Slot-scoped seeds for one dyad (scenario/learners/channel/analysis). */
-export function alaDyadSeeds(cohort: AlaCohort, slotKind: AlaSlotKind, slotIndex: string): {
+export function alaDyadSeeds(
+  cohort: AlaCohort,
+  slotKind: AlaSlotKind,
+  slotIndex: string,
+  seedRoot: string = ALA_SEED_ROOT,
+): {
   readonly scenario: string;
   readonly babyA: string;
   readonly babyB: string;
@@ -80,7 +91,7 @@ export function alaDyadSeeds(cohort: AlaCohort, slotKind: AlaSlotKind, slotIndex
   readonly analysis: string;
 } {
   const seed = (purpose: (typeof ALA_SEED_PURPOSES)[number]): string =>
-    deriveAlaSeed({ cohort, slotKind, slotIndex, purpose, role: 'shared' });
+    deriveAlaSeed({ cohort, slotKind, slotIndex, purpose, role: 'shared', seedRoot });
   return {
     scenario: seed('scenario'),
     babyA: seed('learner/baby-a'),
