@@ -173,3 +173,31 @@ export function verifyLv01ScheduleCoverage(schedule: Lv01Schedule, executedCaseI
   }
   return schedule.commitment;
 }
+
+/**
+ * Executed-coverage check against executed evidence: every planned id
+ * executed exactly its planned multiplicity, nothing outside the plan.
+ * Membership alone accepts a repeated subset; this rejects it.
+ */
+export function verifyLv01ExecutedCoverage(
+  schedule: Lv01Schedule,
+  plannedCaseIds: readonly string[],
+  executedCaseIds: readonly string[],
+): string {
+  verifyLv01ScheduleCoverage(schedule, executedCaseIds);
+  const plannedCounts = new Map<string, number>();
+  for (const id of plannedCaseIds) plannedCounts.set(id, (plannedCounts.get(id) ?? 0) + 1);
+  const executedCounts = new Map<string, number>();
+  for (const id of executedCaseIds) executedCounts.set(id, (executedCounts.get(id) ?? 0) + 1);
+  const missing = [...plannedCounts.keys()].filter((id) => !executedCounts.has(id)).sort();
+  const extra = [...executedCounts.keys()].filter((id) => !plannedCounts.has(id)).sort();
+  const mismatched = [...plannedCounts.keys()]
+    .filter((id) => executedCounts.has(id) && executedCounts.get(id) !== plannedCounts.get(id))
+    .sort();
+  if (missing.length > 0) fail(`executed coverage is missing ${missing.length} planned cases (e.g. ${missing[0]})`);
+  if (extra.length > 0) fail(`executed coverage has ${extra.length} unplanned cases (e.g. ${extra[0]})`);
+  if (mismatched.length > 0) {
+    fail(`executed coverage repeats ${mismatched.length} cases off-plan (e.g. ${mismatched[0]})`);
+  }
+  return schedule.commitment;
+}

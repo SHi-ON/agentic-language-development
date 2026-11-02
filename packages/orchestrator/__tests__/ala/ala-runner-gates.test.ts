@@ -5,7 +5,13 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { alaAttemptJournalEntry, alaDevAttemptsUsed, planAlaDyadSlots, runAlaDyad } from '../../src/ala/ala-runner.js';
+import {
+  alaAttemptJournalEntry,
+  alaDevAttemptsUsed,
+  planAlaDyadSlots,
+  readLv01ExecutedCaseIds,
+  runAlaDyad,
+} from '../../src/ala/ala-runner.js';
 import { alaDyadSeeds } from '../../src/ala/ala-seeds.js';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -270,16 +276,25 @@ describe('ALA runner gates (no training runs)', () => {
       expect(group).toHaveLength(240);
       expect(group[0]?.slot).toBe(block * 240 + 1);
       expect(group[0]?.receiver).toBe('baby-b');
+      // Receivers still alternate, but every role visits each of its
+      // cases exactly once per partition (complete walk, no parity
+      // duplication).
       for (const role of ['baby-a', 'baby-b'] as const) {
         const roleCases = group.filter((entry) => entry.receiver === role).map((entry) => entry.caseIndex).sort((a, b) => a - b);
-        expect(roleCases).toHaveLength(120);
-        // Parity cycling visits one index parity twice per role (A2 repairs this).
-        expect(new Set(roleCases).size).toBe(60);
-        for (const caseIndex of roleCases) {
-          expect(roleCases.filter((candidate) => candidate === caseIndex)).toHaveLength(2);
-        }
+        expect(roleCases).toEqual(Array.from({ length: 120 }, (_, i) => i));
       }
     });
+  });
+
+  it('reads executed case ids back from slot schedule records', async () => {
+    const dir = evidenceRoot();
+    for (const slot of [1, 2]) {
+      const slotDir = join(dir, `slot-${String(slot).padStart(4, '0')}`);
+      mkdirSync(slotDir, { recursive: true });
+      writeFileSync(join(slotDir, 'schedule.json'), JSON.stringify({ commitment: 'c', executedCaseId: `case-${slot}` }));
+    }
+    await expect(readLv01ExecutedCaseIds(dir, [1, 2])).resolves.toEqual(['case-1', 'case-2']);
+    await expect(readLv01ExecutedCaseIds(dir, [1, 3])).rejects.toThrow();
   });
 
   it('journals the acknowledgement only for version 1 attempts', () => {

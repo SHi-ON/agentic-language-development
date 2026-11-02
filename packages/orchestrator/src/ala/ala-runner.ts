@@ -30,6 +30,7 @@ import { createProductionRuntime } from '../production.js';
 import {
   buildLv01Schedule,
   scheduleCaseId,
+  verifyLv01ExecutedCoverage,
   verifyLv01ScheduleCoverage,
 } from '../experiments/lv01-schedule.js';
 import {
@@ -188,10 +189,11 @@ export interface AlaDyadSlotPlan {
 
 /**
  * Slot-to-case plan for one dyad. Version 1 executes the
- * within-support-test partition only (240 slots, parity receivers).
- * Version 2 executes all three partitions in validation-fit,
- * validation-selection, within-support-test order (720 slots), each
- * partition walked with parity receivers from its first slot.
+ * within-support-test partition only (240 slots, parity receivers,
+ * parity-duplicated cases). Version 2 executes all three partitions
+ * in validation-fit, validation-selection, within-support-test order
+ * (720 slots): receivers still alternate, but each role visits each
+ * of its cases exactly once per partition.
  */
 export function planAlaDyadSlots(
   counts: { readonly validationFitCases: number; readonly validationSelectionCases: number; readonly withinSupportTestCases: number },
@@ -214,11 +216,28 @@ export function planAlaDyadSlots(
         slot,
         partition,
         receiver: position % 2 === 0 ? 'baby-b' : 'baby-a',
-        caseIndex: position % count,
+        caseIndex: protocolVersion === 1 ? position % count : Math.floor(position / 2),
       });
     }
   }
   return slots;
+}
+
+/** Executed scheduled-case ids read back from per-slot schedule records. */
+export async function readLv01ExecutedCaseIds(dyadDir: string, slots: readonly number[]): Promise<string[]> {
+  const ids: string[] = [];
+  for (const slot of slots) {
+    const raw = (await readFile(
+      join(dyadDir, `slot-${String(slot).padStart(4, '0')}`, 'schedule.json'),
+      'utf8',
+    )) as string;
+    const record = JSON.parse(raw) as { executedCaseId?: unknown };
+    if (typeof record.executedCaseId !== 'string' || record.executedCaseId.length === 0) {
+      fail(`slot ${slot} schedule record carries no executed case id`);
+    }
+    ids.push(record.executedCaseId);
+  }
+  return ids;
 }
 
 export async function readAlaJournal(evidenceRoot: string): Promise<AlaJournalEntry[]> {
@@ -640,10 +659,18 @@ export async function runAlaDyad(input: {
       caseCommitments.push(caseCommitment);
     }
 
-    const scheduleCommitment = verifyLv01ScheduleCoverage(
-      schedule,
-      slotPlan.map((entry) => scheduleCaseId(entry.partition, entry.receiver, entry.caseIndex)),
-    );
+    const plannedCaseIds = slotPlan.map((entry) => scheduleCaseId(entry.partition, entry.receiver, entry.caseIndex));
+    const scheduleCommitment =
+      protocolVersion === 1
+        ? verifyLv01ScheduleCoverage(schedule, plannedCaseIds)
+        : verifyLv01ExecutedCoverage(
+            schedule,
+            plannedCaseIds,
+            await readLv01ExecutedCaseIds(
+              dyadDir,
+              slotPlan.map((entry) => entry.slot),
+            ),
+          );
     const cpu = process.cpuUsage(cpuStart);
     const receipt: AlaDyadReceipt = {
       cohort: input.cohort,

@@ -7,6 +7,7 @@ import {
   buildLv01Schedule,
   scheduleCaseId,
   scheduledCaseFor,
+  verifyLv01ExecutedCoverage,
   verifyLv01ScheduleCoverage,
 } from '../../src/experiments/lv01-schedule.js';
 
@@ -150,6 +151,28 @@ describe('LV01 scientific case schedule', () => {
     expect(coverage.ok).toBe(false);
     expect(coverage.missing).toHaveLength(24);
     expect(coverage.duplicated).toHaveLength(24);
+  });
+
+  it('verifies executed ids against the plan with exact multiplicity', () => {
+    const schedule = buildLv01Schedule({ engine: fixtureEngine('lv01-schedule-fixture'), counts: { ...SMALL } });
+    const planned = schedule.cases['within-support-test'].map((entry) => entry.caseId);
+    expect(verifyLv01ExecutedCoverage(schedule, planned, [...planned])).toBe(schedule.commitment);
+    expect(verifyLv01ExecutedCoverage(schedule, planned, [...planned].reverse())).toBe(schedule.commitment);
+    // The retained parity-duplicated shape fails: half the plan missing,
+    // the executed half repeated.
+    const executed: string[] = [];
+    for (let slot = 1; slot <= planned.length; slot += 1) {
+      const receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a';
+      executed.push(scheduleCaseId('within-support-test', receiver, (slot - 1) % 24));
+    }
+    expect(() => verifyLv01ExecutedCoverage(schedule, planned, executed)).toThrow(/missing 24 planned cases/u);
+    expect(() => verifyLv01ExecutedCoverage(schedule, planned, planned.slice(0, planned.length - 1))).toThrow(/missing 1 planned/u);
+    expect(() => verifyLv01ExecutedCoverage(schedule, planned.slice(0, planned.length - 1), planned)).toThrow(/unplanned cases/u);
+    const doubled = [...planned, planned[0] as string];
+    expect(() => verifyLv01ExecutedCoverage(schedule, planned, doubled)).toThrow(/repeats 1 cases off-plan/u);
+    expect(() => verifyLv01ExecutedCoverage(schedule, planned, ['within-support-test:baby-b:9999'])).toThrow(
+      /outside the committed schedule/u,
+    );
   });
 
   it('rejects out-of-range counts and empty roles', () => {
