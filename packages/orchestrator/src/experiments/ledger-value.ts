@@ -67,6 +67,12 @@ export interface Lv01PairedCasePlanInput {
     readonly sourceCaseId: string;
   };
   /**
+   * Case key for the `random` branch's control stream. Carries only
+   * that branch; absent on the historical path, where every case in
+   * the dyad draws from the same dyad-level stream.
+   */
+  readonly randomStreamCaseId?: string;
+  /**
    * Shared action-draw scope. One seed per case (no branch part); the
    * receiver role follows the scheduled case (turn 0 is always baby-b by
    * role math, so baby-a cases name their receiver explicitly).
@@ -157,6 +163,7 @@ export function createLv01PairedCasePlan(input: Lv01PairedCasePlanInput): Lv01Pa
     if (isLedgerBranch && ledgerSlice === undefined) fail(`branch ${branch} requires a committed ledger-treatment slice`);
     if (!isLedgerBranch && ledgerSlice !== undefined) fail(`branch ${branch} must not carry a ledger-treatment slice`);
     const messageShuffle = branch === 'shuffled' ? input.messageShuffleTreatment : undefined;
+    const randomStreamCaseId = branch === 'random' ? input.randomStreamCaseId : undefined;
     const config = createDerivedRunConfig(
       input.parent,
       input.parentCheckpointHash,
@@ -199,6 +206,7 @@ export function createLv01PairedCasePlan(input: Lv01PairedCasePlanInput): Lv01Pa
             preStateCommitment,
             ...(ledgerSlice === undefined ? {} : { ledgerTreatment: { ...ledgerSlice } }),
             ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: { ...messageShuffle } }),
+            ...(randomStreamCaseId === undefined ? {} : { randomStreamCaseId }),
             actionDraw: { ...drawScope, drawSeedCommitment },
             scheduledCase: { ...input.scheduledCase },
           },

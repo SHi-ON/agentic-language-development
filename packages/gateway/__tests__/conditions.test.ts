@@ -568,6 +568,35 @@ describe('LV01 ledger interventions', () => {
     expect(symbolsOf(result.delivery?.publicArtifact)).toEqual(PROPOSED);
   });
 
+  it('separates random streams per case key and reproduces them exactly', async () => {
+    const pairedRandom = (caseKey: string | undefined) => ({
+      version: 1 as const,
+      branch: 'random' as const,
+      predictionTreatment: 'ordinary-records' as const,
+      preStateCommitment: hashCanonical('test-pre-state-v1', 'random'),
+      ...(caseKey === undefined ? {} : { randomStreamCaseId: caseKey }),
+    });
+    const draw = async (caseKey: string | undefined): Promise<string[]> => {
+      const { gateway } = harness({
+        communicationCondition: 'random',
+        ...lv01Run,
+        lv01PairedCase: pairedRandom(caseKey),
+      });
+      const result = accepted(await gateway.submitProposal(turn({ turn: 0 }), symbolEnvelope(PROPOSED)));
+      return symbolsOf(result.delivery?.publicArtifact);
+    };
+    // Deterministic: the same case key reproduces the same stream.
+    expect(await draw('within-support-test:baby-b:0007')).toEqual(await draw('within-support-test:baby-b:0007'));
+    // Separated: distinct cases do not share one dyad-level stream.
+    const tokens = new Set<string>();
+    for (let i = 0; i < 8; i += 1) {
+      tokens.add((await draw(`within-support-test:baby-b:${String(i).padStart(4, '0')}`)).join(','));
+    }
+    expect(tokens.size).toBeGreaterThan(1);
+    // Absent key keeps the legacy dyad-level stream.
+    expect(await draw(undefined)).toEqual(await draw(undefined));
+  });
+
   it('delivers the committed shuffle token instead of the batch artifact', async () => {
     const token = fixedTokenInventory(32)[9] as string;
     const { gateway, context } = harness({

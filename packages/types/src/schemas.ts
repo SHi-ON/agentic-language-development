@@ -205,6 +205,7 @@ export const Lv01PairedCaseSchema = z.object({
     batchCommitment: hashString,
     sourceCaseId: nonEmptyString,
   }).strict().optional(),
+  randomStreamCaseId: nonEmptyString.optional(),
   actionDraw: z.object({
     stage: z.enum(['development', 'qualification', 'shadow', 'generalization', 'pilot']),
     slotKind: z.enum(['primary', 'reserve']),

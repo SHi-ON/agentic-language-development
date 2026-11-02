@@ -99,6 +99,7 @@ import {
 } from './lv01-ledger-treatments.js';
 import {
   buildLv01Schedule,
+  scheduleCaseId,
   scheduledCaseFor,
   verifyLv01ScheduleCoverage,
   type Lv01Schedule,
@@ -468,6 +469,11 @@ export function prepareLv01PairedCaseFromBlock(input: Lv01PairedCaseBlockInputs)
       'ledger-shuffled': shuffledSlice,
     },
     messageShuffleTreatment: { ...shuffledSlice },
+    randomStreamCaseId: scheduleCaseId(
+      input.scheduledCase.partition,
+      input.scheduledCase.receiverRole,
+      input.scheduledCase.caseIndex,
+    ),
   });
   return { plan, batch: input.blockBatch };
 }
@@ -1202,6 +1208,7 @@ export function rebuildLv01CasePlan(input: {
     readonly batchCommitment: string;
     readonly sourceCaseId: string;
   } | undefined;
+  let randomStreamCaseId: string | undefined;
   for (const docs of input.branchDocs) {
     const parsed = RunConfigSchema.safeParse(docs.runConfig);
     if (!parsed.success) fail('branch run-config is invalid');
@@ -1214,6 +1221,13 @@ export function rebuildLv01CasePlan(input: {
     if (section.messageShuffleTreatment !== undefined) {
       if (section.branch !== 'shuffled') fail('only the shuffled branch may carry a message-shuffle delivery');
       messageShuffle = { ...section.messageShuffleTreatment };
+    }
+    if (section.randomStreamCaseId !== undefined) {
+      if (section.branch !== 'random') fail('only the random branch may carry a stream case key');
+      if (randomStreamCaseId !== undefined && randomStreamCaseId !== section.randomStreamCaseId) {
+        fail('random branch stream case keys disagree');
+      }
+      randomStreamCaseId = section.randomStreamCaseId;
     }
   }
   return createLv01PairedCasePlan({
@@ -1242,6 +1256,7 @@ export function rebuildLv01CasePlan(input: {
     },
     ledgerTreatments: slices,
     ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: messageShuffle }),
+    ...(randomStreamCaseId === undefined ? {} : { randomStreamCaseId }),
   });
 }
 

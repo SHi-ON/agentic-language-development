@@ -336,7 +336,14 @@ describe('LV01 collector pure planning', () => {
       const ledgerShuffled = plan.branches.find((entry) => entry.branch === 'ledger-shuffled')?.config.lv01PairedCase
         ?.ledgerTreatment;
       expect(messageShuffle).toEqual(ledgerShuffled);
-      expect(scheduled.scheduledCaseId.length).toBeGreaterThan(0);
+      expect(plan.branches.find((entry) => entry.branch === 'random')?.config.lv01PairedCase?.randomStreamCaseId).toBe(
+        scheduled.scheduledCaseId,
+      );
+      for (const entry of plan.branches) {
+        if (entry.branch !== 'random') {
+          expect(entry.config.lv01PairedCase?.randomStreamCaseId).toBeUndefined();
+        }
+      }
     }
   });
 

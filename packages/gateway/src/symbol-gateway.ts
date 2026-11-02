@@ -867,11 +867,12 @@ export class SymbolGatewayImpl implements SymbolGateway {
         return null;
       case 'constant':
         return this.constant;
-      case 'random':
-        return this.module.randomArtifact(
-          this.conditionPrng.derive(String(turn.turn)),
-          this.carrierContext,
-        );
+      case 'random': {
+        const caseKey = this.runContext.config.lv01PairedCase?.randomStreamCaseId;
+        const stream =
+          caseKey === undefined ? this.conditionPrng : this.conditionPrng.derive(caseKey);
+        return this.module.randomArtifact(stream.derive(String(turn.turn)), this.carrierContext);
+      }
       case 'shuffled': {
         const committed = this.runContext.config.lv01PairedCase?.messageShuffleTreatment;
         if (committed !== undefined) {
