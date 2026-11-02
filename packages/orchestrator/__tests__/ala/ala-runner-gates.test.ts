@@ -8,6 +8,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   alaAttemptJournalEntry,
   alaDevAttemptsUsed,
+  alaFailureJournalEntry,
+  alaSupervisorJournalEntry,
   planAlaDyadSlots,
   readLv01ExecutedCaseIds,
   runAlaDyad,
@@ -304,6 +306,88 @@ describe('ALA runner gates (no training runs)', () => {
     const v2 = alaAttemptJournalEntry({ cohort: 'A', kind: 'primary', index: 0, resuming: true, protocolVersion: 2 });
     expect(v2.state).toBe('resumed');
     expect(v2).not.toHaveProperty('historicalReplayAck');
+  });
+
+  it('records failure entries with elapsed wall time and truncated reasons', () => {
+    const failed = alaFailureJournalEntry({
+      cohort: 'development',
+      kind: 'primary',
+      index: 2,
+      state: 'failed',
+      reason: 'boom',
+      wallStartEpochMs: 1000,
+      atEpochMs: 2500,
+    });
+    expect(failed).toMatchObject({ state: 'failed', reason: 'boom', wallMilliseconds: 1500 });
+    const long = alaFailureJournalEntry({
+      cohort: 'A',
+      kind: 'reserve',
+      index: 0,
+      state: 'invalid',
+      reason: 'x'.repeat(600),
+      wallStartEpochMs: 1000,
+      atEpochMs: 1000,
+    });
+    expect(long.reason?.length).toBe(500);
+    expect(long.wallMilliseconds).toBe(0);
+  });
+
+  it('writes supervisor entries only for non-verdict states with a reason', () => {
+    const aborted = alaSupervisorJournalEntry({
+      cohort: 'A',
+      kind: 'primary',
+      index: 3,
+      state: 'aborted',
+      reason: 'watchdog: wall guard exceeded',
+      wallMilliseconds: 999,
+    });
+    expect(aborted).toMatchObject({ state: 'aborted', wallMilliseconds: 999 });
+    expect(() =>
+      alaSupervisorJournalEntry({ cohort: 'A', kind: 'primary', index: 3, state: 'note', reason: '' }),
+    ).toThrowError(/require a reason/);
+  });
+
+  it('counts failed and invalid attempts against the dev budget', () => {
+    const at = '2026-11-02T00:00:00.000Z';
+    expect(
+      alaDevAttemptsUsed([
+        { at, cohort: 'development', kind: 'primary', index: 0, state: 'attempted' },
+        { at, cohort: 'development', kind: 'primary', index: 0, state: 'failed', reason: 'crash' },
+        { at, cohort: 'development', kind: 'primary', index: 1, state: 'invalid', reason: 'verdict' },
+        { at, cohort: 'development', kind: 'primary', index: 2, state: 'note', reason: 'note' },
+      ]),
+    ).toBe(2);
+  });
+
+  it('treats invalid and aborted priors as terminal and failed as resumable-only', async () => {
+    const attempt = (dir: string, resume: boolean) =>
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v1.json',
+        cohort: 'development',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        resume,
+        treatmentBatchVersion: 1,
+        historicalReplayAcknowledgement: 'historical-sham-replay',
+      });
+    const seedJournal = (dir: string, state: string) => {
+      writeFileSync(
+        join(dir, 'journal.jsonl'),
+        `${JSON.stringify({ at: '2026-11-02T00:00:00.000Z', cohort: 'development', kind: 'primary', index: 0, state })}\n`,
+      );
+    };
+    const invalidDir = evidenceRoot();
+    seedJournal(invalidDir, 'invalid');
+    await expect(attempt(invalidDir, true)).rejects.toThrowError(/terminal receipt/);
+    const abortedDir = evidenceRoot();
+    seedJournal(abortedDir, 'aborted');
+    await expect(attempt(abortedDir, false)).rejects.toThrowError(/terminal receipt/);
+    const failedDir = evidenceRoot();
+    seedJournal(failedDir, 'failed');
+    await expect(attempt(failedDir, false)).rejects.toThrowError(/already attempted/);
   });
 
   it('forbids the historical acknowledgement on the corrected-study path', async () => {

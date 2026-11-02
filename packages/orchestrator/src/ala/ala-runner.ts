@@ -151,6 +151,8 @@ export interface AlaJournalEntry {
   readonly index: number;
   readonly state: AlaDyadState;
   readonly reason?: string;
+  /** Milliseconds from attempt start for failure entries (cost evidence). */
+  readonly wallMilliseconds?: number;
   /**
    * Historical-replay acknowledgement for version 1 attempt records:
    * the v1 path replays the retained sham construction byte-identically,
@@ -178,6 +180,64 @@ export function alaAttemptJournalEntry(input: {
     state: input.resuming ? 'resumed' : 'attempted',
     ...(input.protocolVersion === 1 ? { historicalReplayAck: 'historical-sham-replay' as const } : {}),
   };
+}
+
+/**
+ * Failure journal entry for a crashed or verdict-refused attempt.
+ * `failed` is resumable (crash, watchdog, IO); `invalid` is terminal
+ * (deterministic construction, coverage, or audit verdict).
+ */
+export function alaFailureJournalEntry(input: {
+  readonly cohort: AlaCohort;
+  readonly kind: AlaSlotKind;
+  readonly index: number;
+  readonly state: 'failed' | 'invalid';
+  readonly reason: string;
+  readonly wallStartEpochMs: number;
+  readonly atEpochMs?: number;
+}): AlaJournalEntry {
+  const at = input.atEpochMs ?? Date.now();
+  return {
+    at: new Date(at).toISOString(),
+    cohort: input.cohort,
+    kind: input.kind,
+    index: input.index,
+    state: input.state,
+    reason: input.reason.slice(0, 500),
+    wallMilliseconds: Math.max(0, at - input.wallStartEpochMs),
+  };
+}
+
+/**
+ * Supervisor journal entry (watchdog abort, operator note). Runner
+ * verdicts (valid/invalid) and attempt records are never written
+ * through this path.
+ */
+export function alaSupervisorJournalEntry(input: {
+  readonly cohort: AlaCohort;
+  readonly kind: AlaSlotKind;
+  readonly index: number;
+  readonly state: 'aborted' | 'failed' | 'note';
+  readonly reason: string;
+  readonly wallMilliseconds?: number;
+}): AlaJournalEntry {
+  if (input.reason.length === 0) fail('supervisor journal entries require a reason');
+  return {
+    at: new Date().toISOString(),
+    cohort: input.cohort,
+    kind: input.kind,
+    index: input.index,
+    state: input.state,
+    reason: input.reason.slice(0, 500),
+    ...(input.wallMilliseconds === undefined ? {} : { wallMilliseconds: input.wallMilliseconds }),
+  };
+}
+
+/** Terminal verdict already journalled; carries the original error outward. */
+export class DyadTerminalError extends Error {
+  constructor(readonly cause: unknown) {
+    super('dyad recorded a terminal verdict');
+  }
 }
 
 export type AlaDyadSchedulePartition = 'validation-fit' | 'validation-selection' | 'within-support-test';
@@ -249,7 +309,7 @@ export async function readAlaJournal(evidenceRoot: string): Promise<AlaJournalEn
   return lines.map((line) => JSON.parse(line) as AlaJournalEntry);
 }
 
-async function appendAlaJournal(evidenceRoot: string, entry: AlaJournalEntry): Promise<void> {
+export async function appendAlaJournal(evidenceRoot: string, entry: AlaJournalEntry): Promise<void> {
   await mkdir(evidenceRoot, { recursive: true });
   const path = join(evidenceRoot, 'journal.jsonl');
   const prior = existsSync(path) ? await readFile(path, 'utf8') : '';
@@ -297,8 +357,7 @@ export async function runAlaDyad(input: {
   /**
    * Study protocol selection. Version 1 is the retained audit (default,
    * reproducing today's behavior byte-identically). Version 2 is the
-   * corrected study and requires batch version 2; batch version 2
-   * still refuses outright until cross-slot scheduling lands (A1).
+   * corrected study and requires batch version 2.
    */
   readonly protocolVersion?: 1 | 2;
 }): Promise<AlaDyadReceipt> {
@@ -383,6 +442,36 @@ export async function runAlaDyad(input: {
   // 3. Seeds in the ALA namespace; audit against retained LV01 identities.
   const seeds = alaDyadSeeds(input.cohort, input.kind, slotLabel, seedRoot);
   auditAlaSeedsAgainstRetained(Object.values(seeds), input.retainedCorpus);
+
+  // Failure recording for the execution phase (gates above refuse without
+  // recording). Crashes record resumable `failed`; deterministic verdicts
+  // record terminal `invalid` through recordInvalid.
+  const recordFailure = async (state: 'failed' | 'invalid', error: unknown): Promise<void> => {
+    const reason = error instanceof Error ? error.message : String(error);
+    try {
+      await appendAlaJournal(
+        input.evidenceRoot,
+        alaFailureJournalEntry({
+          cohort: input.cohort,
+          kind: input.kind,
+          index: input.index,
+          state,
+          reason,
+          wallStartEpochMs: wallStart,
+        }),
+      );
+    } catch {
+      // A broken journal must not mask the original failure.
+    }
+  };
+  const recordInvalid = async <T>(operation: () => Promise<T> | T): Promise<T> => {
+    try {
+      return await operation();
+    } catch (error) {
+      await recordFailure('invalid', error);
+      throw new DyadTerminalError(error);
+    }
+  };
 
   // 4. Disposable worker: fresh store, fresh signers, Prototype topology.
   const dbPath = join(dyadDir, 'evidence.sqlite');
@@ -540,20 +629,22 @@ export async function runAlaDyad(input: {
             entries.push({ scheduledCaseId: planned.scheduled.scheduledCaseId, treatmentCase });
           }
         }
-        const block = buildValidLedgerTreatmentBlock({
-          entries,
-          nativeIndexes: blockIndexes,
-          symbolInventory: inventory,
-          derangementSeed: deriveLv01DerangementSeed({
-            root: seedRoot,
-            studyId: ALA_STUDY_ID,
-            stage: `ala-${input.cohort}`,
-            policyVersion,
-            slotKind: input.kind,
-            slotIndex: engineSlotLabel,
-            partition,
+        const block = await recordInvalid(() =>
+          buildValidLedgerTreatmentBlock({
+            entries,
+            nativeIndexes: blockIndexes,
+            symbolInventory: inventory,
+            derangementSeed: deriveLv01DerangementSeed({
+              root: seedRoot,
+              studyId: ALA_STUDY_ID,
+              stage: `ala-${input.cohort}`,
+              policyVersion,
+              slotKind: input.kind,
+              slotIndex: engineSlotLabel,
+              partition,
+            }),
           }),
-        });
+        );
         await writeFile(
           join(dyadDir, `treatment-batch-${partition}-${role}.json`),
           `${JSON.stringify(block, null, 2)}\n`,
@@ -668,14 +759,14 @@ export async function runAlaDyad(input: {
       const firstDocs = paired[0]?.docs;
       if (first === undefined || firstDocs === undefined) fail(`case ${slot} has no audited branches`);
       const shared = loadLv01AuditShared({ parentDocs, branchDocs: firstDocs, firstBranch: first, treatmentBatch: batch });
-      const { caseCommitment } = auditLv01PairedCase({ plan, shared, branches: audited });
+      const { caseCommitment } = await recordInvalid(() => auditLv01PairedCase({ plan, shared, branches: audited }));
       verificationMilliseconds += Date.now() - verifyStart;
       peakBytes = Math.max(peakBytes, process.memoryUsage().rss);
       caseCommitments.push(caseCommitment);
     }
 
     const plannedCaseIds = slotPlan.map((entry) => scheduleCaseId(entry.partition, entry.receiver, entry.caseIndex));
-    const scheduleCommitment =
+    const scheduleCommitment = await recordInvalid(async () =>
       protocolVersion === 1
         ? verifyLv01ScheduleCoverage(schedule, plannedCaseIds)
         : verifyLv01ExecutedCoverage(
@@ -685,7 +776,8 @@ export async function runAlaDyad(input: {
               dyadDir,
               slotPlan.map((entry) => entry.slot),
             ),
-          );
+          ),
+    );
     const cpu = process.cpuUsage(cpuStart);
     const receipt: AlaDyadReceipt = {
       cohort: input.cohort,
@@ -722,6 +814,10 @@ export async function runAlaDyad(input: {
       reason: receipt.reason,
     });
     return receipt;
+  } catch (error) {
+    if (error instanceof DyadTerminalError) throw error.cause;
+    await recordFailure('failed', error);
+    throw error;
   } finally {
     try {
       database.close();
