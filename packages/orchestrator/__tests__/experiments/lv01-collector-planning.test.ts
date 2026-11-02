@@ -343,6 +343,7 @@ describe('LV01 collector pure planning', () => {
         if (entry.branch !== 'random') {
           expect(entry.config.lv01PairedCase?.randomStreamCaseId).toBeUndefined();
         }
+        expect(entry.config.lv01PairedCase?.headPayload).toBe('digest');
       }
     }
   });

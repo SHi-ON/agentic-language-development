@@ -206,6 +206,7 @@ export const Lv01PairedCaseSchema = z.object({
     sourceCaseId: nonEmptyString,
   }).strict().optional(),
   randomStreamCaseId: nonEmptyString.optional(),
+  headPayload: z.literal('digest').optional(),
   actionDraw: z.object({
     stage: z.enum(['development', 'qualification', 'shadow', 'generalization', 'pilot']),
     slotKind: z.enum(['primary', 'reserve']),

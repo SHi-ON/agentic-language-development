@@ -37,6 +37,7 @@ import {
 import {
   buildLv01PairedPredictionPayload,
   deriveLv01LedgerCutoff,
+  digestLv01LedgerHeads,
   mapLv01LedgerAssociations,
 } from '../../src/experiments/lv01-paired-predictions.js';
 
@@ -622,6 +623,73 @@ describe('LV01 independent auditor', () => {
     const unplanned = structuredClone(input.branches);
     unplanned.find((entry) => entry.branch === 'normal')!.messageShuffle = { ...ledgerSlice };
     expect(() => auditLv01PairedCase({ ...input, branches: unplanned })).toThrow(/must not carry a message-shuffle delivery/u);
+  });
+
+  it('accepts digest-form heads with the same verdict as embedded heads', () => {
+    const toDigest = (input: ValidCase): { plan: typeof input.plan; branches: typeof input.branches } => {
+      const headsA = input.shared.parentLedgerEvents.babyA.map((event) => event.entryHash);
+      const headsB = input.shared.parentLedgerEvents.babyB.map((event) => event.entryHash);
+      const digest = digestLv01LedgerHeads(headsA, headsB);
+      const plan = structuredClone(input.plan);
+      for (const entry of plan.branches) {
+        entry.config.lv01PairedCase = { ...entry.config.lv01PairedCase!, headPayload: 'digest' as const };
+      }
+      const branches = input.branches.map((branch) => {
+        const records = mapLv01LedgerAssociations(
+          branch.payload.receiver === 'baby-a' ? input.shared.parentLedgerEvents.babyA : input.shared.parentLedgerEvents.babyB,
+          branch.payload.receiver,
+          () => true,
+        );
+        const { payload, commitment } = buildLv01PairedPredictionPayload({
+          branch: branch.branch,
+          predictionTreatment: branch.payload.predictionTreatment,
+          turn: 0,
+          receiver: branch.payload.receiver,
+          caseId: branch.payload.caseId,
+          candidateRefs: refs,
+          candidateTypeCodes: candidates,
+          deliveredToken: branch.payload.deliveredToken,
+          symbolInventory: [...inventory],
+          ledgerRecords: records,
+          cutoff: branch.payload.cutoff,
+          frozenModel: input.shared.frozenModel,
+          ordinaryId: branch.payload.ordinary.id,
+          ordinaryFit: branch.payload.ordinary.fit,
+          state: {
+            ...branch.payload.state,
+            trainingLedgerHeads: { cutoff: { ...branch.payload.cutoff }, headsDigest: digest },
+          },
+          scheduleDigest: branch.payload.scheduleDigest,
+        });
+        const transcript = [...branch.transcript];
+        transcript[1] = { ...transcript[1]!, body: { commitment } };
+        return { ...branch, payload, predictionCommitment: commitment, transcript };
+      });
+      return { plan, branches };
+    };
+    const input = validCase();
+    const { caseCommitment: embedded } = auditLv01PairedCase(input);
+    expect(embedded).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const converted = toDigest(validCase());
+    const { caseCommitment: digested } = auditLv01PairedCase({ ...input, ...converted });
+    expect(digested).toMatch(/^sha256:[0-9a-f]{64}$/);
+    // Same verdict (accept), distinct commitments (distinct payload bytes).
+    expect(digested).not.toBe(embedded);
+    const tampered = toDigest(validCase());
+    const first = tampered.branches.find((entry) => entry.branch === 'normal')!;
+    first.payload = {
+      ...first.payload,
+      state: { ...first.payload.state, trainingLedgerHeads: { cutoff: { ...first.payload.cutoff }, headsDigest: `sha256:${'0'.repeat(64)}` } },
+    };
+    expect(() => auditLv01PairedCase({ ...input, ...tampered })).toThrow(/heads digest disagrees/u);
+    const shifted = toDigest(validCase());
+    const second = shifted.branches.find((entry) => entry.branch === 'normal')!;
+    const shiftedHeads = second.payload.state.trainingLedgerHeads as { cutoff: { sequence: number; turn: number }; headsDigest: string };
+    second.payload = {
+      ...second.payload,
+      state: { ...second.payload.state, trainingLedgerHeads: { ...shiftedHeads, cutoff: { sequence: 0, turn: 0 } } },
+    };
+    expect(() => auditLv01PairedCase({ ...input, ...shifted })).toThrow(/heads cutoff disagrees/u);
   });
 
   it('ignores collector flags: they cannot rescue a missing restore', () => {

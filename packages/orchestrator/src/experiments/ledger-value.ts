@@ -73,6 +73,11 @@ export interface Lv01PairedCasePlanInput {
    */
   readonly randomStreamCaseId?: string;
   /**
+   * Digest-form training-ledger heads on every branch of the case.
+   * Absent means the historical embedded arrays.
+   */
+  readonly headPayload?: 'digest';
+  /**
    * Shared action-draw scope. One seed per case (no branch part); the
    * receiver role follows the scheduled case (turn 0 is always baby-b by
    * role math, so baby-a cases name their receiver explicitly).
@@ -207,6 +212,7 @@ export function createLv01PairedCasePlan(input: Lv01PairedCasePlanInput): Lv01Pa
             ...(ledgerSlice === undefined ? {} : { ledgerTreatment: { ...ledgerSlice } }),
             ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: { ...messageShuffle } }),
             ...(randomStreamCaseId === undefined ? {} : { randomStreamCaseId }),
+            ...(input.headPayload === undefined ? {} : { headPayload: input.headPayload }),
             actionDraw: { ...drawScope, drawSeedCommitment },
             scheduledCase: { ...input.scheduledCase },
           },

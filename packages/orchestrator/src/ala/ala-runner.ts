@@ -43,6 +43,7 @@ import {
   authenticateFromManifest,
   loadLv01AuditShared,
   loadLv01AuditedBranch,
+  typedLedger,
 } from '../experiments/lv01-audit-loader.js';
 import { auditLv01PairedCase } from '../experiments/lv01-auditor.js';
 import {
@@ -56,6 +57,7 @@ import {
   scheduledLv01BranchTarget,
 } from '../experiments/lv01-collector.js';
 import {
+  buildLv01HeadsSidecar,
   deriveLv01LedgerCutoff,
   mapLv01LedgerAssociations,
 } from '../experiments/lv01-paired-predictions.js';
@@ -449,6 +451,19 @@ export async function runAlaDyad(input: {
     };
     const parentCheckpointHash = lv01ParentCheckpointHash(parentDocs);
     const authenticate = authenticateFromManifest(parentDocs.runManifest);
+    // Corrected path: heads object stored once per dyad; branch payloads
+    // carry its digest instead of the embedded arrays.
+    if (protocolVersion === 2) {
+      const sidecarRecordsA = mapLv01LedgerAssociations(parentDocs.ledgerA as never, 'baby-a', authenticate);
+      const sidecarRecordsB = mapLv01LedgerAssociations(parentDocs.ledgerB as never, 'baby-b', authenticate);
+      const sidecar = buildLv01HeadsSidecar({
+        babyA: typedLedger(parentDocs.ledgerA, 'parent baby-a-ledger.jsonl').map((event) => event.entryHash),
+        babyB: typedLedger(parentDocs.ledgerB, 'parent baby-b-ledger.jsonl').map((event) => event.entryHash),
+        cutoffBabyA: deriveLv01LedgerCutoff(sidecarRecordsA),
+        cutoffBabyB: deriveLv01LedgerCutoff(sidecarRecordsB),
+      });
+      await writeFile(join(dyadDir, 'training-ledger-heads.json'), `${JSON.stringify(sidecar, null, 2)}\n`, 'utf8');
+    }
     // Branch harnesses open the same store file; close the training handle
     // first (same discipline as the collector's own live tests).
     production.close();

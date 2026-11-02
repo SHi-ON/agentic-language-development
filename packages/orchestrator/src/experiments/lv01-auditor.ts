@@ -33,6 +33,7 @@ import {
 } from './lv01-action-draw.js';
 import { LV01_BRANCHES, type Lv01Branch, type Lv01PairedCasePlan } from './ledger-value.js';
 import {
+  digestLv01LedgerHeads,
   mapLv01LedgerAssociations,
   verifyLv01PairedPredictionPayload,
   type Lv01LedgerAuthenticate,
@@ -320,7 +321,17 @@ export function auditLv01PairedCase(input: {
       }
     }
     const heads = branch.payload.state.trainingLedgerHeads;
-    if (!sameStrings(heads.babyA, parentHeads.babyA) || !sameStrings(heads.babyB, parentHeads.babyB)) {
+    if ('headsDigest' in heads) {
+      if (
+        heads.cutoff.sequence !== branch.payload.cutoff.sequence ||
+        heads.cutoff.turn !== branch.payload.cutoff.turn
+      ) {
+        fail(`${branch.branch} heads cutoff disagrees with its committed cutoff`);
+      }
+      if (digestLv01LedgerHeads(parentHeads.babyA, parentHeads.babyB) !== heads.headsDigest) {
+        fail(`${branch.branch} heads digest disagrees with the parent streams`);
+      }
+    } else if (!sameStrings(heads.babyA, parentHeads.babyA) || !sameStrings(heads.babyB, parentHeads.babyB)) {
       fail(`${branch.branch} ledger heads disagree with the parent streams`);
     }
     verifyLv01PairedPredictionPayload(

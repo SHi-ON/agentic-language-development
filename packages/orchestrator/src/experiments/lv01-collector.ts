@@ -474,6 +474,7 @@ export function prepareLv01PairedCaseFromBlock(input: Lv01PairedCaseBlockInputs)
       input.scheduledCase.receiverRole,
       input.scheduledCase.caseIndex,
     ),
+    headPayload: 'digest',
   });
   return { plan, batch: input.blockBatch };
 }
@@ -1209,6 +1210,7 @@ export function rebuildLv01CasePlan(input: {
     readonly sourceCaseId: string;
   } | undefined;
   let randomStreamCaseId: string | undefined;
+  let headPayload: 'digest' | undefined;
   for (const docs of input.branchDocs) {
     const parsed = RunConfigSchema.safeParse(docs.runConfig);
     if (!parsed.success) fail('branch run-config is invalid');
@@ -1228,6 +1230,12 @@ export function rebuildLv01CasePlan(input: {
         fail('random branch stream case keys disagree');
       }
       randomStreamCaseId = section.randomStreamCaseId;
+    }
+    if (section.headPayload !== undefined) {
+      if (headPayload !== undefined && headPayload !== section.headPayload) {
+        fail('branch head payloads disagree');
+      }
+      headPayload = section.headPayload;
     }
   }
   return createLv01PairedCasePlan({
@@ -1257,6 +1265,7 @@ export function rebuildLv01CasePlan(input: {
     ledgerTreatments: slices,
     ...(messageShuffle === undefined ? {} : { messageShuffleTreatment: messageShuffle }),
     ...(randomStreamCaseId === undefined ? {} : { randomStreamCaseId }),
+    ...(headPayload === undefined ? {} : { headPayload }),
   });
 }
 

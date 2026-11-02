@@ -111,13 +111,48 @@ export function deriveLv01LedgerCutoff(
   };
 }
 
+export type Lv01TrainingLedgerHeadsRef =
+  | { readonly babyA: readonly string[]; readonly babyB: readonly string[] }
+  | { readonly cutoff: Lv01TrainingLedgerCutoff; readonly headsDigest: string };
+
+export const LV01_TRAINING_LEDGER_HEADS_DOMAIN = 'lv01-training-ledger-heads/v1' as const;
+
+/** Content digest binding a per-dyad heads object stored once and resolved by audit. */
+export function digestLv01LedgerHeads(babyA: readonly string[], babyB: readonly string[]): string {
+  return hashCanonical(LV01_TRAINING_LEDGER_HEADS_DOMAIN, { babyA: [...babyA], babyB: [...babyB] });
+}
+
+export interface Lv01HeadsSidecar {
+  readonly version: 1;
+  readonly cutoffBabyA: Lv01TrainingLedgerCutoff;
+  readonly cutoffBabyB: Lv01TrainingLedgerCutoff;
+  readonly babyA: readonly string[];
+  readonly babyB: readonly string[];
+  readonly headsDigest: string;
+}
+
+/** Per-dyad heads object: the retained freeze evidence behind digest-form payloads. */
+export function buildLv01HeadsSidecar(input: {
+  readonly babyA: readonly string[];
+  readonly babyB: readonly string[];
+  readonly cutoffBabyA: Lv01TrainingLedgerCutoff;
+  readonly cutoffBabyB: Lv01TrainingLedgerCutoff;
+}): Lv01HeadsSidecar {
+  if (input.babyA.length === 0 || input.babyB.length === 0) fail('heads sidecar needs both roles');
+  return {
+    version: 1,
+    cutoffBabyA: { ...input.cutoffBabyA },
+    cutoffBabyB: { ...input.cutoffBabyB },
+    babyA: [...input.babyA],
+    babyB: [...input.babyB],
+    headsDigest: digestLv01LedgerHeads(input.babyA, input.babyB),
+  };
+}
+
 export interface Lv01PairedPredictionState {
   readonly scenarioStateHash: string;
   readonly receiverPolicyHash: string;
-  readonly trainingLedgerHeads: {
-    readonly babyA: readonly string[];
-    readonly babyB: readonly string[];
-  };
+  readonly trainingLedgerHeads: Lv01TrainingLedgerHeadsRef;
 }
 
 export interface Lv01PairedPredictionBuildInput {

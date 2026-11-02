@@ -6,8 +6,10 @@ import { fixedTokenInventory, type LedgerEvent } from '@ald/types';
 import { describe, expect, it } from 'vitest';
 
 import {
+  buildLv01HeadsSidecar,
   buildLv01PairedPredictionPayload,
   deriveLv01LedgerCutoff,
+  digestLv01LedgerHeads,
   mapLv01LedgerAssociations,
   verifyLv01PairedPredictionPayload,
   type Lv01PairedPredictionBuildInput,
@@ -227,5 +229,22 @@ describe('LV01 paired prediction payload', () => {
       frozenModel: input.frozenModel,
       symbolInventory: input.symbolInventory,
     })).not.toThrow();
+  });
+
+  it('binds the heads sidecar digest to the exact head arrays', () => {
+    const babyA = ['sha256:aaa', 'sha256:aab'];
+    const babyB = ['sha256:bba'];
+    const cutoff = { sequence: 12, turn: 3 };
+    const sidecar = buildLv01HeadsSidecar({ babyA, babyB, cutoffBabyA: cutoff, cutoffBabyB: cutoff });
+    expect(sidecar.headsDigest).toBe(digestLv01LedgerHeads(babyA, babyB));
+    expect(sidecar.headsDigest).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(digestLv01LedgerHeads(babyA, babyB)).not.toBe(digestLv01LedgerHeads(babyB, babyA));
+    expect(digestLv01LedgerHeads([...babyA, 'sha256:aac'], babyB)).not.toBe(sidecar.headsDigest);
+    expect(() => buildLv01HeadsSidecar({ babyA: [], babyB, cutoffBabyA: cutoff, cutoffBabyB: cutoff })).toThrowError(
+      /needs both roles/u,
+    );
+    // The digest-form state is bytes-small next to embedded arrays.
+    const state = { cutoff, headsDigest: sidecar.headsDigest };
+    expect(JSON.stringify(state).length).toBeLessThan(300);
   });
 });

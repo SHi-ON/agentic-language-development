@@ -221,6 +221,7 @@ import {
   LV01_MESSAGE_SCHEDULE_DOMAIN,
   buildLv01PairedPredictionPayload,
   deriveLv01LedgerCutoff,
+  digestLv01LedgerHeads,
   mapLv01LedgerAssociations,
   type Lv01PairedPredictionPayload,
   type Lv01PairedPredictionProvider,
@@ -1671,10 +1672,19 @@ export class NurseryRuntimeImpl implements NurseryRuntime {
       state: {
         scenarioStateHash: instance.stateHash,
         receiverPolicyHash,
-        trainingLedgerHeads: {
-          babyA: babyALedger.map((event) => event.entryHash),
-          babyB: babyBLedger.map((event) => event.entryHash),
-        },
+        trainingLedgerHeads:
+          pairedCase.headPayload === 'digest'
+            ? {
+                cutoff: { ...cutoff },
+                headsDigest: digestLv01LedgerHeads(
+                  babyALedger.map((event) => event.entryHash),
+                  babyBLedger.map((event) => event.entryHash),
+                ),
+              }
+            : {
+                babyA: babyALedger.map((event) => event.entryHash),
+                babyB: babyBLedger.map((event) => event.entryHash),
+              },
       },
       scheduleDigest: hashCanonical(
         LV01_MESSAGE_SCHEDULE_DOMAIN,
