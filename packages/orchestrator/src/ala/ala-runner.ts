@@ -29,6 +29,7 @@ import { fixedTokenInventory, type RunConfig, type SignerRegistry } from '@ald/t
 import { createProductionRuntime } from '../production.js';
 import {
   buildLv01Schedule,
+  scheduleCaseId,
   verifyLv01ScheduleCoverage,
 } from '../experiments/lv01-schedule.js';
 import {
@@ -174,6 +175,50 @@ export function alaAttemptJournalEntry(input: {
     state: input.resuming ? 'resumed' : 'attempted',
     ...(input.protocolVersion === 1 ? { historicalReplayAck: 'historical-sham-replay' as const } : {}),
   };
+}
+
+export type AlaDyadSchedulePartition = 'validation-fit' | 'validation-selection' | 'within-support-test';
+
+export interface AlaDyadSlotPlan {
+  readonly slot: number;
+  readonly partition: AlaDyadSchedulePartition;
+  readonly receiver: 'baby-a' | 'baby-b';
+  readonly caseIndex: number;
+}
+
+/**
+ * Slot-to-case plan for one dyad. Version 1 executes the
+ * within-support-test partition only (240 slots, parity receivers).
+ * Version 2 executes all three partitions in validation-fit,
+ * validation-selection, within-support-test order (720 slots), each
+ * partition walked with parity receivers from its first slot.
+ */
+export function planAlaDyadSlots(
+  counts: { readonly validationFitCases: number; readonly validationSelectionCases: number; readonly withinSupportTestCases: number },
+  protocolVersion: 1 | 2,
+): readonly AlaDyadSlotPlan[] {
+  const partitions: { partition: AlaDyadSchedulePartition; count: number }[] =
+    protocolVersion === 1
+      ? [{ partition: 'within-support-test', count: counts.withinSupportTestCases }]
+      : [
+          { partition: 'validation-fit', count: counts.validationFitCases },
+          { partition: 'validation-selection', count: counts.validationSelectionCases },
+          { partition: 'within-support-test', count: counts.withinSupportTestCases },
+        ];
+  const slots: AlaDyadSlotPlan[] = [];
+  let slot = 0;
+  for (const { partition, count } of partitions) {
+    for (let position = 0; position < 2 * count; position += 1) {
+      slot += 1;
+      slots.push({
+        slot,
+        partition,
+        receiver: position % 2 === 0 ? 'baby-b' : 'baby-a',
+        caseIndex: position % count,
+      });
+    }
+  }
+  return slots;
 }
 
 export async function readAlaJournal(evidenceRoot: string): Promise<AlaJournalEntry[]> {
@@ -416,32 +461,27 @@ export async function runAlaDyad(input: {
     // the parent at collection time.
     const uniformOrdinary = { ordinaryId: 'uniform', ordinaryFit: { kind: 'uniform' } } as const;
 
-    // 8. Paired cases: rotation serves 120 cases per role over 240 slots.
+    // 8. Paired cases: v1 walks the test partition (240 slots); v2
+    // walks validation-fit, validation-selection, then test (720 slots).
     const caseCommitments: string[] = [];
     let verificationMilliseconds = 0;
     let peakBytes = Math.max(rssStart, process.memoryUsage().rss);
-    const slotCount = 2 * workload.withinSupportTestCases;
-    const planSlot = (slot: number): {
-      receiver: 'baby-a' | 'baby-b';
-      caseIndex: number;
-      scheduled: ReturnType<typeof scheduledLv01BranchTarget>;
-      childRunIdPrefix: string;
-    } => {
-      const receiver = slot % 2 === 1 ? 'baby-b' : 'baby-a';
-      const caseIndex = (slot - 1) % workload.withinSupportTestCases;
-      const scheduled = scheduledLv01BranchTarget({
+    const slotPlan = planAlaDyadSlots(workload, protocolVersion);
+    const scheduledFor = (entry: AlaDyadSlotPlan) => ({
+      ...entry,
+      scheduled: scheduledLv01BranchTarget({
         schedule,
-        partition: 'within-support-test',
-        caseIndex,
-        receiver,
-      });
-      const childRunIdPrefix = `ala-${input.cohort}-${input.kind}-${slotLabel}-s${pad4(slot)}`;
-      return { receiver, caseIndex, scheduled, childRunIdPrefix };
-    };
-    // Corrected path: gate-validated treatment blocks per role, built and
-    // persisted BEFORE the slot loop (and before any branch runs). A sham
-    // block refuses here with the attempt already journalled as attempted,
-    // leaving the audit trail intact; terminal refusal states arrive in A6.
+        partition: entry.partition,
+        caseIndex: entry.caseIndex,
+        receiver: entry.receiver,
+      }),
+      childRunIdPrefix: `ala-${input.cohort}-${input.kind}-${slotLabel}-s${pad4(entry.slot)}`,
+    });
+    // Corrected path: gate-validated treatment blocks per role per
+    // partition, built and persisted BEFORE the slot loop (and before
+    // any branch runs). A sham block refuses here with the attempt
+    // already journalled as attempted, leaving the audit trail intact;
+    // terminal refusal states arrive in A6.
     const blockBatches = new Map<string, Lv01LedgerTreatmentBatchV2>();
     if (protocolVersion === 2) {
       const blockRecordsA = mapLv01LedgerAssociations(parentDocs.ledgerA as never, 'baby-a', authenticate);
@@ -450,11 +490,18 @@ export async function runAlaDyad(input: {
         babyA: indexLv01TrainingLedger(blockRecordsA, 'baby-a', deriveLv01LedgerCutoff(blockRecordsA)),
         babyB: indexLv01TrainingLedger(blockRecordsB, 'baby-b', deriveLv01LedgerCutoff(blockRecordsB)),
       };
-      for (const role of ['baby-a', 'baby-b'] as const) {
+      const blockKeys = new Map<string, AlaDyadSlotPlan[]>();
+      for (const entry of slotPlan) {
+        const key = `${entry.partition}:${entry.receiver}`;
+        const group = blockKeys.get(key) ?? [];
+        group.push(entry);
+        blockKeys.set(key, group);
+      }
+      for (const [key, group] of [...blockKeys.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+        const [partition, role] = key.split(':') as [AlaDyadSchedulePartition, 'baby-a' | 'baby-b'];
         const entries: { scheduledCaseId: string; treatmentCase: ReturnType<typeof buildLv01TreatmentCases>[number] }[] = [];
-        for (let slot = 1; slot <= slotCount; slot += 1) {
-          const planned = planSlot(slot);
-          if (planned.receiver !== role) continue;
+        for (const entry of group) {
+          const planned = scheduledFor(entry);
           for (const treatmentCase of buildLv01TreatmentCases(planned.scheduled, planned.childRunIdPrefix)) {
             entries.push({ scheduledCaseId: planned.scheduled.scheduledCaseId, treatmentCase });
           }
@@ -470,19 +517,19 @@ export async function runAlaDyad(input: {
             policyVersion,
             slotKind: input.kind,
             slotIndex: engineSlotLabel,
-            partition: 'within-support-test',
+            partition,
           }),
         });
         await writeFile(
-          join(dyadDir, `treatment-batch-within-support-test-${role}.json`),
+          join(dyadDir, `treatment-batch-${partition}-${role}.json`),
           `${JSON.stringify(block, null, 2)}\n`,
           'utf8',
         );
-        blockBatches.set(role, block);
+        blockBatches.set(key, block);
       }
     }
-    for (let slot = 1; slot <= slotCount; slot += 1) {
-      const { receiver, caseIndex, scheduled, childRunIdPrefix } = planSlot(slot);
+    for (const entry of slotPlan) {
+      const { slot, partition, receiver, caseIndex, scheduled, childRunIdPrefix } = scheduledFor(entry);
       let plan: Lv01PairedCasePlan;
       let batch: Lv01AnyLedgerTreatmentBatch;
       if (protocolVersion === 1) {
@@ -524,8 +571,8 @@ export async function runAlaDyad(input: {
         plan = prepared.plan;
         batch = prepared.batch;
       } else {
-        const block = blockBatches.get(receiver);
-        if (block === undefined) fail(`treatment block for role ${receiver} was not built`);
+        const block = blockBatches.get(`${partition}:${receiver}`);
+        if (block === undefined) fail(`treatment block for ${partition}:${receiver} was not built`);
         const prepared = prepareLv01PairedCaseFromBlock({
           parent,
           parentCheckpointHash,
@@ -534,7 +581,7 @@ export async function runAlaDyad(input: {
           childRunIdPrefix,
           actionDrawScope: { stage: 'pilot', slotKind: input.kind, slotIndex: engineSlotLabel, partition: 'within-support' },
           slotSeeds: { scenario: seeds.scenario, babyA: seeds.babyA, babyB: seeds.babyB, gateway: seeds.channel, analysis: seeds.analysis },
-          scheduledCase: { partition: 'within-support-test', caseIndex, receiverRole: receiver },
+          scheduledCase: { partition, caseIndex, receiverRole: receiver },
           blockBatch: block,
         });
         plan = prepared.plan;
@@ -548,7 +595,9 @@ export async function runAlaDyad(input: {
       }
       await writeFile(
         join(caseDir, 'schedule.json'),
-        `${JSON.stringify({ commitment: schedule.commitment, executedCaseId: scheduled.scheduledCaseId }, null, 2)}\n`,
+        protocolVersion === 1
+          ? `${JSON.stringify({ commitment: schedule.commitment, executedCaseId: scheduled.scheduledCaseId }, null, 2)}\n`
+          : `${JSON.stringify({ commitment: schedule.commitment, partition, executedCaseId: scheduled.scheduledCaseId }, null, 2)}\n`,
         'utf8',
       );
       const harness = await createLv01CollectorHarness({
@@ -593,11 +642,7 @@ export async function runAlaDyad(input: {
 
     const scheduleCommitment = verifyLv01ScheduleCoverage(
       schedule,
-      caseCommitments.map((_, i) => {
-        const slot = i + 1;
-        const receiverRole = slot % 2 === 1 ? 'baby-b' : 'baby-a';
-        return `within-support-test:${receiverRole}:${String((slot - 1) % workload.withinSupportTestCases).padStart(4, '0')}`;
-      }),
+      slotPlan.map((entry) => scheduleCaseId(entry.partition, entry.receiver, entry.caseIndex)),
     );
     const cpu = process.cpuUsage(cpuStart);
     const receipt: AlaDyadReceipt = {
@@ -614,7 +659,7 @@ export async function runAlaDyad(input: {
       freezeDigests,
       scheduleCommitment,
       caseCommitments,
-      casesAttempted: slotCount,
+      casesAttempted: slotPlan.length,
       casesValid: caseCommitments.length,
       cost: {
         cpuMicroseconds: Math.round(cpu.user + cpu.system),

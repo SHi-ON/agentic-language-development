@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { alaAttemptJournalEntry, alaDevAttemptsUsed, runAlaDyad } from '../../src/ala/ala-runner.js';
+import { alaAttemptJournalEntry, alaDevAttemptsUsed, planAlaDyadSlots, runAlaDyad } from '../../src/ala/ala-runner.js';
 import { alaDyadSeeds } from '../../src/ala/ala-seeds.js';
 
 const root = fileURLToPath(new URL('../../../../', import.meta.url));
@@ -244,6 +244,42 @@ describe('ALA runner gates (no training runs)', () => {
       state: 'attempted',
     });
     expect(JSON.parse(lines[0] as string)).not.toHaveProperty('historicalReplayAck');
+  });
+
+  it('plans 240 test slots for version 1 with the legacy parity mapping', () => {
+    const counts = { validationFitCases: 120, validationSelectionCases: 120, withinSupportTestCases: 120 };
+    const slots = planAlaDyadSlots(counts, 1);
+    expect(slots).toHaveLength(240);
+    slots.forEach((entry, i) => {
+      const slot = i + 1;
+      expect(entry.slot).toBe(slot);
+      expect(entry.partition).toBe('within-support-test');
+      expect(entry.receiver).toBe(slot % 2 === 1 ? 'baby-b' : 'baby-a');
+      expect(entry.caseIndex).toBe((slot - 1) % 120);
+    });
+  });
+
+  it('plans 720 slots across all partitions for version 2', () => {
+    const counts = { validationFitCases: 120, validationSelectionCases: 120, withinSupportTestCases: 120 };
+    const slots = planAlaDyadSlots(counts, 2);
+    expect(slots).toHaveLength(720);
+    expect(new Set(slots.map((entry) => entry.slot)).size).toBe(720);
+    const partitions = ['validation-fit', 'validation-selection', 'within-support-test'] as const;
+    partitions.forEach((partition, block) => {
+      const group = slots.filter((entry) => entry.partition === partition);
+      expect(group).toHaveLength(240);
+      expect(group[0]?.slot).toBe(block * 240 + 1);
+      expect(group[0]?.receiver).toBe('baby-b');
+      for (const role of ['baby-a', 'baby-b'] as const) {
+        const roleCases = group.filter((entry) => entry.receiver === role).map((entry) => entry.caseIndex).sort((a, b) => a - b);
+        expect(roleCases).toHaveLength(120);
+        // Parity cycling visits one index parity twice per role (A2 repairs this).
+        expect(new Set(roleCases).size).toBe(60);
+        for (const caseIndex of roleCases) {
+          expect(roleCases.filter((candidate) => candidate === caseIndex)).toHaveLength(2);
+        }
+      }
+    });
   });
 
   it('journals the acknowledgement only for version 1 attempts', () => {
