@@ -299,7 +299,13 @@ export interface Lv01LedgerTreatmentBatchV2 {
   readonly batchCommitment: string;
 }
 
-const toDiagnosticCases = (
+/**
+ * Recorded-treatment projection to diagnostic cases. The v2 extractor
+ * reuses this exact mapping so retained batches and live extraction
+ * cannot drift apart; selections/deliveries are recorded treatment
+ * fields (verdict inputs), never behavioral outcomes.
+ */
+export const toAlaTreatmentDiagnosticCases = (
   cases: readonly Lv01ValidTreatedCase[],
 ): readonly AlaTreatmentDiagnosticCase[] =>
   cases.map((entry) => ({
@@ -315,7 +321,7 @@ const toDiagnosticCases = (
 
 /** Re-verify an already-built v2 batch through the collection-entry gate. */
 export function assertValidLedgerTreatmentBatchV2(batch: Lv01LedgerTreatmentBatchV2): void {
-  assertValidLedgerBatch(toDiagnosticCases(batch.cases));
+  assertValidLedgerBatch(toAlaTreatmentDiagnosticCases(batch.cases));
 }
 
 /**
@@ -373,7 +379,7 @@ export function buildValidLedgerTreatmentBlock(input: {
       cases,
     }),
   };
-  assertValidLedgerBatch(toDiagnosticCases(cases));
+  assertValidLedgerBatch(toAlaTreatmentDiagnosticCases(cases));
   return batch;
 }
 
@@ -480,6 +486,6 @@ export function buildValidLedgerTreatmentBatch(input: {
       cases,
     }),
   };
-  assertValidLedgerBatch(toDiagnosticCases(cases));
+  assertValidLedgerBatch(toAlaTreatmentDiagnosticCases(cases));
   return batch;
 }

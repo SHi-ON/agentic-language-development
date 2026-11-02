@@ -3,8 +3,8 @@
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
   "amendmentCommit": "a1fc53924df22e8260ccffee019b25de09a8511d",
-  "sourceTree": "c6a02dd319f0545b06df1dc9eadeb65064de74d7",
-  "createdAtUtc": "2026-11-02T23:45:40.384Z",
+  "sourceTree": "662c568a455860c6ca04e177f27e8e3b6920d3d9",
+  "createdAtUtc": "2026-11-02T23:53:09.582Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -20,8 +20,8 @@
     }
   },
   "executionClosure": {
-    "fileCount": 368,
-    "sha256": "sha256:f5ceb11b1bed9c1e34218e56ee8ce4b111b377752a2cf208fb607adaa182e95c"
+    "fileCount": 370,
+    "sha256": "sha256:e4f7a01c1e8344fe1a05d39f646393053d705955c7a6157a471c7f05c887f911"
   },
   "closureFiles": [
     "package.json",
@@ -244,6 +244,7 @@
     "packages/orchestrator/src/ala/ala-manifest.ts",
     "packages/orchestrator/src/ala/ala-runner.ts",
     "packages/orchestrator/src/ala/ala-seeds.ts",
+    "packages/orchestrator/src/ala/ala-v2-retained.ts",
     "packages/orchestrator/src/ala/ala-workload.ts",
     "packages/orchestrator/src/ala/index.ts",
     "packages/orchestrator/src/audit-interpreter-rpc.ts",
@@ -340,6 +341,7 @@
     "scripts/ala-overhead-benchmark.ts",
     "scripts/ala-run-entry.ts",
     "scripts/ala-run.mjs",
+    "scripts/ala-v2-extract.ts",
     "scripts/anchor-faucet-watch.mjs",
     "scripts/anchor-public-submit.mjs",
     "scripts/anchor-staging-gate.mjs",

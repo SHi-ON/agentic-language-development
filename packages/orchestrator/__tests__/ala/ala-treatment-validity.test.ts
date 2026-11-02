@@ -656,3 +656,220 @@ describe('explicit diagnostic identities and malformed batches', () => {
     expect(diagnoseLedgerBatch(sharedDonor).reasons.join(' ')).toMatch(/not injective/);
   });
 });
+
+/* A7 imports appended (not prepended) so the v1 case bodies above stay
+ * byte-identical for the G1 paper-lane diff. */
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  checkV2DyadComplete,
+  exportV2DyadJournalLines,
+  extractV2DiagnosticBatches,
+  V2_DIAGNOSTIC_ROWS_SCHEMA,
+} from '../../src/ala/ala-v2-retained.js';
+
+describe('A7 v2 retained manifest and extraction', () => {
+  const PARTITIONS = ['validation-fit', 'validation-selection', 'within-support-test'] as const;
+  const TARGETS: ReadonlyArray<readonly [number, number[]]> = [
+    [1, [3, 2, 1, 11]],
+    [2, [2, 3, 4, 6]],
+  ];
+
+  async function writeFixtureDyad(root: string): Promise<string> {
+    const dyadDir = join(root, 'dyad-development-primary-0');
+    await mkdir(join(dyadDir, 'parent-bundle'), { recursive: true });
+    await writeFile(join(dyadDir, 'training-ledger-heads.json'), '{}\n', 'utf8');
+    let slot = 0;
+    const commitments: string[] = [];
+    for (const partition of PARTITIONS) {
+      for (const role of ['baby-a', 'baby-b'] as const) {
+        const executed: string[] = [];
+        for (let caseIndex = 0; caseIndex < 2; caseIndex += 1) {
+          slot += 1;
+          const stem = `slot-${String(slot).padStart(4, '0')}`;
+          const executedCaseId = `${partition}:${role}:${String(caseIndex).padStart(4, '0')}`;
+          executed.push(executedCaseId);
+          await mkdir(join(dyadDir, stem, 'branches'), { recursive: true });
+          await writeFile(
+            join(dyadDir, stem, 'schedule.json'),
+            `${JSON.stringify({ commitment: 'sha256:fixture', partition, executedCaseId })}\n`,
+            'utf8',
+          );
+          for (let branch = 0; branch < 7; branch += 1) {
+            await writeFile(join(dyadDir, stem, 'branches', `branch-${branch}`), '', 'utf8');
+          }
+          commitments.push(`sha256:${stem}`);
+        }
+        const entries = executed.flatMap((scheduledCaseId, position) => {
+          const [target, candidates] = TARGETS[position] as readonly [number, number[]];
+          const prefix = `ala-dev-${partition}-${role}-${position}`;
+          return (['ledger-consistent', 'ledger-shuffled'] as const).map((branch) => ({
+            scheduledCaseId,
+            treatmentCase: {
+              caseId: `${prefix}-${branch}:turn:0`,
+              receiverRole: role,
+              targetTypeCode: target,
+              candidateTypeCodes: [...candidates],
+            },
+          }));
+        });
+        const block = buildValidLedgerTreatmentBlock({
+          entries,
+          nativeIndexes: NATIVE_INDEXES,
+          symbolInventory: INVENTORY,
+          derangementSeed: DERANGEMENT_SEED,
+        });
+        await writeFile(join(dyadDir, `treatment-batch-${partition}-${role}.json`), `${JSON.stringify(block, null, 2)}\n`, 'utf8');
+      }
+    }
+    await writeFile(
+      join(dyadDir, 'dyad-receipt.json'),
+      `${JSON.stringify({ cohort: 'development', kind: 'primary', index: 0, state: 'valid', casesAttempted: slot, caseCommitments: commitments })}\n`,
+      'utf8',
+    );
+    return dyadDir;
+  }
+
+  async function withFixture(run: (dyadDir: string, root: string) => Promise<void>): Promise<void> {
+    const root = await mkdtemp(join(tmpdir(), 'ald-a7-'));
+    try {
+      await run(await writeFixtureDyad(root), root);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  }
+
+  it('accepts a complete fixture dyad and extracts six diagnostic batches', async () => {
+    await withFixture(async (dyadDir) => {
+      const report = await checkV2DyadComplete(dyadDir);
+      expect(report.problems).toEqual([]);
+      expect(report).toMatchObject({ ok: true, slots: 12, blocks: 6 });
+      const rows = await extractV2DiagnosticBatches(dyadDir);
+      expect(rows.schema).toBe(V2_DIAGNOSTIC_ROWS_SCHEMA);
+      expect(rows.blocks.map((block) => `${block.partition}:${block.role}`)).toEqual([
+        'validation-fit:baby-a',
+        'validation-fit:baby-b',
+        'validation-selection:baby-a',
+        'validation-selection:baby-b',
+        'within-support-test:baby-a',
+        'within-support-test:baby-b',
+      ]);
+      for (const block of rows.blocks) {
+        expect(block.scheduledCases).toBe(2);
+        expect(block.records).toBe(4);
+        expect(block.cases).toHaveLength(4);
+        for (const entry of block.cases) {
+          expect(Object.keys(entry).sort()).toEqual([
+            'candidates',
+            'caseId',
+            'receiverRole',
+            'scheduledCaseId',
+            'selection',
+            'shuffledDelivered',
+            'shuffledSource',
+            'target',
+          ]);
+        }
+        // The projection is the construction mapping, not a re-derivation.
+        const blockFile = JSON.parse(
+          (await readFile(join(dyadDir, `treatment-batch-${block.partition}-${block.role}.json`), 'utf8')) as string,
+        ) as { cases: { caseId: string; selectedToken: string; shuffledDeliveredToken: string }[] };
+        for (const entry of block.cases) {
+          const source = blockFile.cases.find((candidate) => candidate.caseId === entry.caseId);
+          expect(entry.selection).toBe(source?.selectedToken);
+          expect(entry.shuffledDelivered).toBe(source?.shuffledDeliveredToken);
+        }
+      }
+    });
+  });
+
+  it('names a missing block file', async () => {
+    await withFixture(async (dyadDir) => {
+      await rm(join(dyadDir, 'treatment-batch-validation-fit-baby-a.json'));
+      const report = await checkV2DyadComplete(dyadDir);
+      expect(report.ok).toBe(false);
+      expect(report.problems.join('\n')).toMatch(/treatment-batch-validation-fit-baby-a\.json is missing/);
+      await expect(extractV2DiagnosticBatches(dyadDir)).rejects.toThrow(/not extractable/);
+    });
+  });
+
+  it('refuses a block whose scheduled set disagrees with executed slots', async () => {
+    await withFixture(async (dyadDir) => {
+      const path = join(dyadDir, 'treatment-batch-validation-fit-baby-a.json');
+      const block = JSON.parse((await readFile(path, 'utf8')) as string) as {
+        cases: { scheduledCaseId: string }[];
+      };
+      block.cases[0]!.scheduledCaseId = 'validation-fit:baby-a:0009';
+      await writeFile(path, JSON.stringify(block, null, 2), 'utf8');
+      const report = await checkV2DyadComplete(dyadDir);
+      expect(report.ok).toBe(false);
+      expect(report.problems.join('\n')).toMatch(/covers unexecuted case validation-fit:baby-a:0009/);
+    });
+  });
+
+  it('refuses a block edited after commit', async () => {
+    await withFixture(async (dyadDir) => {
+      const path = join(dyadDir, 'treatment-batch-validation-fit-baby-a.json');
+      const block = JSON.parse((await readFile(path, 'utf8')) as string) as {
+        cases: { shuffledDeliveredToken: string }[];
+      };
+      block.cases[0]!.shuffledDeliveredToken = 'TAMPERED';
+      await writeFile(path, JSON.stringify(block, null, 2), 'utf8');
+      const report = await checkV2DyadComplete(dyadDir);
+      expect(report.ok).toBe(false);
+      expect(report.problems.join('\n')).toMatch(/does not match its cases/);
+    });
+  });
+
+  it('refuses a non-valid receipt, a v1 block, and stray treatment files', async () => {
+    await withFixture(async (dyadDir, root) => {
+      const receiptPath = join(dyadDir, 'dyad-receipt.json');
+      const receipt = JSON.parse((await readFile(receiptPath, 'utf8')) as string) as { state: string };
+      receipt.state = 'failed';
+      await writeFile(receiptPath, JSON.stringify(receipt), 'utf8');
+      const blockPath = join(dyadDir, 'treatment-batch-validation-fit-baby-a.json');
+      const block = JSON.parse((await readFile(blockPath, 'utf8')) as string) as { version: number };
+      block.version = 1;
+      await writeFile(blockPath, JSON.stringify(block), 'utf8');
+      await writeFile(join(dyadDir, 'treatment-batch-training-baby-a.json'), '{}\n', 'utf8');
+      const report = await checkV2DyadComplete(dyadDir);
+      expect(report.ok).toBe(false);
+      expect(report.problems.join('\n')).toMatch(/receipt state is "failed"/);
+      expect(report.problems.join('\n')).toMatch(/is version 1, want 2/);
+      expect(report.problems.join('\n')).toMatch(/stray treatment file treatment-batch-training-baby-a\.json/);
+      void root;
+    });
+  });
+
+  it('exports only this dyad journal lines and rejects a malformed journal', async () => {
+    await withFixture(async (dyadDir, root) => {
+      const journalPath = join(root, 'journal.jsonl');
+      await writeFile(
+        journalPath,
+        [
+          JSON.stringify({ at: 't0', cohort: 'development', kind: 'primary', index: 0, state: 'attempted' }),
+          JSON.stringify({ at: 't1', cohort: 'development', kind: 'primary', index: 1, state: 'attempted' }),
+          JSON.stringify({ at: 't2', cohort: 'development', kind: 'primary', index: 0, state: 'valid' }),
+        ].join('\n').concat('\n'),
+        'utf8',
+      );
+      const lines = await exportV2DyadJournalLines(dyadDir, journalPath);
+      expect(lines).toHaveLength(2);
+      expect(lines.join('\n')).not.toContain('"index":1');
+      await writeFile(join(root, 'bad.jsonl'), 'not json\n', 'utf8');
+      await expect(exportV2DyadJournalLines(dyadDir, join(root, 'bad.jsonl'))).rejects.toThrow(/malformed line/);
+    });
+  });
+
+  it('refuses an empty directory with every defect collected', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ald-a7-empty-'));
+    try {
+      const report = await checkV2DyadComplete(join(root, 'nothing'));
+      expect(report.ok).toBe(false);
+      expect(report.problems.length).toBeGreaterThan(3);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
