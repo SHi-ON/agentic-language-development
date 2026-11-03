@@ -9,8 +9,10 @@ this log records committed gate verdicts and measured campaign data.
 
 ## Gate G1 (Phase A exit): PASS
 
-Date: 2026-11-03 UTC. Tip at verdict: `16fc847`
-(chore rebind), Phase A units `d847e7c` (A5) through `d7cd33d` (A7).
+Date: 2026-11-03 UTC. Suites ran on `16fc847` plus the G1
+evidence files; evidence committed at `f0c08da`, manifest stamp
+rebound at `432a4e1` (closure hash unchanged throughout).
+Phase A units: `d847e7c` (A5) through `d7cd33d` (A7).
 
 - `pnpm run check` green on AVPS: 26 files, 257 tests.
 - Broad fork suite green: 213 files, 2323 tests.
