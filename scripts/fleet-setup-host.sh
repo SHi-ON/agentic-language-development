@@ -44,20 +44,25 @@ echo "egress to nodejs.org and the npm registry: OK"
 export PATH="$HOME/.local/bin:$PATH"
 mkdir -p "$HOME/.local/bin" "$HOME/.cache/ald-node"
 
-echo "=== [${ALIAS}] node ${NODE_VERSION} ==="
+case "$(uname -m)" in
+  x86_64) NODE_ARCH="x64" ;;
+  aarch64) NODE_ARCH="arm64" ;;
+  *) echo "unsupported architecture: $(uname -m)" >&2; exit 11 ;;
+esac
+echo "=== [${ALIAS}] node ${NODE_VERSION} (${NODE_ARCH}) ==="
 if [ "$(node --version 2>/dev/null || true)" = "v${NODE_VERSION}" ]; then
   echo "node v${NODE_VERSION} already present: $(command -v node)"
 else
-  TARBALL="$HOME/.cache/ald-node/node-v${NODE_VERSION}-linux-x64.tar.xz"
+  TARBALL="$HOME/.cache/ald-node/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
   if [ ! -f "$TARBALL" ]; then
-    curl -sfL --max-time 300 -o "$TARBALL" "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz"
+    curl -sfL --max-time 300 -o "$TARBALL" "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
   fi
-  rm -rf "$HOME/.local/node-v${NODE_VERSION}-linux-x64"
+  rm -rf "$HOME"/.local/node-v"${NODE_VERSION}"-linux-*
   tar -xJf "$TARBALL" -C "$HOME/.local"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-x64/bin/node" "$HOME/.local/bin/node"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-x64/bin/npm" "$HOME/.local/bin/npm"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-x64/bin/npx" "$HOME/.local/bin/npx"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-x64/bin/corepack" "$HOME/.local/bin/corepack"
+  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/node" "$HOME/.local/bin/node"
+  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npm" "$HOME/.local/bin/npm"
+  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npx" "$HOME/.local/bin/npx"
+  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/corepack" "$HOME/.local/bin/corepack"
   echo "installed: $(node --version) at $(command -v node)"
 fi
 [ "$(node --version)" = "v${NODE_VERSION}" ]
@@ -105,7 +110,7 @@ else
 fi
 
 echo "=== [${ALIAS}] RECORD ==="
-echo "alias: ${ALIAS}"
+echo "alias: ${ALIAS} ($(uname -m))"
 echo "node: $(node --version) ($(command -v node))"
 echo "pnpm: $(pnpm --version) ($(command -v pnpm))"
 echo "python: $(python3 --version)"
