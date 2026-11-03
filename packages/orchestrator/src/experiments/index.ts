@@ -96,6 +96,12 @@ export {
   type Lv01BundleDocs,
 } from './lv01-audit-loader.js';
 export {
+  analysisRowFromDocs,
+  branchAnalysisRow,
+  loadAnalysisTrainingRows,
+  type AnalysisBranchRow,
+} from './lv01-analysis-loader.js';
+export {
   LV01_STAGE_BINDING_DOMAIN,
   LV01_STAGE_PACKET_DOMAIN,
   LV01_STAGE_PRERUN_DOMAIN,

@@ -3,8 +3,8 @@
   "studyId": "ALA-LV",
   "protocolCommit": "57dacfcbb9c6f78f27681b3c517ab06787a90b61",
   "amendmentCommit": "a1fc53924df22e8260ccffee019b25de09a8511d",
-  "sourceTree": "e4584c61fccde41db90e3be1d9f497b7499d5ebf",
-  "createdAtUtc": "2026-11-03T00:02:54.232Z",
+  "sourceTree": "b720f194b1049915567276dbc19cefc0c86d7fde",
+  "createdAtUtc": "2026-11-03T00:26:16.763Z",
   "protocols": {
     "protocols/ala-lv-study.v1.json": {
       "sha256": "sha256:8b139fdbf3694f02aa71222aeb80cd0b7f9343d2205fe93177f16f51b482535d",
@@ -20,13 +20,14 @@
     }
   },
   "executionClosure": {
-    "fileCount": 371,
-    "sha256": "sha256:54fdb2851da72b12fb7be9a05ae1209c85a9d2f3a4d8ae8e5ab34d0e6736f95a"
+    "fileCount": 376,
+    "sha256": "sha256:1eb5e4b48c8dcc8eb92442d478a1b31bb4f0f6266434bfdf62bc31d8b4a64b04"
   },
   "closureFiles": [
     "package.json",
     "packages/analysis/package.json",
     "packages/analysis/src/affect-leakage.ts",
+    "packages/analysis/src/ala-lv-dyad.ts",
     "packages/analysis/src/bootstrap.ts",
     "packages/analysis/src/carrier-capacity.ts",
     "packages/analysis/src/carrier-leakage.ts",
@@ -241,6 +242,7 @@
     "packages/ops/src/telemetry.ts",
     "packages/ops/tsconfig.json",
     "packages/orchestrator/package.json",
+    "packages/orchestrator/src/ala/ala-dyad-census.ts",
     "packages/orchestrator/src/ala/ala-manifest.ts",
     "packages/orchestrator/src/ala/ala-runner.ts",
     "packages/orchestrator/src/ala/ala-seeds.ts",
@@ -257,6 +259,7 @@
     "packages/orchestrator/src/experiments/ledger-value-journal.ts",
     "packages/orchestrator/src/experiments/ledger-value.ts",
     "packages/orchestrator/src/experiments/lv01-action-draw.ts",
+    "packages/orchestrator/src/experiments/lv01-analysis-loader.ts",
     "packages/orchestrator/src/experiments/lv01-audit-loader.ts",
     "packages/orchestrator/src/experiments/lv01-auditor.ts",
     "packages/orchestrator/src/experiments/lv01-collector.ts",
@@ -337,6 +340,8 @@
     "protocols/schemas/ala-lv-study.v2.schema.json",
     "scripts/admit-lv01-stage.mjs",
     "scripts/ala-admission-entry.ts",
+    "scripts/ala-analyze-lv.ts",
+    "scripts/ala-dyad-census.ts",
     "scripts/ala-g1-head-measure.ts",
     "scripts/ala-journal-append.ts",
     "scripts/ala-overhead-benchmark.ts",

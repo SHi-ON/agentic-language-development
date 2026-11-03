@@ -58,6 +58,16 @@ export {
   type Lv01SeedComponentValues,
 } from './ledger-value.js';
 export {
+  alaLvCohortInterval,
+  analyzeAlaLvDyad,
+  analyzeAlaLvRole,
+  type AlaLvCohortInterval,
+  type AlaLvDyadResult,
+  type AlaLvRoleFolds,
+  type AlaLvRoleResult,
+  type AlaLvTestRow,
+} from './ala-lv-dyad.js';
+export {
   LV01_CANDIDATE_DYADS,
   LV01_MINIMUM_FAMILY_LOWER_POWER,
   LV01_MONTE_CARLO_REPETITIONS,
