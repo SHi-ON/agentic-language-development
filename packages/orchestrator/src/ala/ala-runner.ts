@@ -70,6 +70,7 @@ import {
   ALA_SEED_ROOT,
   ALA_SEED_ROOT_V2,
   ALA_STUDY_ID,
+  alaChildRunIdPrefix,
   alaDyadSeeds,
   alaEngineSlotNumber,
   auditAlaSeedsAgainstRetained,
@@ -598,7 +599,7 @@ export async function runAlaDyad(input: {
         caseIndex: entry.caseIndex,
         receiver: entry.receiver,
       }),
-      childRunIdPrefix: `ala-${input.cohort}-${input.kind}-${slotLabel}-s${pad4(entry.slot)}`,
+      childRunIdPrefix: alaChildRunIdPrefix(input.cohort, input.kind, slotLabel, entry.slot),
     });
     // Corrected path: gate-validated treatment blocks per role per
     // partition, built and persisted BEFORE the slot loop (and before

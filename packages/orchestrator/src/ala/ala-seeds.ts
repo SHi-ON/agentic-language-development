@@ -117,6 +117,21 @@ export function alaEngineSlotNumber(cohort: AlaCohort, slotKind: AlaSlotKind, in
   }
 }
 
+/**
+ * LV01 child-run identifier prefix for one ALA slot. This feeds the
+ * LV01 collector, whose run-id grammar is lowercase slugs
+ * (`/^[a-z0-9-]+$/`), so the cohort letter is lowercased; external
+ * identity (journal, receipt, seeds) keeps the cohort as-is.
+ */
+export function alaChildRunIdPrefix(
+  cohort: AlaCohort,
+  slotKind: AlaSlotKind,
+  slotLabel: string,
+  slot: number,
+): string {
+  return `ala-${cohort.toLowerCase()}-${slotKind}-${slotLabel}-s${String(slot).padStart(4, '0')}`;
+}
+
 /** Per-role intervention-shuffle stream separation (hex base + role code). */
 export function alaRoleStreamSeed(baseSeed: string, role: 'baby-a' | 'baby-b'): string {
   if (!/^[0-9a-f]{64}$/u.test(baseSeed)) fail('role stream base seed is not sha256 hex');

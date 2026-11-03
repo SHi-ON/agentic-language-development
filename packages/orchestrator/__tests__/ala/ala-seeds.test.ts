@@ -4,6 +4,7 @@ import {
   ALA_SEED_ROOT,
   ALA_SEED_ROOT_V2,
   ALA_STUDY_ID,
+  alaChildRunIdPrefix,
   alaDyadSeeds,
   alaEngineSlotNumber,
   alaRoleStreamSeed,
@@ -88,5 +89,14 @@ describe('ALA seed namespace', () => {
     expect(alaDyadSeeds('A', 'primary', '0000', ALA_SEED_ROOT_V2).scenario).toBe(v2);
     expect(alaDyadSeeds('A', 'primary', '0000').scenario).toBe(v1);
     expect(() => deriveAlaSeed({ ...base, seedRoot: 'bogus-root' })).toThrowError(/not a known ALA namespace root/);
+  });
+
+  it('emits lowercase-slug child run prefixes for every cohort (C2: the LV01 collector rejects uppercase)', () => {
+    for (const cohort of ['A', 'B', 'development', 'calibration'] as const) {
+      const prefix = alaChildRunIdPrefix(cohort, 'primary', '0000', 1);
+      expect(prefix).toMatch(/^[a-z0-9-]+$/u);
+    }
+    expect(alaChildRunIdPrefix('A', 'primary', '0000', 1)).toBe('ala-a-primary-0000-s0001');
+    expect(alaChildRunIdPrefix('development', 'primary', '0000', 1)).toBe('ala-development-primary-0000-s0001');
   });
 });
