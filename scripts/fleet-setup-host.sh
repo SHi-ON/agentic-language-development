@@ -81,9 +81,10 @@ checkout() {
     git clone "$url" "$dir"
   fi
   git -C "$dir" checkout --detach "$ref"
-  local got
+  local got want
   got="$(git -C "$dir" rev-parse HEAD)"
-  if [ "$got" != "$ref" ]; then echo "${name} checkout mismatch: ${got} != ${ref}" >&2; exit 1; fi
+  want="$(git -C "$dir" rev-parse "$ref")"
+  if [ "$got" != "$want" ]; then echo "${name} checkout mismatch: ${got} != ${want}" >&2; exit 1; fi
   if [ -n "$(git -C "$dir" status --short)" ]; then echo "${name} worktree is dirty" >&2; exit 1; fi
   echo "${name} clean at ${got}"
 }
