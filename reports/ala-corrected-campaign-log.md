@@ -110,6 +110,24 @@ verification in the suite. Evidence root:
 `/home/maria/ald-evidence/ala-lv` (outside the checkout). RSS
 sampled every 60s to `/tmp/ala-b2-rss.log` (stated as sampled).
 
+### Early C0 prep: LVPS/OVPS setup DONE (during B2)
+
+Same setup script (arch fix at `ecceb1e`, hash-verified over scp),
+both pinned to fork `601a92c` + paper `03c6e81`, check PASSED:
+
+- LVPS (x86_64, user `ubuntu`, 4 CPUs, 7 GiB RAM): node v24.22.0,
+  pnpm 12.9.1, python 3.14.4. Disk 85% full (12 GiB free) at setup:
+  may not fit a full v2 dyad; G2 must scope or exclude LVPS.
+- OVPS (aarch64, user `ubuntu`, 4 CPUs, 19 GiB RAM): same toolchain
+  (ARM dist). First attempt failed on the x64 binary (exec format
+  error); script now selects the dist arch from `uname -m`. Disk
+  21% used (38 GiB free).
+
+All fleet checkouts stay at `601a92c` until G2 re-pins every host
+together. (Incidental: the arch-fix commit subject contains a
+non-English word from a typing slip; left as-is rather than
+rewriting pushed history.)
+
 ### Watch items for Phase B
 
 - AVPS disk was 95% full (13 GiB free) at G1. The qualification dyad
