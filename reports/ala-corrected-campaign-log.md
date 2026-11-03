@@ -128,6 +128,53 @@ together. (Incidental: the arch-fix commit subject contains a
 non-English word from a typing slip; left as-is rather than
 rewriting pushed history.)
 
+### B2 qualification dyad: VALID (720/720)
+
+Slot `development/primary/0`, TVPS, resumed run 00:09:32Z to
+01:28:44Z. Receipt `valid`, all paired cases executed and audited,
+protocol 2. Cost (all inside guard with margin):
+
+- CPU 1.296 h (cap 4.0; 32%), wall 78.9 min (cap 240; 33%),
+  retained 3.42 GiB receipt / 4.1 GiB root du (cap 8.0; 43%).
+- Peak RSS: 725 MiB process; 906 MiB sampled tree peak (79
+  one-minute samples; stated as sampled).
+- Verification (in-slot audits) 5.9 min of wall; no guard within
+  20% of any cap, so G2.3 needs no second qualification dyad.
+- Extract 0.9s (6 batches, 1440 records); census 7.8s;
+  analysis 25.4s.
+
+Construction (hard Phase B exit: SATISFIED): A7 driver 6/6
+batches ACCEPT with 106 genuine collisions counted and 0
+repeated-content pairs.
+
+Realized controls: shuffled delivery join 720/720 with 0
+mismatches (planned block tokens equal live shuffled-branch
+deliveries); random-branch deliveries 32/720 distinct (full
+inventory variation) with 720/720 distinct per-case draw seeds;
+coverage exactly 120 distinct cases per block with balanced
+targets (10 per eligible type).
+
+Learning sanity (reported, not gated): flat at chance. Accuracy
+blocks hover 0.23-0.30 across all 3000 training turns; last full
+block 0.248 vs 0.25 chance. The census first misreported 1.000
+from the single-turn ragged tail (post-training evaluation
+turn); fixed to read the last full block and re-frozen before
+G2 per B4 (`d273931`). A chance-level parent is inside the
+design's contemplated outcomes (bad-task-agent explicitly
+allowed); estimates below predict its actions regardless.
+
+### B4 analysis dry run: COMPLETE
+
+Pipeline runs end to end on real v2 output in 25s/dyad (A input
+for G2). n=1 development cohort: primary +0.1425 (positive
+favors native), interval degenerate by rule as expected.
+Selection discriminates by role (baby-a: ordinary-record-softmax,
+baby-b: task-history; validation Briers 0.31-0.75); test ordinary
+0.45/0.35 vs native 0.33/0.19; replay matches-or-beats native
+(excess 0.0001/0.0745); native missing-token fallbacks 0/240
+(100% test coverage). Analysis code frozen at `d273931`; no
+changes after G2 except the G2 tuple fill and rebind.
+
 ### Watch items for Phase B
 
 - AVPS disk was 95% full (13 GiB free) at G1. The qualification dyad
