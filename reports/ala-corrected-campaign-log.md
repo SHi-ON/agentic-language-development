@@ -275,3 +275,37 @@ new manifest: TVPS self-parity plus LVPS/OVPS byte-identical to
 TVPS including ARM, fixture unchanged (bef69732..., 26c2e781...),
 so the fix is byte-preserving outside the gate. No host dropped.
 Smoke roots deleted after parity (explicit rm on all hosts).
+
+### C2 wave-1 second failure: child-prefix case, root-caused and fixed
+
+The relaunched TVPS A/primary/0-5 plus OVPS A/primary/7-8 all
+failed ~10 min in at the first paired case: `LV01 collector:
+child run identifier prefix is invalid`. The runner built
+childRunIdPrefix as `ala-A-primary-...`, but the LV01 collector
+grammar (predating the ALA runner) accepts lowercase slugs
+only. B2 passed only because cohort `development` is already
+lowercase, and no test ever executed the runner deep with
+cohort A/B: the same G1 lesson as the missing v2 binding, one
+layer deeper. Eight more `failed` journal entries stand as
+evidence (resumable, charged to D).
+
+Fix at `de48a99`: the runner emits the collector-facing prefix
+lowercased (`ala-a-...`, extracted as `alaChildRunIdPrefix`);
+journal, receipt, seeds, and directory identity keep the cohort
+as-is, and B2 (`development`) bytes are unchanged. A full audit
+of every `input.cohort` sink found no other charset-validated
+consumer (derangement seeds take any non-empty non-NUL string;
+receipt prefix is write-only; draw-scope values are B2-proven).
+Pinned: every cohort's prefix must match `/^[a-z0-9-]+$/`
+(failed pre-fix, 9/9 seeds tests green post-fix); gate green
+26 files/259 tests.
+
+Cascade repeated: manifests rebound (closure c3742b70...,
+identity 9996b9bd...); stale 484fd16e... records replaced on
+all four roots with identical 9996b9bd...; fleet re-pinned to
+`1d78a06` (check PASSED everywhere, 26/259); smokes re-run with
+full TVPS/LVPS/OVPS parity and an unchanged fixture
+(bef69732..., 26c2e781...), as the smoke bypasses the runner
+prefix. No host dropped; smoke roots deleted. (Operator slip:
+the first re-pin attempt used a mistyped ref SHA and failed
+identically on all hosts before any checkout moved; no harm.)
