@@ -492,3 +492,12 @@ at E3 from receipts.
 TVPS A/primary/10-15 + OVPS A/primary/63-64, staggered 20s
 with journal verification (8/8 attempted). ~18 waves follow
 at the measured ~100-min pace.
+
+### Extension wave 1: complete 2026-11-03T22:06Z (T0+104min)
+
+TVPS A/10-15 + OVPS A/63-64: 8/8 valid, all census-clean
+(720/720 joins, 0 mismatches). A/14 parent accuracy 0.452 vs
+0.25 chance noted (learning sanity is reported, not gated).
+Wave 2 launched staggered with journal verification: TVPS
+A/16-21, OVPS A/65-66 (OVPS tarballed + rsynced its wave-1
+pair to TVPS first at zero in flight, verified 2/2).
