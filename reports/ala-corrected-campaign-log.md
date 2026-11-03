@@ -486,3 +486,9 @@ Timing protocol (author asked how long it takes): T0 at the
 first wave-1 launch; each wave completion timestamped;
 T-end at the 140th valid; |wall/dyad and CPU-h/dyad reported
 at E3 from receipts.
+
+### Extension wave 1: launched (T0 2026-11-03T20:22:25Z)
+
+TVPS A/primary/10-15 + OVPS A/primary/63-64, staggered 20s
+with journal verification (8/8 attempted). ~18 waves follow
+at the measured ~100-min pace.
