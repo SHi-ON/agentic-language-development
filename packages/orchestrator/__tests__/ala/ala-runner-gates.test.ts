@@ -452,3 +452,28 @@ describe('ALA runner gates (no training runs)', () => {
     ).rejects.toThrowError(/no P5 admission record/);
   });
 });
+
+describe('v2 execution manifest binding (B2 false-start regression)', () => {
+  it('verifies the v2 manifest before reaching the admission gate', async () => {
+    // The v2 manifest binds the corrected-study triplet. Manifest
+    // verification is step 1 of the runner, so reaching the P5
+    // admission refusal proves the v2 manifest loads and verifies;
+    // a missing or drifted binding would fail with a manifest error
+    // instead (the B2 false start ran the v2 path against the v1
+    // manifest and crashed past the gates on an unbound path).
+    const dir = evidenceRoot();
+    await expect(
+      runAlaDyad({
+        root,
+        manifestPath: 'protocols/ala-lv-execution-manifest.v2.json',
+        cohort: 'A',
+        kind: 'primary',
+        index: 0,
+        evidenceRoot: dir,
+        retainedCorpus: [],
+        treatmentBatchVersion: 2,
+        protocolVersion: 2,
+      }),
+    ).rejects.toThrowError(/no P5 admission record/);
+  });
+});
