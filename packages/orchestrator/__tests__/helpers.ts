@@ -66,14 +66,15 @@ export interface Harness {
   cleanup(): Promise<void>;
 }
 
-interface HarnessInput {
+export interface HarnessInput {
   root: string;
   databasePath: string;
   signerProvider: (runId: string) => SignerRegistry;
   overrides?: RuntimeOverrides;
 }
 
-function buildHarness(input: HarnessInput): Harness {
+/** Exported for the C0 smoke, which needs a fixed-seed signer provider. */
+export function buildHarness(input: HarnessInput): Harness {
   const database = openEvidenceDatabase(input.databasePath);
   const clock = input.overrides?.clock ?? new StepClock();
   const runtime = createNurseryRuntime({

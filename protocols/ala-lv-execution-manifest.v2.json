@@ -3,25 +3,25 @@
   "studyId": "ALA-LV",
   "protocolCommit": "5a68297a46197c18a880e9fed7cd067d3ebd7e1a",
   "amendmentCommit": "d847e7c392c6f20b451127bfcc70a5ab5568e98f",
-  "sourceTree": "c7e6eda0f6f5f608c08f2050d1e044b745095ea4",
-  "createdAtUtc": "2026-11-03T01:34:11.824Z",
+  "sourceTree": "09730097559357221d051c6ddd936237521e3bf0",
+  "createdAtUtc": "2026-11-03T01:47:12.197Z",
   "protocols": {
     "protocols/ala-lv-study.v2.json": {
-      "sha256": "sha256:6fad06bb36055223d831c9006dabe667c6b8cd9d5e6b606cdcb61bace751b683",
-      "bytes": 17986
+      "sha256": "sha256:da9e9e8b6c8baa221f1e3ecff42ecca4b61b894e74a154110140116995fc4049",
+      "bytes": 17984
     },
     "protocols/ala-lv-analysis.v2.json": {
       "sha256": "sha256:7c906b736696d59a9474477870039ee87a06d6ef9ef64a5dd52d99f8a631c40f",
       "bytes": 10923
     },
     "protocols/ala-lv-scope-and-resource-amendment.v2.json": {
-      "sha256": "sha256:0c870cf1dea283c0f2a71d52767148932d35c9502b90fb480c4620259ec48350",
+      "sha256": "sha256:20c9ab9dfebe2eb9249afc29fee56e3f98d819458f99e7ddd74433ed7400b62b",
       "bytes": 5278
     }
   },
   "executionClosure": {
-    "fileCount": 376,
-    "sha256": "sha256:121d49b416ede8366aeebe641545a0732a67937897436f23724a433260b0df18"
+    "fileCount": 377,
+    "sha256": "sha256:07bc998e233a8265960a4bf892f3534070235c523a8ee5b592ef518bac7dcf9f"
   },
   "closureFiles": [
     "package.json",
@@ -347,6 +347,7 @@
     "scripts/ala-overhead-benchmark.ts",
     "scripts/ala-run-entry.ts",
     "scripts/ala-run.mjs",
+    "scripts/ala-smoke-case.ts",
     "scripts/ala-v2-extract.ts",
     "scripts/anchor-faucet-watch.mjs",
     "scripts/anchor-public-submit.mjs",

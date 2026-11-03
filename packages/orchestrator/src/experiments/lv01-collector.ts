@@ -577,6 +577,12 @@ export async function createLv01CollectorHarness(input: {
   readonly softwareCommit: string;
   readonly ordinary: Lv01PairedPredictionProvider;
   readonly clock?: Clock;
+  /**
+   * Key source for genuinely new branch runs. Defaults to fresh random
+   * keys (correct for production); the C0 smoke passes fixed-seed keys
+   * so case bytes are identical across runs and hosts.
+   */
+  readonly signerProvider?: (runId: string) => SignerRegistry;
 }): Promise<Lv01CollectorHarness> {
   const database: EvidenceDatabase = openEvidenceDatabase(input.databasePath ?? join(input.root, 'evidence.sqlite'));
   const clock = input.clock ?? new StepClock();
@@ -592,6 +598,7 @@ export async function createLv01CollectorHarness(input: {
     clock,
     softwareCommit: input.softwareCommit,
   });
+  const freshKeys = input.signerProvider ?? ((runId: string): SignerRegistry => InMemorySignerRegistry.generate(runId));
   const signerProvider = (runId: string): SignerRegistry => {
     const existing = registries.get(runId);
     if (existing !== undefined) return existing;
@@ -607,7 +614,7 @@ export async function createLv01CollectorHarness(input: {
       registries.set(runId, sealed);
       return sealed;
     }
-    const created = InMemorySignerRegistry.generate(runId);
+    const created = freshKeys(runId);
     registries.set(runId, created);
     return created;
   };
@@ -795,6 +802,7 @@ export async function collectLv01Slot(input: {
   readonly partition: 'dev' | 'within-support' | 'novel-composition';
   readonly ordinary: Lv01PairedPredictionProvider;
   readonly store: { readonly root: string; readonly databasePath?: string };
+  readonly signerProvider?: (runId: string) => SignerRegistry;
 }): Promise<Lv01CollectedSlot> {
   const wallStart = Date.now();
   const cpuStart = process.cpuUsage();
@@ -919,6 +927,7 @@ export async function collectLv01Slot(input: {
     databasePath: input.store.databasePath,
     softwareCommit: input.softwareCommit,
     ordinary: input.ordinary,
+    ...(input.signerProvider === undefined ? {} : { signerProvider: input.signerProvider }),
   });
   let executions: readonly Lv01BranchExecution[];
   try {

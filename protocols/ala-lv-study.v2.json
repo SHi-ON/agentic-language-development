@@ -11,8 +11,8 @@
   ],
   "campaignSize": {
     "chosen": [
-      20,
-      20,
+      10,
+      10,
       2
     ],
     "note": "G2 confirms or replaces the chosen tuple, then rebinds the manifest before any admission record exists. If the smaller tuple is chosen, cohorts.A/B primaries become 10 and batches become 2 per cohort (batchSize stays 5); reserves stay 2. The (10,10,0) zero-reserve shape is allowed only if G2 prospectively freezes it in this block.",
@@ -28,7 +28,7 @@
         2
       ]
     ],
-    "status": "open-until-G2",
+    "status": "decided-G2",
     "tupleOrder": [
       "A primaries",
       "B primaries",
@@ -93,16 +93,16 @@
   "cohorts": {
     "A": {
       "batchSize": 5,
-      "batches": 4,
-      "primaries": 20,
+      "batches": 2,
+      "primaries": 10,
       "replacementRule": "At most two ordered technically invalid replacements, prospectively reserved and charged; depleted reserves close the cohort incomplete.",
       "reserves": 2
     },
     "B": {
       "batchSize": 5,
-      "batches": 4,
+      "batches": 2,
       "freshSeeds": true,
-      "primaries": 20,
+      "primaries": 10,
       "replacementRule": "At most two ordered technically invalid replacements, prospectively reserved and charged; depleted reserves close the cohort incomplete.",
       "reserves": 2
     },
