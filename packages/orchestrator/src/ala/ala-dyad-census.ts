@@ -15,6 +15,29 @@
  * variation) are REPORTED, never thrown: the caller decides gates.
  */
 
+export interface SplitTrajectory {
+  /** Full-size blocks only; the learning-sanity read is the last of these. */
+  readonly full: readonly number[];
+  /** Ragged tail (fewer than blockSize turns), or null when turns divide evenly. */
+  readonly tail: number | null;
+  readonly tailTurns: number;
+}
+
+/** Split a block trajectory into full blocks plus the ragged tail. */
+export function splitTrajectory(trajectory: readonly number[], totalTurns: number, blockSize: number): SplitTrajectory {
+  if (!Number.isInteger(totalTurns) || totalTurns < 1) throw new Error('dyad census: total turns must be positive');
+  if (!Number.isInteger(blockSize) || blockSize < 1) throw new Error('dyad census: block size must be a positive integer');
+  const fullCount = Math.floor(totalTurns / blockSize);
+  if (trajectory.length !== fullCount + (totalTurns % blockSize === 0 ? 0 : 1)) {
+    throw new Error('dyad census: trajectory length disagrees with turns and block size');
+  }
+  return {
+    full: trajectory.slice(0, fullCount),
+    tail: totalTurns % blockSize === 0 ? null : (trajectory[fullCount] as number),
+    tailTurns: totalTurns % blockSize,
+  };
+}
+
 export function blockAccuracy(outcomes: readonly boolean[], blockSize: number): number[] {
   if (!Number.isInteger(blockSize) || blockSize < 1) {
     throw new Error('dyad census: block size must be a positive integer');

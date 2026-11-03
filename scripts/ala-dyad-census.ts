@@ -20,6 +20,7 @@ import {
   deliveryJoin,
   distinctShare,
   histogram,
+  splitTrajectory,
 } from '../packages/orchestrator/src/ala/ala-dyad-census.js';
 import { readLv01BundleDocs } from '../packages/orchestrator/src/experiments/lv01-collector.js';
 import { loadLv01AuditedBranch } from '../packages/orchestrator/src/experiments/lv01-audit-loader.js';
@@ -120,6 +121,8 @@ async function main(): Promise<number> {
     return turn.outcome.success;
   });
   const trajectory = blockAccuracy(outcomes, 250);
+  const split = splitTrajectory(trajectory, outcomes.length, 250);
+  const finalFull = split.full[split.full.length - 1] as number;
   const report = {
     schema: 'ala-dyad-census/v1',
     dyad: complete.dyad,
@@ -153,7 +156,9 @@ async function main(): Promise<number> {
       turns: outcomes.length,
       blockSize: 250,
       accuracyByBlock: trajectory,
-      finalBlockAccuracy: trajectory[trajectory.length - 1],
+      finalFullBlockAccuracy: finalFull,
+      tailAccuracy: split.tail,
+      tailTurns: split.tailTurns,
       chance: 0.25,
     },
   };
@@ -161,7 +166,7 @@ async function main(): Promise<number> {
   console.log(
     `CENSUS OK: ${report.dyad}: ${report.slots} slots, delivery join ${joinResult.matched}/${planned.size} ` +
       `(${joinResult.mismatched.length} mismatches), random ${report.random.deliveries.distinct}/${report.random.deliveries.total} distinct, ` +
-      `final-block accuracy ${report.learning.finalBlockAccuracy?.toFixed(3)} vs 0.25 -> ${outPath}`,
+      `final-full-block accuracy ${report.learning.finalFullBlockAccuracy.toFixed(3)} vs 0.25 -> ${outPath}`,
   );
   return 0;
 }

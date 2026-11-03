@@ -6,6 +6,7 @@ import {
   deliveryJoin,
   distinctShare,
   histogram,
+  splitTrajectory,
 } from '../../src/ala/ala-dyad-census.js';
 
 describe('dyad census reductions', () => {
@@ -14,6 +15,12 @@ describe('dyad census reductions', () => {
     expect(blockAccuracy([true, false, false], 2)).toEqual([0.5, 0]);
     expect(() => blockAccuracy([], 2)).toThrow(/no outcomes/);
     expect(() => blockAccuracy([true], 0)).toThrow(/positive integer/);
+  });
+
+  it('splits full blocks from the ragged tail', () => {
+    expect(splitTrajectory([0.5, 1], 3, 2)).toEqual({ full: [0.5], tail: 1, tailTurns: 1 });
+    expect(splitTrajectory([0.5, 0.25], 4, 2)).toEqual({ full: [0.5, 0.25], tail: null, tailTurns: 0 });
+    expect(() => splitTrajectory([0.5], 3, 2)).toThrow(/disagrees/);
   });
 
   it('joins planned to actual deliveries, naming mismatches', () => {
