@@ -1,0 +1,33 @@
+{
+  "schema": "ala-campaign-registry/v1",
+  "tuple": [10, 10, 2],
+  "forkRef": "8e7bad6cee8778e3279a369f14fb498fb29faab4",
+  "manifestSha256": "sha256:83c7b1bcfbf901f698cab3af95de1de99f80120d9003e6715b93073f49ed7775",
+  "measuredUnit": {"cpuHours": 1.29617, "wallMinutes": 78.9, "retainedGiB": 3.42, "tarballGiB": 1.3, "peakRssMiB": 906},
+  "assignments": {
+    "TVPS": {"A": [0, 1, 2, 3, 4, 5, 6], "B": [0, 1, 2, 3, 4, 5, 6], "concurrency": 6},
+    "OVPS": {"A": [7, 8, 9], "B": [7, 8, 9], "concurrency": 2},
+    "LVPS": {"A": [], "B": [], "concurrency": 0, "role": "mirror-only"}
+  },
+  "reserves": {
+    "rule": "A reserve for an invalid primary runs on the SAME host as the invalid primary, next free wave slot. LVPS never produces.",
+    "A": [10, 11],
+    "B": [10, 11]
+  },
+  "evidenceRoots": {
+    "TVPS": {"A": "/home/maria/ald-evidence/ala-lv-A", "B": "/home/maria/ald-evidence/ala-lv-B"},
+    "OVPS": {"A": "/home/ubuntu/ald-evidence/ala-lv-A", "B": "/home/ubuntu/ald-evidence/ala-lv-B"}
+  },
+  "secondCopies": {
+    "TVPS": "OVPS mirrors every TVPS tarball (pull from TVPS archive)",
+    "OVPS": "LVPS mirrors every OVPS tarball (pull from TVPS archive)",
+    "LVPS": null
+  },
+  "operatorRules": [
+    "Every dyad runs under ala-watchdog.sh with the frozen amendment caps.",
+    "OVPS rsyncs its own tarballs to TVPS only while <=1 dyad is in flight (disk-headroom rule).",
+    "Mirror legs use rsync --inplace (no temp-copy transients against headroom).",
+    "A producing host deletes extracted trees plus local tarballs only after the TVPS archive copy AND the second copy both verify (sha256 -c).",
+    "Any invalid/failed/aborted dyad pauses its host: no next wave there until the cause is diagnosed and logged. Reserves trigger only on technically invalid primaries."
+  ]
+}

@@ -175,7 +175,60 @@ baby-b: task-history; validation Briers 0.31-0.75); test ordinary
 (100% test coverage). Analysis code frozen at `d273931`; no
 changes after G2 except the G2 tuple fill and rebind.
 
-### Watch items for Phase B
+## Gate G2: DECIDED (10,10,2)
+
+Date: 2026-11-03 UTC. Decided on measured numbers (no model
+uncertainty in the decision inputs).
+
+### G2.1 reservation
+
+R = n*f*C + A + D with n=24, f=2, C=1.29617 CPU-h/dyad (B2
+receipt), A=24x25.4s=0.17 CPU-h (B4 dry run), D=1.29619 CPU-h
+(summed measured dev: B2 + 70ms false start):
+
+R = 63.68 CPU-h, frozen as campaignCpuHoursMax=63.7 in the
+amendment (rounded up; a cap must not sit below the need).
+
+### G2.2 size decision
+
+(20,20,2) is disk-impossible: 44 dyads need 150 GiB extracted
+against 125 GiB fleet capacity, and no host can hold the 57 GiB
+second tarball set. (10,10,2) fits everywhere with >=20%
+headroom (see C1 topology). Wall: ~5h at <=50% load, fits one
+week. Precision note: n=20/cohort gives a 97.5% Student-t
+half-width of 0.544xSD (t(0.9875,19)=2.4334 from the repo's own
+quantile); SD is unknown until data (B4 n=1 gives no SD), so no
+power claim attaches: exploratory estimation as registered.
+
+### G2.3 second qualification: NOT TRIGGERED
+
+B2 peaked at 43% of the tightest cap (retained GiB); nothing
+within 20% of any cap, 720/720 clean.
+
+### G2.4 tuple fill and admission
+
+`48e3cb0`: chosen=[10,10,2], 2 batches per cohort, reservation
+cap filled; `8e7bad6`: manifests rebound to the G2 protocol
+commit (a mid-G2 miss: rebinding before committing the protocol
+edit broke protocolCommit verification on all hosts; fixed by
+rebinding after, check green everywhere). Manifest bytes
+identical on AVPS/TVPS/LVPS/OVPS
+(edad59a3...); admission records bind manifestSha256
+83c7b1bc... identically on TVPS-A, TVPS-B, OVPS-A, OVPS-B
+(full (10,2) cohort tuples; index ranges are procedural in the
+C1 registry).
+
+### G2.5/C0 smokes: PASS
+
+One-case harness smoke under the verified manifest (see the
+amendment-corrected design: non-study, logged not journalled,
+excluded from D). TVPS twice identical (self-parity),
+LVPS and OVPS identical to TVPS byte-for-byte, including ARM:
+case bef69732..., bundle 26c2e781.... No host dropped. Smoke
+cost is seconds; fixtures logged here, smoke roots deleted after
+parity (explicit rm on all hosts).
+
+### Watch items for Phase C
 
 - AVPS disk was 95% full (13 GiB free) at G1. The qualification dyad
   runs on TVPS per the plan; keep AVPS clear of evidence output.
