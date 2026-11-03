@@ -169,7 +169,7 @@ export function branchAnalysisRow(
   if (targetIndex < 0) fail('normal branch target is outside the committed candidate order');
   if (audited.payload.replay === null) fail('normal branch payload carries no replay distribution');
   const delivered = audited.payload.deliveredToken;
-  if (delivered !== null && body.deliveredToken !== delivered) fail('normal branch payload disagrees with the recorded delivery');
+  if (body.deliveredToken !== delivered) fail('normal branch payload disagrees with the recorded delivery');
   return {
     record: {
       caseId: scheduledCaseId,

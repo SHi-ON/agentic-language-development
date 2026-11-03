@@ -110,6 +110,11 @@ async function main(): Promise<number> {
         await readLv01BundleDocs(join(dyadDir, dir, 'branches', normal[0] as string)),
         record.executedCaseId,
       );
+      const slotRole = record.executedCaseId.split(':')[1];
+      if (row.record.receiverRole !== slotRole) {
+        console.error(`FAIL: ${dir} normal branch serves ${row.record.receiverRole}, slot scheduled ${slotRole}`);
+        return 1;
+      }
       if (record.partition === 'validation-fit') fit.push(row);
       else if (record.partition === 'validation-selection') selection.push(row);
       else if (record.partition === 'within-support-test') test.push(row);
