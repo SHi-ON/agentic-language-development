@@ -377,3 +377,65 @@ local tarballs deleted after both copies verified (22 GiB
 freed, 28 GiB free). TVPS A/6 + B/2 tarballs written; their
 OVPS mirror leg in progress, extracted deletion pending
 verification.
+
+### C4 completion census: PASS (20/20 over the archive)
+
+Per-dyad recount from the verified tarballs on TVPS, projected
+extraction excluding only `runs/` + `evidence.sqlite*` (3.2
+GiB/dyad of parent-run checkpoints + sqlite store that no C4/D
+code path reads; retained in the hashed tarballs): extraction
+refused nothing, all 20 dyads complete against the A7 retained
+manifest (6 batches, 1440 records each). Driver verdicts
+(diagnoseLedgerBatch over each dyad's 6 block files, mapping
+replicating build-valid-ledger-batch.ts): 120/120 ACCEPT, 0
+repeated-content pairs everywhere; genuine collisions A
+110,168,162,150,168,86,158,228,98,132 (1460 total) and B
+202,244,90,190,214,330,116,212,210,212 (2020 total).
+Archive censuses repeat the live censuses byte-for-byte in
+every headline (720/720 slots, 720/720 delivery join with 0
+mismatches, 32/720 random distinct, identical per-dyad
+accuracies). (Operator note: first extraction attempt targeted
+/tmp and died on tmpfs inode exhaustion; reran on the evidence
+filesystem. No evidence touched.)
+
+### Phase D: estimates frozen
+
+Frozen pipeline (unchanged since `d273931`, verified) over the
+archive, one invocation per cohort (10 dyads each, ~3m50s):
+
+- Cohort A: n=10, mean +0.1250, SD 0.1303, Student-t 97.5%
+  interval [+0.0143, +0.2356] (excludes zero; positive favors
+  the native ledger predictor over the validation-selected
+  ordinary predictor).
+- Cohort B: n=10, mean +0.1230, SD 0.1835, Student-t 97.5%
+  interval [-0.0328, +0.2788] (includes zero; reported as-is
+  per the pre-agreed null rule).
+
+Both cohorts: 8/10 dyad primaries positive; selector
+discriminates (task-history 12 roles, ordinary-record-softmax
+8 roles, identically in A and B); native missing tokens 0/480
+(100% test coverage); replay matches-or-beats native in all 40
+roles (excess Brier positive throughout, max 1.07 in B).
+
+D2 supplements (operator-computed, frozen outputs as inputs,
+pipeline untouched; the frozen script emits neither): percentile
+bootstrap (repo bootstrapMeanCi, seed
+ala-campaign-d2-bootstrap-v1, 10000 iterations, 0.975): A
+[+0.0361, +0.2099], B [-0.0113, +0.2299), agreeing qualitatively
+with the primaries. Cutoff age per dyad from the heads sidecars:
+all 20 dyads froze ledgers at parent-training turn 2996-3000
+(sequences 6378-6884); every test prediction uses pre-cutoff
+associations, so staleness is structural and near-identical, not
+a dyad-level confound. Inherited limitations travel with the
+numbers: privileged possibly-stale projections, no
+matched-information control, ledger advantage is not
+added-information evidence over replay fidelity.
+
+D3 freeze: analysis-A.json (sha256 54efbb34...) +
+analysis-B.json (sha256 3171c189...) committed in
+reports/ala-campaign-results/ from TVPS; inputs hashed
+(manifest 9996b9bd..., script freeze d273931, 20 tarball sha256
+sidecars in the archive). Reproducibility verified, not
+asserted: cohort-A analysis rerun from fresh extraction is
+bit-for-bit identical (excluding producedAt/inputs paths).
+Scratch deleted; evidence retained until G3 per C3.
