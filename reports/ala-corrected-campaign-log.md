@@ -71,6 +71,45 @@ magnitude). Total retained dyad size is NOT projected here (per-slot
 non-head bytes need a live dyad); B2 measures real retained GiB
 against the A7 manifest and confirms or corrects this datum.
 
+## Phase B: qualification (TVPS)
+
+### B1 host setup: DONE
+
+Date: 2026-11-03 UTC. Method: `scripts/fleet-setup-host.sh`
+(idempotent; verified hash-identical over scp before first run).
+
+- Alias TVPS (user `maria`, 12 CPUs, 94 GiB RAM, 81 GiB free at setup).
+- Egress to nodejs.org and the npm registry: OK.
+- node v24.22.0, pnpm 12.9.1 (`~/.local/bin`), python 3.14.4.
+- Fork `git@github.com:SHi-ON/agentic-language-development.git` at
+  `601a92c6d7529e005e6f35ba4c326adc0c7937d5` (`/home/maria/ald/fork`).
+- Paper (read-only sibling for the A7 driver) at
+  `03c6e8159c1ba4301624f6981cdd976bbe60e45e` (`/home/maria/ald/paper`).
+- `pnpm install --frozen-lockfile` + `pnpm run check`: PASSED on the
+  host (26 files, 258 tests, includes the v2-manifest binding case).
+- No host has write access to another host's evidence root; the
+  paper checkout is never modified (driver imports only).
+- Setup-script fixes during B1 (both committed): short SHAs now
+  resolve before the ref comparison; first run used a wrong home
+  directory for the TVPS user (resumed idempotently, no harm).
+
+### B2 false start and resume (index 0)
+
+The first launch ran the v2 path against the v1 execution
+manifest: Phase A never built `ala-lv-execution-manifest.v2.json`,
+so the runner crashed past the gates on an unbound protocol path
+(70ms, zero compute). Fixed at `bd1ae3b` (manifest built with the
+sanctioned writer + regression case), TVPS moved to `601a92c`,
+slot `development/primary/0` resumed with `--resume` on the v2
+manifest at 2026-11-03T00:09:32Z. The resume wiped partial output
+and reruns deterministically with identical seeds; no additional
+budget consumed (one distinct dev slot ID). G1 lesson: no Phase A
+test ever executed the v2 path end to end, so the missing binding
+survived the gate; the regression case now pins v2-manifest
+verification in the suite. Evidence root:
+`/home/maria/ald-evidence/ala-lv` (outside the checkout). RSS
+sampled every 60s to `/tmp/ala-b2-rss.log` (stated as sampled).
+
 ### Watch items for Phase B
 
 - AVPS disk was 95% full (13 GiB free) at G1. The qualification dyad
