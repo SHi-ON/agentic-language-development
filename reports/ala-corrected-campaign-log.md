@@ -236,3 +236,42 @@ parity (explicit rm on all hosts).
   the A7 driver imports the paper diagnostic's `verdict()` at runtime
   (`--paper-repo`, `$PAPER_REPO`, or the sibling path). B1/C0 setup
   must clone it alongside the fork and never modify it.
+
+## Phase C: campaign
+
+### C1 registry: FROZEN
+
+`be0cc76` advances the registry to the hygiene-fix fork tip and
+manifest binding 484fd16e... (assignments unchanged from the G2
+record: TVPS A/B 0-6 at concurrency 6; OVPS A/B 7-9 at
+concurrency 2; LVPS mirror-only; reserves A/B 10-11 run on the
+same host as the invalid primary).
+
+### C2 wave 1: systematic cohort-A failure, root-caused and fixed
+
+TVPS A/primary/0-5 all failed in ~220ms each at the first
+observation: `HygieneViolationError: prose-string at runId`
+(runId `ala-A-primary-0000-parent`). Systematic, cohort-A-only:
+the prose heuristic read the cohort letter `A` as the article
+`a`. Six `failed` journal entries stand as evidence (resumable,
+charged to D).
+
+Fix at `049e603` (hygiene layer, not a runId rename: runIds are
+frozen in receipts, admissions, registry, and seeds): narrow the
+prose gate to ignore single-character words in run-id-shaped
+strings only (`RUN_ID_PATTERN`-gated). Multi-letter function
+words still reject; free-text fields keep full sensitivity
+(pinned in the suite). 43/43 hygiene tests green (2 failed
+pre-fix as intended); `pnpm run check` green 26 files/258 tests.
+
+Consequences of the fix commit, all executed: manifests rebound
+to the post-fix closure (377 files, identity 484fd16e...);
+stale 83c7b1bc... admission records confirmed on all four
+host-cohort roots, removed, and regenerated (10 primaries, 2
+reserves each) with identical 484fd16e... on TVPS-A/B and
+OVPS-A/B; fleet re-pinned to `be0cc76` with check PASSED on
+TVPS/OVPS/LVPS (26/258 each); G2.5/C0 smokes re-run under the
+new manifest: TVPS self-parity plus LVPS/OVPS byte-identical to
+TVPS including ARM, fixture unchanged (bef69732..., 26c2e781...),
+so the fix is byte-preserving outside the gate. No host dropped.
+Smoke roots deleted after parity (explicit rm on all hosts).
