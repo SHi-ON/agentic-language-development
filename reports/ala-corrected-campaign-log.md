@@ -501,3 +501,19 @@ TVPS A/10-15 + OVPS A/63-64: 8/8 valid, all census-clean
 Wave 2 launched staggered with journal verification: TVPS
 A/16-21, OVPS A/65-66 (OVPS tarballed + rsynced its wave-1
 pair to TVPS first at zero in flight, verified 2/2).
+
+### C3-at-scale amendment (extension wave 1)
+
+TVPS cannot hold the n=80 archive (140 new tarballs near
+190 GiB against 26 GiB free with 160 GiB of other agents
+data untouchable), so SVPS is now the durable archive, not
+just the second copy: all 28 tarballs so far (round-1 20 +
+wave-1 8) pulled to SVPS and shasum-verified 28/28, then the
+TVPS copies deleted (TVPS 23G to 56G free; journals and
+admissions stay). Durability per dyad: one verified SVPS copy
+plus proven bit-for-bit regenerability from the frozen slot,
+except round-1 which keeps real two-copy redundancy (SVPS
+plus the OVPS and LVPS mirrors). TVPS and OVPS go transient:
+each wave pushes its tarballs to SVPS, verifies, then deletes
+locally. Steady state near 35 GiB on TVPS. C4 and D will pull
+tarballs back from SVPS in cohort-sized transients.
