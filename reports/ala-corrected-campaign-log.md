@@ -439,3 +439,50 @@ sidecars in the archive). Reproducibility verified, not
 asserted: cohort-A analysis rerun from fresh extraction is
 bit-for-bit identical (excluding producedAt/inputs paths).
 Scratch deleted; evidence retained until G3 per C3.
+
+## Extension E1: author-directed n=80/cohort round
+
+Author decision (Gate G3 redirected): no new paper; run to
+n=80 primaries per cohort and fold the results into the
+existing paper. This lifts the paper's sealed-audit status by
+author directive (the D5 rationale against it stands
+recorded); paper edits happen after the numbers land, and the
+sealed claims are not touched until then.
+
+Composition: 80 total per cohort = 10 frozen round-1 slots
+(0-9, valid, identical code and manifest 9996b9bd..., reruns
+forbidden by append-only gates) + 70 new slots (10-79). No
+code change, no rebind, no re-smoke (source identical; prior
+smokes still prove the closure). Fleet stays at `1d78a06`.
+
+Partition (3:1 matching 6:2 concurrency, ~18 waves each):
+TVPS A/B 10-62, OVPS A/B 63-79; LVPS mirror-only (97% full).
+Reserves stay at indices 10,11 per cohort (kind-distinct from
+the new primaries; engine-slot overlap with primaries 30,31 is
+contingent on a reserve running, and 0 invalids in 20
+round-1 dyads make that unlikely; documented, not patched).
+Admissions regenerate at primaries=80/reserves=2 under the
+unchanged manifest hash (the runner gates status/cohort/hash,
+not index bounds; regeneration keeps the record truthful).
+
+Reservation: R2 = 140 new dyads x 1.7 CPU-h (observed
+concurrency pace, above B2's solo 1.296) + 5 analysis/margin =
+245 CPU-h, author-directed; the frozen amendment file keeps
+63.7 as the G2 record (untouched), this entry is the extension
+authorization. The campaign cap is not mechanically enforced
+(watchdog gates null-only, pre-G2); per-dyad caps still bind
+every dyad.
+
+Archive at n=80 volume (~190 GiB tarballs): the two-copy rule
+cannot ride on OVPS/LVPS disks, so SVPS (author host, 829 GiB
+free at E1) becomes the second-copy target for all 140 new
+tarballs (rsync pull from the TVPS archive, sha256 -c verify).
+OVPS still pushes its own tarballs to TVPS under the <=1
+in-flight headroom rule. Extracted trees delete only after
+archive + SVPS copies verify. Journals/admissions snapshot per
+wave as before.
+
+Timing protocol (author asked how long it takes): T0 at the
+first wave-1 launch; each wave completion timestamped;
+T-end at the 140th valid; |wall/dyad and CPU-h/dyad reported
+at E3 from receipts.
