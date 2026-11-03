@@ -340,3 +340,18 @@ all clean (120/120 coverage per block, 720/720 delivery join
 with 0 mismatches, balanced target histograms, matching B2's
 realized controls); sixth dyad and OVPS A/7 (ARM) identical.
 No host paused.
+
+### C3 archive progress (wave-1 completions)
+
+TVPS A/primary/0-5: six deterministic tarballs (1.3-1.4 GiB
+each) written to the TVPS archive with sha256 sidecars, all
+self-verified at creation; root journal + admission copied
+alongside (snapshots, refreshed at campaign end). OVPS pulled
+all six via rsync --inplace and verified sha256 -c 6/6: two
+verified copies exist, so the TVPS extracted trees were deleted
+(24 GiB freed, 57 GiB free now). OVPS A/primary/7-8: local
+tarballs verified (1.4 + 1.3 GiB); the OVPS-to-TVPS rsync leg
+waits on the headroom rule (2 dyads in flight, needs <=1), then
+LVPS mirrors the OVPS tarballs from the TVPS archive, then OVPS
+extracted trees go. (Operator slip: first mirror rsync omitted
+-r and copied nothing; retried correctly, no harm.)
