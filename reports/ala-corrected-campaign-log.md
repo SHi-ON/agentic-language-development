@@ -355,3 +355,25 @@ waits on the headroom rule (2 dyads in flight, needs <=1), then
 LVPS mirrors the OVPS tarballs from the TVPS archive, then OVPS
 extracted trees go. (Operator slip: first mirror rsync omitted
 -r and copied nothing; retried correctly, no harm.)
+
+### C2/C3 wave-2 completion and wave-3 launch
+
+TVPS A/primary/6 and B/primary/0-4 all valid; OVPS A/primary/9
+and B/primary/7 valid. Every completed dyad census-clean
+(720/720 delivery join, 0 mismatches, 120/120 per-block
+coverage), including the repaired B/primary/2 and all ARM
+dyads. No invalid verdicts anywhere: zero reserves consumed.
+
+Wave 3 launched staggered with journal verification between
+launches (race rule holds, no losses): TVPS B/5 + B/6 at
+06:05/06:06Z, OVPS B/8 + B/9 at 06:39/06:40Z. TVPS-A cohort
+complete (7/7 valid).
+
+C3: OVPS tarballs (A/7-9, B/7) rsynced to the TVPS archive at
+zero in flight and verified 4/4; LVPS mirrored them 4/4 (LVPS
+disk now 93% full, 5.2 GiB free: the final B/8-9 pull of ~2.7
+GiB fits, nothing else goes there). OVPS extracted trees plus
+local tarballs deleted after both copies verified (22 GiB
+freed, 28 GiB free). TVPS A/6 + B/2 tarballs written; their
+OVPS mirror leg in progress, extracted deletion pending
+verification.
