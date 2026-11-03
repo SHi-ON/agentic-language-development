@@ -206,6 +206,39 @@ describe('§10.1 prohibited categories', () => {
       expect(reasons({ ...CLEAN, runId: 'run-e03-0007' })).toEqual([]);
     });
 
+    it('accepts campaign run ids whose only stopword is a single-letter cohort label', () => {
+      // Corrected-campaign C2 finding: cohort A run ids carry the
+      // single letter 'a' (an article to the stopword list) and were
+      // rejected as prose, blocking every cohort-A turn. Single
+      // letters in run-id-shaped identifiers are labels, not prose.
+      for (const runId of [
+        'ala-A-primary-0000-parent',
+        'ala-A-primary-0000-s0001-normal',
+        'ala-B-primary-0000-parent',
+        'ala-B-primary-0011-s0719-shuffled',
+      ]) {
+        expect(reasons({ ...CLEAN, runId })).toEqual([]);
+      }
+    });
+
+    it('still rejects run-id-shaped sentences with a multi-letter function word', () => {
+      // Boundary pin: the single-letter exemption is narrow. Any
+      // multi-letter function word keeps a run-id-shaped sentence
+      // rejected.
+      expect(reasons({ ...CLEAN, runId: 'take-a-photo-of-the-target' })).toContain('prose-string');
+      expect(reasons({ ...CLEAN, runId: 'read-a-message-here-right-now' })).toContain('prose-string');
+    });
+
+    it('documents the narrowed gate: single-letter-only sentences pass in run ids', () => {
+      // Deliberate trade-off, pinned honestly: a run-id-shaped
+      // string whose ONLY function word is single-letter ('a'/'i')
+      // is accepted, because cohort labels are exactly that shape.
+      // Run ids are system-generated from a fixed vocabulary, never
+      // attacker text; free-text fields keep full sensitivity.
+      expect(reasons({ ...CLEAN, runId: 'qzx-a-klm-vbn-wrt-yuio-00' })).toEqual([]);
+      expect(reasons({ ...CLEAN, note: 'got a big red box today sir' })).toContain('prose-string');
+    });
+
     it('does not flag the hyphenated run ids already used elsewhere in the monorepo', () => {
       // These decode to several all-alphabetic segments too, but contain no
       // closed-class function word, so the stopword-gated heuristic leaves

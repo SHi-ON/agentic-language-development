@@ -3,8 +3,8 @@
   "studyId": "ALA-LV",
   "protocolCommit": "48e3cb06cf9be3bf0052a49c66d8aa1acb40e07f",
   "amendmentCommit": "48e3cb06cf9be3bf0052a49c66d8aa1acb40e07f",
-  "sourceTree": "779fa0313454d27d737be8e1e6c20b676570570a",
-  "createdAtUtc": "2026-11-03T01:51:56.030Z",
+  "sourceTree": "9c6a24b6af1a60a0a9ad2343eae9bd178fe48423",
+  "createdAtUtc": "2026-11-03T02:00:33.061Z",
   "protocols": {
     "protocols/ala-lv-study.v2.json": {
       "sha256": "sha256:da9e9e8b6c8baa221f1e3ecff42ecca4b61b894e74a154110140116995fc4049",
@@ -21,7 +21,7 @@
   },
   "executionClosure": {
     "fileCount": 377,
-    "sha256": "sha256:07bc998e233a8265960a4bf892f3534070235c523a8ee5b592ef518bac7dcf9f"
+    "sha256": "sha256:402eb650557a7ee0643b3f5d14530d90e6fdd108d876ec5517243390b265e364"
   },
   "closureFiles": [
     "package.json",

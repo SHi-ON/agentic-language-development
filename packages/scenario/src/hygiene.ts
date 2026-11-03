@@ -224,7 +224,7 @@ const PROSE_STOPWORDS = new Set([
  * inserting split spaces cannot itself push a short identifier over the
  * threshold.
  */
-function looksLikeProse(rawLength: number, normalized: string): boolean {
+function looksLikeProse(rawLength: number, normalized: string, rawText: string): boolean {
   if (rawLength <= 24) {
     return false;
   }
@@ -234,7 +234,12 @@ function looksLikeProse(rawLength: number, normalized: string): boolean {
   if (words.length < 2) {
     return false;
   }
-  return words.some((word) => PROSE_STOPWORDS.has(word.toLowerCase()));
+  // Run-id-shaped identifiers are system-generated from a fixed
+  // vocabulary whose labels include single letters (cohort 'A');
+  // those are not prose evidence. Multi-letter function words still
+  // trip the gate there, and free text keeps full sensitivity.
+  const candidates = RUN_ID_PATTERN.test(rawText) ? words.filter((word) => word.length > 1) : words;
+  return candidates.some((word) => PROSE_STOPWORDS.has(word.toLowerCase()));
 }
 
 interface LanguageHit {
@@ -262,7 +267,7 @@ function classifyString(
       detail: `matched ${matches.length} banned human-language token(s)`,
     });
   }
-  if (looksLikeProse(text.length, normalizeForProseScan(text))) {
+  if (looksLikeProse(text.length, normalizeForProseScan(text), text)) {
     hits.push({
       reason: 'prose-string',
       path,
