@@ -431,7 +431,9 @@
         "records both hashes for every Baby-originated condition",
         "delivers the committed treatment token instead of the sender artifact",
         "fails closed when a ledger branch has no committed slice",
-        "leaves ordinary branches untouched"
+        "leaves ordinary branches untouched",
+        "separates random streams per case key and reproduces them exactly",
+        "delivers the committed shuffle token instead of the batch artifact"
       ],
       "requiredReceipt": "pnpm exec vitest run packages/gateway/__tests__/conditions.test.ts"
     },
