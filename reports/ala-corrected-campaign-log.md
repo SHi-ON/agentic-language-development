@@ -309,3 +309,34 @@ full TVPS/LVPS/OVPS parity and an unchanged fixture
 prefix. No host dropped; smoke roots deleted. (Operator slip:
 the first re-pin attempt used a mistyped ref SHA and failed
 identically on all hosts before any checkout moved; no harm.)
+
+### C2 journal-append race: B/primary/2 attempted entry lost, repaired
+
+Wave-2 TVPS launch (A/6 + B/0-4 in one loop) exposed that
+`appendAlaJournal` is read-modify-write, not O_APPEND: five
+same-millisecond appends to the B journal landed four entries
+and lost B/primary/2's `attempted` (wave-1's 20+ same-loop
+appends all landed by luck). A missing attempted entry is a
+live hazard (resume refused, duplicate fresh launch allowed),
+and the supervisor writer deliberately refuses attempt records,
+so no sanctioned repair-by-rewrite exists. Repair, all
+sanctioned: killed the B/2 runner tree (4 PIDs verified
+pre-kill), removed its partial dyad dir, appended a supervisor
+`note` documenting race + kill + relaunch (plus a second note
+correcting an imprecise timestamp in the first), and relaunched
+B/2 fresh and solo at 04:25:58Z; the runner journalled
+`attempted` normally. B journal now complete (attempted 0-4).
+
+Rule for the rest of the campaign: stagger every multi-dyad
+launch (solo journal access per root) and verify journal counts
+after each launch. No mid-campaign code change: the fleet holds
+one uniform closure, and staggering closes the ms-scale race
+window procedurally. Post-campaign hardening (filed): make
+`appendAlaJournal` O_APPEND with a concurrent-append regression
+test.
+
+Pause-rule check at wave-1 completion: TVPS first-five census
+all clean (120/120 coverage per block, 720/720 delivery join
+with 0 mismatches, balanced target histograms, matching B2's
+realized controls); sixth dyad and OVPS A/7 (ARM) identical.
+No host paused.
