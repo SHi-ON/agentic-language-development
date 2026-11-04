@@ -751,3 +751,13 @@ TVPS disk WARNING: 7.8G free (97%); archive holds 63G in
 113 files; cohort B needs ~70G more TVPS-side without
 offload. Cohort B cannot proceed past ~4-5 more tarballs
 unless SVPS host-key clears or alternate archive found.
+
+### Extension TVPS B10: complete 2026-11-04T15:29Z
+
+B/10 (post-ENOSPC `--resume` relaunch): valid, census-clean
+(720/720, 0 mismatches), tarball verified (1.3G), extracted
+cleaned. TVPS disk recovered to 11G free (scratch exceeded
+tarball). Both TVPS resume chains now complete; TVPS idle.
+Cohort B at 12/80. Archive posture under review: TVPS 11G,
+AVPS 2.5G, OVPS 18G, LVPS ~5G all too small for remaining
+~70 B tarballs (~95G); SVPS clearance pending with author.
