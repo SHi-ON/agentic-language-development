@@ -566,3 +566,15 @@ rebuild, not lost. TVPS holds the unmirrored dyad-28 tarball
 plus wave-4 extracted with 61 GiB free, about 4 waves of
 runway without SVPS offload. Compute on TVPS and OVPS is
 unaffected and continues.
+
+### Extension wave 4 (TVPS): complete 2026-11-04T03:27Z
+
+TVPS A/28-33: 6/6 valid, all census-clean (720/720 joins, 0
+mismatches). Backfilled staggered with journal verification:
+A/34 at 03:17Z, A/35-39 at 03:37Z. Tarballs held on TVPS
+(SVPS still paused); extracted deleted after tarball verify
+to protect headroom (TVPS 46G free with wave-5 growing).
+Note: at SVPS-dark accumulation (near 8 GiB kept per 6-pack),
+TVPS fits the rest of cohort A but not cohort B: the SVPS
+answer is needed before A-end (near 12h out), else older
+tarballs must drop to regenerability-only or B waits.
