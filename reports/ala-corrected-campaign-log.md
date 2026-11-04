@@ -808,3 +808,15 @@ OVPS B/66-67: 2/2 valid, both census-clean (720/720,
 held on OVPS, extracted cleaned (OVPS 13G free). Launched
 OVPS-B wave 3 (B/68-69) staggered with journal
 verification. Cohort B at 18/80.
+
+### Incident: second TVPS ENOSPC 2026-11-04T18:47Z
+
+TVPS filled to 100% (0 free) under B/13-14 pair scratch:
+B/14 crashed ENOSPC at slot 711/720 (mkdir proofs). B/13
+had exited 0 seconds earlier and verified intact
+(census-clean 720/720, tarball 1.4G OK). Recovery: deleted
+B/14 partial (3.9G; sanctioned, `--resume` reruns
+deterministically from seeds and removes partials itself),
+archived plus cleaned B/13 (6.8G free), resumed B/14 solo.
+New rule: TVPS concurrency 1 while free under 10G; pairs
+only resume above that line. Cohort B at 19/80.
