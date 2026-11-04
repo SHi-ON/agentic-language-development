@@ -820,3 +820,11 @@ deterministically from seeds and removes partials itself),
 archived plus cleaned B/13 (6.8G free), resumed B/14 solo.
 New rule: TVPS concurrency 1 while free under 10G; pairs
 only resume above that line. Cohort B at 19/80.
+
+### Extension TVPS B14: complete 2026-11-04T20:15Z
+
+B/14 (post-ENOSPC solo `--resume` deterministic rerun):
+valid, census-clean (720/720, 0 mismatches), tarball
+verified (1.2G), extracted cleaned (TVPS 5.7G free).
+Launched B/15 solo per concurrency-1 rule with journal
+verification. Cohort B at 20/80.
