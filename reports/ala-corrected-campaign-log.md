@@ -781,3 +781,15 @@ OVPS B/64-65: 2/2 valid, both census-clean (720/720,
 HELD on OVPS per capacity posture (no TVPS push), extracted
 cleaned (OVPS 15G free). Launched OVPS-B wave 2 (B/66-67)
 staggered with journal verification. Cohort B at 14/80.
+
+### Extension TVPS-B wave 1: complete 2026-11-04T17:26Z
+
+TVPS B/11-12: 2/2 valid, both census-clean (720/720,
+0 mismatches), tarballs verified (1.4G/1.3G), extracted
+cleaned (TVPS 8.0G free). Near-miss: overlapping B12 tar
+with retained extracteds plus fresh B13/B14 scratch drove
+TVPS to 100% (353M) briefly; freed B11 extracted promptly,
+runners survived, B12 checksum passed. Rule: never overlap
+tar with new-wave scratch on TVPS; archive plus clean one
+wave fully before launching the next. Launched TVPS-B wave
+2 (B/13-14) staggered with journal verification.
