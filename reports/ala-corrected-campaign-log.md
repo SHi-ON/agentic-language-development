@@ -761,3 +761,15 @@ tarball). Both TVPS resume chains now complete; TVPS idle.
 Cohort B at 12/80. Archive posture under review: TVPS 11G,
 AVPS 2.5G, OVPS 18G, LVPS ~5G all too small for remaining
 ~70 B tarballs (~95G); SVPS clearance pending with author.
+
+### Extension TVPS-B wave 1 launched 2026-11-04T15:45Z
+
+Launched TVPS B/11-12 staggered with journal verification
+(8 runner procs). Two launch fumbles caught before harm: a
+typoed B12 line (rewrote and syntax-checked the script) and
+a missing chmod on the rewrite (setsid permission denied,
+relaunched clean). Capacity posture while SVPS answer
+pends: TVPS keeps TVPS-B tarballs only (~8 fit in 11G);
+OVPS-B tarballs hold locally on OVPS (~8-10 fit in 18G)
+instead of pushing to TVPS; no other freeable space found
+fleet-wide (AVPS evidence is live provenance, LVPS 2G).
