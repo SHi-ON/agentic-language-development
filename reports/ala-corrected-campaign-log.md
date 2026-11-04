@@ -665,3 +665,26 @@ author. Mitigation: commits accumulate locally (safe on the
 healthy AVPS disk) and push when access is restored. The
 fleet runs from its own checkouts and is unaffected; no
 fleet checkout will be used as a push relay mid-campaign.
+
+### ENOSPC crash 2026-11-04T10:48Z: TVPS disk filled, 6 dyads failed, recovered
+
+With SVPS dark, tarballs accumulated on the shared TVPS disk
+until it hit 100% during the 53-57 archive run: tarballs 53-55
+verified OK, 56-57 failed (partial 898M + empty files, no OK
+lines; note the archive loop still exited 0, so OK lines, not
+exit status, are the verification signal). All 6 in-flight
+dyads (A/58-62, B/10) failed with disk-full reasons about 20
+min in; all 6 failure entries journalled normally and the
+journals verify as intact JSONL. Nothing lost: failed states
+are resumable, 53-55 tarballs were already verified, and
+56-57 sources were intact.
+
+Recovery: corrupt partials removed, 53-55 extracted deleted,
+56-57 re-archived OK and cleaned, partial dirs of the
+deferred 61, 62, B/10 removed (resume wipes them anyway),
+58-59 resumed staggered with journal verification (TVPS 21G
+free). TVPS runs at reduced concurrency 2 until SVPS offload
+returns; 60 follows 58 or 59, then 61, 62, B/10 cascade one
+or two at a time. Cohort A tail (11 slots) still fits; cohort
+B stays paused without SVPS. The 6 crashes charge ~2 CPU-h
+to D.
