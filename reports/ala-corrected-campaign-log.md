@@ -537,3 +537,13 @@ second copies for all 8 in progress.
 TVPS A/22-27: 6/6 valid, all census-clean (720/720 joins, 0
 mismatches). Wave 4 (A/28-33) launched staggered 01:37:51Z
 with journal verification. OVPS A/67-68 still in flight.
+
+### Extension wave 3 (OVPS): complete 2026-11-04T02:16Z
+
+OVPS A/67-68: 2/2 valid (67 at ~02:06Z, 68 at ~02:16Z),
+census-clean (720/720 joins, 0 mismatches). Tarballed +
+pushed to TVPS in the <=1 window (verified 2/2); SVPS
+second copies verified 2/2; locals deleted on both hosts.
+Backfilled solo with journal verification: A/69 at 02:16Z,
+A/70 at 02:20Z. TVPS wave-3 6-pack likewise SVPS-verified
+and cleaned (TVPS 61G free).
