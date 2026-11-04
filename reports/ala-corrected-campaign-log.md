@@ -892,3 +892,15 @@ operator). B/16: valid, census-clean (720/720), tarball
 verified (1.3G), extracted cleaned. Launched B/17 solo.
 Cohort B at 26/80. Concurrency-1 rule stays until SVPS
 clears (33G holds ~20 more TVPS tarballs, not all of B).
+
+### Incident: OVPS ENOSPC 2026-11-04T23:30Z
+
+OVPS filled to 100% (0 free) under the B/72-73 pair; both
+crashed ENOSPC (during a window with no operator tools, so
+no pre-crash triage was possible). Recovery: deleted both
+partials (7.2G; sanctioned, `--resume` reruns
+deterministically), 7.1G free, resumed sequentially via
+one chain (B/72 journalled resumed, solo, B/73 queued).
+New rule: OVPS concurrency 1 while free under 12G, same
+as TVPS. No muse-log bloat on OVPS (35M). Cohort B holds
+at 26/80 pending the reruns.
