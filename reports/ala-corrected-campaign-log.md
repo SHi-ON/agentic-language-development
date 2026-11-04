@@ -800,3 +800,11 @@ OVPS B/66: valid, census-clean (720/720, 0 mismatches),
 tarball verified locally (1.4G) and held on OVPS,
 extracted cleaned (OVPS 9.3G free). B/67 still running;
 next OVPS wave after it lands. Cohort B at 17/80.
+
+### Extension OVPS-B wave 2: complete 2026-11-04T18:30Z
+
+OVPS B/66-67: 2/2 valid, both census-clean (720/720,
+0 mismatches), tarballs verified locally (1.4G each) and
+held on OVPS, extracted cleaned (OVPS 13G free). Launched
+OVPS-B wave 3 (B/68-69) staggered with journal
+verification. Cohort B at 18/80.
