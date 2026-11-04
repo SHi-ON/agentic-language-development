@@ -595,3 +595,11 @@ TVPS A/34-39: 6/6 valid, all census-clean (720/720 joins, 0
 mismatches). Backfilled staggered with journal verification:
 A/40 at 04:58Z, A/41-45 at 05:18Z. Tarballs held on TVPS
 (SVPS still paused); extracted deleted after tarball verify.
+
+### Extension wave 5 (OVPS): complete 2026-11-04T06:07Z
+
+OVPS A/71-72: 2/2 valid, census-clean (720/720 joins, 0
+mismatches). Tarballed + pushed to TVPS at zero in flight
+(verified 2/2); A/73-74 launched staggered with journal
+verification. Extracted deleted; local tarballs stay as the
+only second copies (OVPS 13G free).
