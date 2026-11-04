@@ -723,3 +723,11 @@ staggered detached chains (A60+A62, A61+B10); resumed entries
 journalled and watchdogs sampling. Lesson: verify launches at
 process plus journal level, never trust a background chain
 receipt alone; use bracket-trick patterns with pkill -f.
+
+### Extension TVPS 60-61: complete 2026-11-04T13:58Z
+
+A/60-61 (post-ENOSPC `--resume` relaunches from 12:37Z):
+2/2 valid (~80 min each), both census-clean (720/720,
+0 mismatches), tarballs verified (1.3G/1.4G), extracted
+cleaned (TVPS 16G free). Chains auto-progressed: A/62
+and B/10 both resumed and sampling.
