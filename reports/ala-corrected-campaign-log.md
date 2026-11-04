@@ -793,3 +793,10 @@ runners survived, B12 checksum passed. Rule: never overlap
 tar with new-wave scratch on TVPS; archive plus clean one
 wave fully before launching the next. Launched TVPS-B wave
 2 (B/13-14) staggered with journal verification.
+
+### Extension OVPS B66: complete 2026-11-04T18:09Z
+
+OVPS B/66: valid, census-clean (720/720, 0 mismatches),
+tarball verified locally (1.4G) and held on OVPS,
+extracted cleaned (OVPS 9.3G free). B/67 still running;
+next OVPS wave after it lands. Cohort B at 17/80.
