@@ -698,3 +698,11 @@ OVPS-B extension slot) launched staggered with journal
 verification. Extracted plus local tarballs deleted after
 TVPS verify (OVPS 18G free). TVPS A/58-59 likewise valid,
 clean, archiving.
+
+### Extension TVPS 58-59: archived 2026-11-04T12:35Z
+
+A/58-59 (post-ENOSPC resumes): 2/2 valid, census-clean
+(720/720, 0 mismatches), tarballs verified (1.2G/1.3G),
+extracted cleaned (TVPS 18G free). In flight: TVPS-A
+60-62 + B10; OVPS-A 79 + B63. Archive layout confirmed:
+`~/ald-evidence/archive/ala-lv/{TVPS-A,OVPS-A}/`.
