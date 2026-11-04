@@ -741,3 +741,13 @@ TVPS singly with checksum verification (1.3G/1.4G), OVPS
 locals cleaned (18G free). Cohort A now 79/80 valid with
 TVPS A/62 in flight. Launched OVPS-B wave 1 (B/64-65)
 staggered with journal verification.
+
+### COHORT A COMPLETE 2026-11-04T15:19Z
+
+A/62 (last TVPS-A slot): valid, census-clean (720/720,
+0 mismatches), tarball verified (1.4G), extracted cleaned.
+Cohort A now 80/80 valid (TVPS 60 + OVPS 20), all archived.
+TVPS disk WARNING: 7.8G free (97%); archive holds 63G in
+113 files; cohort B needs ~70G more TVPS-side without
+offload. Cohort B cannot proceed past ~4-5 more tarballs
+unless SVPS host-key clears or alternate archive found.
