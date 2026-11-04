@@ -850,3 +850,13 @@ from AVPS will fail meanwhile; hop polls authoritative.
 Direct ssh works again after ~15 min of timeouts; transient
 blip, no host issue. Hop workaround stood down; direct
 polls authoritative again.
+
+### TVPS /tmp cleanup freed nothing 2026-11-04T21:32Z
+
+With TVPS at 1.9G and B/15 near its end, deleted owned
+stale /tmp scratch (w20/w19/cc199-venv/node-compile-cache,
+~4.8G by du, all maria-owned, days stale, no holders).
+df did not move: content shares blocks with retained data
+(same hardlink lesson as AVPS). Left terrabillion-named
+/tmp dirs untouched (other project). B/15 dir plateaued
+at 3.8G, past peak writes; 1.9G should carry the tail.
