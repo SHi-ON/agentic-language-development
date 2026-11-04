@@ -642,3 +642,11 @@ verification. Extracted plus local tarballs deleted after
 TVPS verify (single-copy plus regenerability; OVPS 18G
 free). TVPS A/52 likewise valid, clean, archived, backfilled
 by A/58.
+
+### Extension wave 8 (TVPS): complete 2026-11-04T10:28Z
+
+TVPS A/53-57: 5/5 valid (52 backfilled the first slot at
+09:59Z), all census-clean (720/720 joins, 0 mismatches).
+Backfilled staggered with journal verification: A/59-62
+(the last 4 TVPS-A slots) plus B/10 (first TVPS-B extension
+slot) at 10:29Z. Tarballs held on TVPS.
