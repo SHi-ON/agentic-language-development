@@ -688,3 +688,13 @@ returns; 60 follows 58 or 59, then 61, 62, B/10 cascade one
 or two at a time. Cohort A tail (11 slots) still fits; cohort
 B stays paused without SVPS. The 6 crashes charge ~2 CPU-h
 to D.
+
+### Extension wave 8 (OVPS): complete 2026-11-04T12:18Z
+
+OVPS A/77-78: 2/2 valid, census-clean (720/720 joins, 0
+mismatches). Tarballed + pushed to TVPS at zero in flight
+(verified 2/2); A/79 (last OVPS-A slot) plus B/63 (first
+OVPS-B extension slot) launched staggered with journal
+verification. Extracted plus local tarballs deleted after
+TVPS verify (OVPS 18G free). TVPS A/58-59 likewise valid,
+clean, archiving.
