@@ -706,3 +706,20 @@ A/58-59 (post-ENOSPC resumes): 2/2 valid, census-clean
 extracted cleaned (TVPS 18G free). In flight: TVPS-A
 60-62 + B10; OVPS-A 79 + B63. Archive layout confirmed:
 `~/ald-evidence/archive/ala-lv/{TVPS-A,OVPS-A}/`.
+
+### Incident: TVPS resume gap + no-resume-flag failures 2026-11-04T12:36Z
+
+Post-ENOSPC, TVPS A/60-62 and B/10 were never resumed: the
+resume chain died silently and TVPS sat idle ~2h (10:49Z to
+12:36Z) while journals showed only the crash-time
+attempted/failed entries. Detected by process-level check
+(zero runners) after a journal poll. First relaunch attempt
+failed instantly: the runner requires `--resume` for crashed
+slots ("already attempted; terminal receipts are append-only"
+gate, ala-runner.ts). A `pkill -f` cleanup matched its own
+remote shell (exit 255, self-kill); chains stopped, nothing
+else harmed. Relaunched correctly with `--resume` as two
+staggered detached chains (A60+A62, A61+B10); resumed entries
+journalled and watchdogs sampling. Lesson: verify launches at
+process plus journal level, never trust a background chain
+receipt alone; use bracket-trick patterns with pkill -f.
