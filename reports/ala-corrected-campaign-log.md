@@ -547,3 +547,22 @@ second copies verified 2/2; locals deleted on both hosts.
 Backfilled solo with journal verification: A/69 at 02:16Z,
 A/70 at 02:20Z. TVPS wave-3 6-pack likewise SVPS-verified
 and cleaned (TVPS 61G free).
+
+### SVPS host-key change: mirror legs PAUSED 2026-11-04T03:20Z
+
+The scheduled SVPS pull for dyad 28 failed on every client
+(AVPS, TVPS): the endpoint vps-shawn.aureuma.ai:7129 now
+presents an ED25519 host key where the stored key is ECDSA,
+a key-type change consistent with a rebuilt endpoint or a
+moved port forward, not with a routine reboot. Strict host
+checking stays on; no bypass attempted. All SVPS legs pause
+until the author confirms the endpoint out of band.
+
+Exposure: round-1 keeps real two-copy redundancy (OVPS and
+LVPS mirrors, untouched). Extension waves 1-3 (22 tarballs,
+near 30 GiB) are SVPS-single-copy plus proven deterministic
+regenerability from the frozen journalled slots: expensive to
+rebuild, not lost. TVPS holds the unmirrored dyad-28 tarball
+plus wave-4 extracted with 61 GiB free, about 4 waves of
+runway without SVPS offload. Compute on TVPS and OVPS is
+unaffected and continues.
