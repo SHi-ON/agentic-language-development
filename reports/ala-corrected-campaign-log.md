@@ -603,3 +603,10 @@ mismatches). Tarballed + pushed to TVPS at zero in flight
 (verified 2/2); A/73-74 launched staggered with journal
 verification. Extracted deleted; local tarballs stay as the
 only second copies (OVPS 13G free).
+
+### Extension wave 6 (TVPS): complete 2026-11-04T06:57Z
+
+TVPS A/40-45: 6/6 valid (40 at ~06:37Z, 41-45 at ~06:57Z),
+all census-clean (720/720 joins, 0 mismatches). Backfilled
+staggered with journal verification: A/46 at 06:38Z, A/47-51
+at 06:58Z. Tarballs held on TVPS (SVPS still paused).
