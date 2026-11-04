@@ -523,3 +523,11 @@ tarballs back from SVPS in cohort-sized transients.
 TVPS A/16-21: 6/6 valid, all census-clean (720/720 joins, 0
 mismatches). Wave 3 (A/22-27) launched staggered 23:57:22Z
 with journal verification. OVPS A/65-66 still in flight.
+
+### Extension wave 2 (OVPS): complete 2026-11-04T00:06Z
+
+OVPS A/65-66: 2/2 valid, census-clean (720/720 joins, 0
+mismatches). Tarballed + rsynced to TVPS at zero in flight
+(verified 2/2); wave 3 (A/67-68) launched staggered with
+journal verification. TVPS wave-2 6-pack archived; SVPS
+second copies for all 8 in progress.
