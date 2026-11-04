@@ -868,3 +868,12 @@ tarball verified (1.3G), extracted cleaned (TVPS 4.4G
 free). Survived a 1.5G tail after the no-gain /tmp
 cleanup. Launched B/16 solo with journal verification.
 Cohort B at 23/80.
+
+### Extension OVPS-B wave 4: complete 2026-11-04T22:20Z
+
+OVPS B/70-71: 2/2 valid, both census-clean (720/720,
+0 mismatches), tarballs verified locally (1.3G each) and
+held on OVPS, extracted cleaned sequentially (OVPS 7.1G
+free). Survived a 1.4G tail at ~100 min. Launched OVPS-B
+wave 5 (B/72-73) staggered with journal verification.
+Cohort B at 25/80.
