@@ -517,3 +517,9 @@ plus the OVPS and LVPS mirrors). TVPS and OVPS go transient:
 each wave pushes its tarballs to SVPS, verifies, then deletes
 locally. Steady state near 35 GiB on TVPS. C4 and D will pull
 tarballs back from SVPS in cohort-sized transients.
+
+### Extension wave 2 (TVPS): complete 2026-11-03T23:56Z
+
+TVPS A/16-21: 6/6 valid, all census-clean (720/720 joins, 0
+mismatches). Wave 3 (A/22-27) launched staggered 23:57:22Z
+with journal verification. OVPS A/65-66 still in flight.
