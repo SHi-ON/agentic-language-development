@@ -860,3 +860,11 @@ df did not move: content shares blocks with retained data
 (same hardlink lesson as AVPS). Left terrabillion-named
 /tmp dirs untouched (other project). B/15 dir plateaued
 at 3.8G, past peak writes; 1.9G should carry the tail.
+
+### Extension TVPS B15: complete 2026-11-04T21:40Z
+
+B/15 (solo): valid, census-clean (720/720, 0 mismatches),
+tarball verified (1.3G), extracted cleaned (TVPS 4.4G
+free). Survived a 1.5G tail after the no-gain /tmp
+cleanup. Launched B/16 solo with journal verification.
+Cohort B at 23/80.
