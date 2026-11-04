@@ -610,3 +610,18 @@ TVPS A/40-45: 6/6 valid (40 at ~06:37Z, 41-45 at ~06:57Z),
 all census-clean (720/720 joins, 0 mismatches). Backfilled
 staggered with journal verification: A/46 at 06:38Z, A/47-51
 at 06:58Z. Tarballs held on TVPS (SVPS still paused).
+
+### Extension wave 6 (OVPS): complete 2026-11-04T08:17Z
+
+OVPS A/73-74: 2/2 valid, census-clean (720/720 joins, 0
+mismatches). Tarballed + pushed to TVPS at zero in flight
+(verified 2/2); A/75-76 launched staggered with journal
+verification. TVPS A/46 likewise valid, clean, archived,
+backfilled by A/52.
+
+SVPS-dark degradation, second step: OVPS local tarballs
+(69-74) dropped after their TVPS copies verified (OVPS 9.8G
+to 18G free; ENOSPC was one wave out). Durability now:
+waves 1-3 keep TVPS + SVPS copies; wave 4+ is TVPS-single
+plus proven regenerability until SVPS returns. Journals and
+admissions (the irreplaceable provenance) stay everywhere.
