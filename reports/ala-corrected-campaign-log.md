@@ -578,3 +578,13 @@ Note: at SVPS-dark accumulation (near 8 GiB kept per 6-pack),
 TVPS fits the rest of cohort A but not cohort B: the SVPS
 answer is needed before A-end (near 12h out), else older
 tarballs must drop to regenerability-only or B waits.
+
+### Extension wave 4 (OVPS): complete 2026-11-04T04:07Z
+
+OVPS A/69-70: 2/2 valid, census-clean (720/720 joins, 0
+mismatches). Tarballed + pushed to TVPS at zero in flight
+(verified 2/2); A/71-72 launched staggered with journal
+verification. Extracted deleted; local tarballs stay as the
+only second copies while SVPS is paused (OVPS 15G free).
+Same SVPS-dark arithmetic as TVPS: cohort A tail fits,
+cohort B needs the SVPS answer.
