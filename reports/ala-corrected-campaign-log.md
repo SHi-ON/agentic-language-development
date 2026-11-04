@@ -588,3 +588,10 @@ verification. Extracted deleted; local tarballs stay as the
 only second copies while SVPS is paused (OVPS 15G free).
 Same SVPS-dark arithmetic as TVPS: cohort A tail fits,
 cohort B needs the SVPS answer.
+
+### Extension wave 5 (TVPS): complete 2026-11-04T05:17Z
+
+TVPS A/34-39: 6/6 valid, all census-clean (720/720 joins, 0
+mismatches). Backfilled staggered with journal verification:
+A/40 at 04:58Z, A/41-45 at 05:18Z. Tarballs held on TVPS
+(SVPS still paused); extracted deleted after tarball verify.
