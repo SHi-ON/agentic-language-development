@@ -836,3 +836,11 @@ OVPS B/68-69: 2/2 valid, both census-clean (720/720,
 held on OVPS, extracted cleaned (OVPS 9.7G free). Launched
 OVPS-B wave 4 (B/70-71) staggered with journal
 verification. Cohort B at 22/80.
+
+### Network: AVPS to OVPS route down 2026-11-04T21:15Z
+
+Direct ssh AVPS to OVPS times out (3 attempts, port 7129);
+OVPS itself is healthy (reachable from TVPS, B70/B71
+running, 8 procs, 5.9G free). All OVPS operations now run
+via a TVPS hop until the route recovers. Monitor OVPS legs
+from AVPS will fail meanwhile; hop polls authoritative.
