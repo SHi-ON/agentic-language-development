@@ -877,3 +877,18 @@ held on OVPS, extracted cleaned sequentially (OVPS 7.1G
 free). Survived a 1.4G tail at ~100 min. Launched OVPS-B
 wave 5 (B/72-73) staggered with journal verification.
 Cohort B at 25/80.
+
+### TVPS disk rescued + B16 complete 2026-11-04T23:45Z
+
+TVPS hit 370M free with B/16 awaiting archive (tarball
+could not fit). /tmp deletions freed nothing (shared
+blocks, incl. 2G of stale unheld terrabillion /tmp now
+removed). Root cause found: 29G of October Muse session
+logs under maria .local/share/muse/sessions/2026/10;
+deleted per operator cleanup precedent, TVPS now 33G free
+(87%). Left 28G .local/state/system-cleanup/2026-10-28
+untouched (another process audit trail, flagged to
+operator). B/16: valid, census-clean (720/720), tarball
+verified (1.3G), extracted cleaned. Launched B/17 solo.
+Cohort B at 26/80. Concurrency-1 rule stays until SVPS
+clears (33G holds ~20 more TVPS tarballs, not all of B).
