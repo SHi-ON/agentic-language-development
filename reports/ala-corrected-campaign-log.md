@@ -828,3 +828,11 @@ valid, census-clean (720/720, 0 mismatches), tarball
 verified (1.2G), extracted cleaned (TVPS 5.7G free).
 Launched B/15 solo per concurrency-1 rule with journal
 verification. Cohort B at 20/80.
+
+### Extension OVPS-B wave 3: complete 2026-11-04T20:25Z
+
+OVPS B/68-69: 2/2 valid, both census-clean (720/720,
+0 mismatches), tarballs verified locally (1.2G/1.4G) and
+held on OVPS, extracted cleaned (OVPS 9.7G free). Launched
+OVPS-B wave 4 (B/70-71) staggered with journal
+verification. Cohort B at 22/80.
