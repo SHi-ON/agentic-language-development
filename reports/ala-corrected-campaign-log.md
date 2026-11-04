@@ -731,3 +731,13 @@ A/60-61 (post-ENOSPC `--resume` relaunches from 12:37Z):
 0 mismatches), tarballs verified (1.3G/1.4G), extracted
 cleaned (TVPS 16G free). Chains auto-progressed: A/62
 and B/10 both resumed and sampling.
+
+### Extension OVPS wave 9: complete, B wave 1 launched 2026-11-04T14:39Z
+
+OVPS A/79 (last OVPS-A slot, ~110 min) plus B/63 (first
+OVPS-B extension slot, ~110 min): 2/2 valid, both
+census-clean (720/720, 0 mismatches), tarballs pushed to
+TVPS singly with checksum verification (1.3G/1.4G), OVPS
+locals cleaned (18G free). Cohort A now 79/80 valid with
+TVPS A/62 in flight. Launched OVPS-B wave 1 (B/64-65)
+staggered with journal verification.
