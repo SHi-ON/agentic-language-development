@@ -531,3 +531,9 @@ mismatches). Tarballed + rsynced to TVPS at zero in flight
 (verified 2/2); wave 3 (A/67-68) launched staggered with
 journal verification. TVPS wave-2 6-pack archived; SVPS
 second copies for all 8 in progress.
+
+### Extension wave 3 (TVPS): complete 2026-11-04T01:36Z
+
+TVPS A/22-27: 6/6 valid, all census-clean (720/720 joins, 0
+mismatches). Wave 4 (A/28-33) launched staggered 01:37:51Z
+with journal verification. OVPS A/67-68 still in flight.
