@@ -844,3 +844,9 @@ OVPS itself is healthy (reachable from TVPS, B70/B71
 running, 8 procs, 5.9G free). All OVPS operations now run
 via a TVPS hop until the route recovers. Monitor OVPS legs
 from AVPS will fail meanwhile; hop polls authoritative.
+
+### Network: AVPS to OVPS route recovered 2026-11-04T21:30Z
+
+Direct ssh works again after ~15 min of timeouts; transient
+blip, no host issue. Hop workaround stood down; direct
+polls authoritative again.
