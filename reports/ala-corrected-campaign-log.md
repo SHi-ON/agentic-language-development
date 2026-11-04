@@ -625,3 +625,10 @@ to 18G free; ENOSPC was one wave out). Durability now:
 waves 1-3 keep TVPS + SVPS copies; wave 4+ is TVPS-single
 plus proven regenerability until SVPS returns. Journals and
 admissions (the irreplaceable provenance) stay everywhere.
+
+### Extension wave 7 (TVPS): complete 2026-11-04T08:37Z
+
+TVPS A/46-51: 6/6 valid (46 at ~08:17Z, 47-51 at ~08:37Z),
+all census-clean (720/720 joins, 0 mismatches). Backfilled
+staggered with journal verification: A/52 at 08:23Z, A/53-57
+at 08:48Z. Tarballs held on TVPS (SVPS still paused).
