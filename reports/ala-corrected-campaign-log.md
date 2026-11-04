@@ -773,3 +773,11 @@ pends: TVPS keeps TVPS-B tarballs only (~8 fit in 11G);
 OVPS-B tarballs hold locally on OVPS (~8-10 fit in 18G)
 instead of pushing to TVPS; no other freeable space found
 fleet-wide (AVPS evidence is live provenance, LVPS 2G).
+
+### Extension OVPS-B wave 1: complete 2026-11-04T16:25Z
+
+OVPS B/64-65: 2/2 valid, both census-clean (720/720,
+0 mismatches), tarballs verified locally (1.3G/1.4G) and
+HELD on OVPS per capacity posture (no TVPS push), extracted
+cleaned (OVPS 15G free). Launched OVPS-B wave 2 (B/66-67)
+staggered with journal verification. Cohort B at 14/80.
