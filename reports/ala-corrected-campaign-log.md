@@ -650,3 +650,18 @@ TVPS A/53-57: 5/5 valid (52 backfilled the first slot at
 Backfilled staggered with journal verification: A/59-62
 (the last 4 TVPS-A slots) plus B/10 (first TVPS-B extension
 slot) at 10:29Z. Tarballs held on TVPS.
+
+### GitHub push blockage 2026-11-04T10:30Z (campaign unaffected)
+
+Pushes from AVPS began failing between 02:25Z and 10:20Z
+(first a server-side commit_refs error, then consistent
+Permission denied publickey). The local keypair is intact
+and passphrase-free, and no ssh-agent is involved, so the
+rejection is GitHub-side (key removed or account-side
+change). TVPS fails identically; OVPS still reaches origin,
+so keys are per-host and only some died. Possible common
+cause with the SVPS host-key change overnight; both need the
+author. Mitigation: commits accumulate locally (safe on the
+healthy AVPS disk) and push when access is restored. The
+fleet runs from its own checkouts and is unaffected; no
+fleet checkout will be used as a push relay mid-campaign.
