@@ -984,3 +984,12 @@ journal verification. Cohort B at 32/80.
   out-of-band confirm); (b) 28G TVPS .local/state/system-cleanup/2026-10-28 audit trail
   (needs operator confirm it is disposable); (c) AVPS overflow (~17G free, re-wedge risk).
   No mirror or evidence deletion is on the table (OVPS mirror is sole live round-1 copy).
+
+## 2026-11-05 ~06:07-06:21Z — E1: B21+B22 valid, archived, B23+B24 launched
+- TVPS B21 valid 06:07Z, B22 shortly after (exit 0). Census both clean: 720/720, 0 mismatches
+  (acc 0.244 / 0.272). TVPS-B valid=20, cohort B 35/80.
+- Sequential close-out at 5.6G free: tar B21 (1.2G, OK) -> clean -> tar B22 (1.3G, OK) -> clean.
+  TVPS recovered to 12G free. No overlap of tar with fresh scratch (rule held).
+- TVPS back above 10G line: launched B23+B24 pair 06:20:19/49Z (30s stagger, bwave4).
+  Post-pair close-out will retain ~2.5G and drop TVPS below 10G again -> expect solo after.
+- OVPS B75/B76 healthy at 2.3G each, OVPS 13G free. 4 dyads in flight total.
