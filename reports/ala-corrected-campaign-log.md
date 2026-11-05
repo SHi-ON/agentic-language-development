@@ -926,3 +926,10 @@ B/18 (solo): valid, census-clean (720/720, 0 mismatches),
 tarball verified (1.4G), extracted cleaned (TVPS 30G
 free). Launched B/19 solo with journal verification.
 Cohort B at 29/80.
+
+### TVPS pairs resume 2026-11-05T03:07Z
+
+TVPS at 30G free, above the 10G concurrency-1 line, so
+paired waves resume: launched B/20 alongside B/19 with
+journal verification (8 runner procs). Sequential-tar rule
+and 10G line stay in force.
