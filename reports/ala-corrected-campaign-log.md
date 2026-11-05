@@ -1056,3 +1056,16 @@ journal verification. Cohort B at 32/80.
 - B28 IS THE LAST LAUNCHABLE DYAD: after its close-out TVPS ~4.8G, B29 needs >=5.6G start.
   Without author relief (SVPS host-key confirm, 28G system-cleanup disposal, or authorized
   shared-cache cleaning), TVPS HOLDS after B28 (~14:00-14:30Z). 34 primaries (B29-62) wait.
+
+## 2026-11-05 ~13:35-13:45Z — E1: B28 archived, TVPS HOLD at cohort B 46/80
+- TVPS B28 valid 13:35:24Z (exit 0). Census clean: 720/720, 0 mismatches (acc 0.300).
+  Tar B28 (1.3G, OK) -> clean from 2.1G (100%). TVPS 4.9G free. TVPS-B valid=26.
+- HOLD: B29 needs >=5.6G start (4.3 growth + 1.3 tar), TVPS has 4.9G. Verified B scratch
+  fully clean (20K) and zero runners fleet-wide. No safe freeable space remains (prior audit:
+  15G session logs live, /tmp bulk other projects', shared caches untouched by policy).
+- Campaign state at hold: A 80/80 archived, B 46/80 valid + archived (TVPS-B 10-28 + frozen
+  0-9, OVPS-B 63-79). 34 primaries wait (B29-62, all TVPS-assigned). All 126 archives verified.
+  Zero invalids across the campaign. Nothing is running; nothing is at risk.
+- UNBLOCK OPTIONS (author decision, unchanged): (1) SVPS host-key confirm -> offload + finish;
+  (2) 28G system-cleanup dir disposal -> waves through ~B48, SVPS still needed for archive;
+  (3) authorize shared-cache cleaning -> ~4 dyads.
