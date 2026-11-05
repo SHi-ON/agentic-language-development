@@ -1028,3 +1028,11 @@ journal verification. Cohort B at 32/80.
   at ~B29-30 (~10h). Full-archive consolidation (~195G total) REQUIRES SVPS offload regardless;
   the 28G cleanup dir alone only extends waves, it cannot hold the archive. Author decision
   (SVPS host-key confirm and/or 28G dir disposal) needed within ~10h to avoid a TVPS hold.
+
+## 2026-11-05 ~10:36-10:56Z — E1: B26 valid, archived, B27 solo launched, cohort B 43/80
+- TVPS B26 valid 10:36:37Z (exit 0, fast solo ~1.3h). Census clean: 720/720, 0 mismatches
+  (acc 0.284). Tar B26 (1.3G, OK) -> clean from 3.7G. TVPS 6.6G free. TVPS-B valid=24.
+- Launched TVPS B27 solo 10:56:38Z. Cycle fits: 6.6 - 4.3 growth = 2.3 -> tar 1.0 -> clean 5.3G.
+- OVPS B79 still running (~3.1G at 10:22Z, due ~11:20Z). 2 dyads in flight (B27, B79).
+- WALL UPDATE: TVPS nets +1.3G/dyad from 6.6G => tar margin goes negative at ~B29 (~6-8h).
+  Author decision (SVPS host-key / 28G dir) still pending, now urgent within ~6h.
