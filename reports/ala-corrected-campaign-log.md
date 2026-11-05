@@ -919,3 +919,10 @@ valid, census-clean (720/720, 0 mismatches), tarball
 verified locally (1.3G) and held on OVPS, extracted
 cleaned (OVPS 5.6G free). Chain auto-progressed to B/73
 resume. Cohort B at 28/80.
+
+### Extension TVPS B18: complete 2026-11-05T03:05Z
+
+B/18 (solo): valid, census-clean (720/720, 0 mismatches),
+tarball verified (1.4G), extracted cleaned (TVPS 30G
+free). Launched B/19 solo with journal verification.
+Cohort B at 29/80.
