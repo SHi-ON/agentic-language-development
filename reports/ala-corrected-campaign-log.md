@@ -1003,3 +1003,13 @@ journal verification. Cohort B at 32/80.
   after TVPS B23/B24 are archived+cleaned (~08:30-09:00Z).
 - Launched OVPS B77+B78 pair 07:20:50/21:20Z (30s stagger, bwave6). Last OVPS pair; B79 solo next.
   4 dyads in flight total (TVPS 23/24, OVPS 77/78).
+
+## 2026-11-05 ~07:41-07:54Z — E1: B23+B24 valid, archived, B25 solo launched
+- TVPS B23+B24 valid (fast pair, ~1.3h). Census both clean: 720/720, 0 mismatches
+  (acc 0.260 / 0.272). TVPS-B valid=22, cohort B 39/80.
+- Sequential close-out from 3.1G free: tar B23 (1.3G, OK) -> clean -> tar B24 (1.3G, OK)
+  -> clean. TVPS recovered to 8.8G free. No overlap with fresh scratch (rule held).
+- TVPS below 10G line: launched B25 SOLO 07:54:23Z. OVPS B75/B76 push still deferred:
+  pushing 2.8G now would leave ~0.4G margin at B25 tar time. Reassess after B25 close-out
+  (~09:30-10:00Z), together with OVPS B77/B78 close-out.
+- 3 dyads in flight (TVPS 25, OVPS 77/78). TVPS wall still forecast ~B27-28 absent relief.
