@@ -1094,3 +1094,9 @@ journal verification. Cohort B at 32/80.
   was the pre-pause endpoint / is its data recoverable (un-loses 22 tarballs); (B) approve the
   Mac as archive target (838G fits everything: offload, B29-62 resume, round-1 re-mirror,
   C4/D consolidation); (C) if not the Mac, name the archive home.
+
+## 2026-11-05 ~18:03-18:10Z — E1: hold-time full archive re-verify, 104/104 OK
+- Read-only re-verification of every held tarball checksum while held: TVPS 79/79 OK
+  (TVPS-A 35, TVPS-B 19, OVPS-A 13, OVPS-B 12), OVPS held 5/5 OK (B75-79). Combined with the
+  20/20 round-1 mirror re-verifies earlier today: 104/104 intact. No silent corruption from
+  the 100%-disk episodes. Hold continues at B 46/80 pending author archive decision.
