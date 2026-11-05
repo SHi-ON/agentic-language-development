@@ -968,3 +968,19 @@ journal verification. Cohort B at 32/80.
   Next: drain held OVPS-B tarballs (63-73) to TVPS with per-file verify+delete.
 - Launched OVPS B75 solo 05:20:35Z (watchdog caps cpu=4.0h wall=240m gib=8). TVPS B21/B22 pair
   healthy (~1.1G each, ~25%). Cohort B ≈ 31-33/80 valid.
+
+## 2026-11-05 ~05:21-05:28Z — E1: OVPS drain complete, pairs resume, TVPS wall forecast
+- OVPS->TVPS drain: 10/10 (63? no: 64-73) pushed via rsync --inplace, each sha256sum -c OK on
+  TVPS, local pair deleted. Plus B74 streamed earlier: TVPS OVPS-B now holds 63-74 (12 tarballs,
+  all verified). OVPS 449M -> 18G free (64%). Drain took ~4.5 min total.
+- OVPS back above 12G line: launched B76 05:27:46Z to pair with B75. OVPS remaining after this
+  pair: B77, B78, B79.
+- TVPS now 9.7G free (drain consumed ~15G). B21/B22 pair healthy, ~6.4G combined growth left.
+  Close-out sequence will fit (~3.3G at completion, sequential tar+clean recovers to ~9G), but
+  TVPS is BELOW the 10G line: new TVPS launches go SOLO until free space recovers above 10G.
+- CAPACITY WALL FORECAST (needs author decision, waves continue): TVPS must retain ~40 more
+  TVPS-B tarballs (~56G) but has 9.7G free; steady-state +1.4G/dyad => wall at ~B28 (about 6-8
+  more dyads). Relief valves: (a) SVPS offload (BLOCKED: host-key change needs author
+  out-of-band confirm); (b) 28G TVPS .local/state/system-cleanup/2026-10-28 audit trail
+  (needs operator confirm it is disposable); (c) AVPS overflow (~17G free, re-wedge risk).
+  No mirror or evidence deletion is on the table (OVPS mirror is sole live round-1 copy).
