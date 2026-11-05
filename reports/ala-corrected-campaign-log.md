@@ -1043,3 +1043,16 @@ journal verification. Cohort B at 32/80.
 - OVPS-B 20/20 valid (63-79 + journal confirms). OVPS launches DONE; remaining campaign is
   TVPS-only: B27 (in flight) + B28..B62 (35 to launch) = 36 dyads.
 - Cohort B 44/80 valid. TVPS 6.6G free, wall at ~B29 absent relief. Only B27 in flight.
+
+## 2026-11-05 ~12:12-12:17Z — E1: B27 archived, B28 solo launched (LAST without relief)
+- TVPS B27 valid 12:12:26Z (exit 0). Census clean: 720/720, 0 mismatches (acc 0.268).
+  Tar B27 (1.3G, OK) -> clean from 2.6G. Cohort B 45/80.
+- TVPS was 5.4G: B28 needs >=5.6G start (4.3 growth + 1.3 tar). Audited freeable space:
+  .local/share/muse 15G is all-Nov live/recent sessions (0 files older than 7d, LEFT ALONE);
+  /tmp 6.2G belongs to other projects (LEFT ALONE); .cache uv/Homebrew + pnpm store are
+  shared/regenerable but cross-project (LEFT ALONE); npm cache 1.3G unused (pnpm-only host,
+  verified no npm running) -> cleaned, freed 0.7G to 6.1G.
+- Launched TVPS B28 solo 12:17:34Z. Cycle: 6.1 - 4.3 = 1.8 -> tar 0.5 -> clean ~4.8G. Fits.
+- B28 IS THE LAST LAUNCHABLE DYAD: after its close-out TVPS ~4.8G, B29 needs >=5.6G start.
+  Without author relief (SVPS host-key confirm, 28G system-cleanup disposal, or authorized
+  shared-cache cleaning), TVPS HOLDS after B28 (~14:00-14:30Z). 34 primaries (B29-62) wait.
