@@ -904,3 +904,10 @@ one chain (B/72 journalled resumed, solo, B/73 queued).
 New rule: OVPS concurrency 1 while free under 12G, same
 as TVPS. No muse-log bloat on OVPS (35M). Cohort B holds
 at 26/80 pending the reruns.
+
+### Extension TVPS B17: complete 2026-11-05T01:20Z
+
+B/17 (solo): valid, census-clean (720/720, 0 mismatches),
+tarball verified (1.4G), extracted cleaned (TVPS 31G
+free). Launched B/18 solo with journal verification.
+Cohort B at 27/80.
