@@ -911,3 +911,11 @@ B/17 (solo): valid, census-clean (720/720, 0 mismatches),
 tarball verified (1.4G), extracted cleaned (TVPS 31G
 free). Launched B/18 solo with journal verification.
 Cohort B at 27/80.
+
+### Extension OVPS B72 resume: complete 2026-11-05T01:40Z
+
+B/72 (post-ENOSPC solo `--resume` deterministic rerun):
+valid, census-clean (720/720, 0 mismatches), tarball
+verified locally (1.3G) and held on OVPS, extracted
+cleaned (OVPS 5.6G free). Chain auto-progressed to B/73
+resume. Cohort B at 28/80.
