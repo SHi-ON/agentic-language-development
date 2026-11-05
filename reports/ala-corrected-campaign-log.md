@@ -1036,3 +1036,10 @@ journal verification. Cohort B at 32/80.
 - OVPS B79 still running (~3.1G at 10:22Z, due ~11:20Z). 2 dyads in flight (B27, B79).
 - WALL UPDATE: TVPS nets +1.3G/dyad from 6.6G => tar margin goes negative at ~B29 (~6-8h).
   Author decision (SVPS host-key / 28G dir) still pending, now urgent within ~6h.
+
+## 2026-11-05 ~10:58-11:02Z — E1: B79 valid, OVPS cohort-B role COMPLETE, cohort B 44/80
+- OVPS B79 valid 10:57:57Z (exit 0). Census clean: 720/720, 0 mismatches (acc 0.252).
+  Tar B79 (1.3G, OK) -> clean from 8.1G. OVPS 11G free, holds 5 tars (75-79) pending push.
+- OVPS-B 20/20 valid (63-79 + journal confirms). OVPS launches DONE; remaining campaign is
+  TVPS-only: B27 (in flight) + B28..B62 (35 to launch) = 36 dyads.
+- Cohort B 44/80 valid. TVPS 6.6G free, wall at ~B29 absent relief. Only B27 in flight.
