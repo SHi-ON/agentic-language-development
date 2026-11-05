@@ -933,3 +933,12 @@ TVPS at 30G free, above the 10G concurrency-1 line, so
 paired waves resume: launched B/20 alongside B/19 with
 journal verification (8 runner procs). Sequential-tar rule
 and 10G line stay in force.
+
+### Extension OVPS B73 resume: complete 2026-11-05T03:21Z
+
+B/73 (post-ENOSPC solo `--resume` deterministic rerun):
+valid, census-clean (720/720, 0 mismatches), tarball
+verified locally (1.3G) and held on OVPS, extracted
+cleaned (OVPS 4.7G free, still under the 12G pair line).
+Launched B/74 solo with journal verification. Cohort B
+at 30/80.
