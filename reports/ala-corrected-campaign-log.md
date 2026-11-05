@@ -1013,3 +1013,18 @@ journal verification. Cohort B at 32/80.
   pushing 2.8G now would leave ~0.4G margin at B25 tar time. Reassess after B25 close-out
   (~09:30-10:00Z), together with OVPS B77/B78 close-out.
 - 3 dyads in flight (TVPS 25, OVPS 77/78). TVPS wall still forecast ~B27-28 absent relief.
+
+## 2026-11-05 ~09:04-09:20Z — E1: B77+B78+B25 valid, B26+B79 launched, cohort B 42/80
+- OVPS B78 valid 09:03:57Z, B77 valid 09:04:27Z (exit 0). Census both clean: 720/720,
+  0 mismatches (acc 0.252 / 0.252). Sequential close-out from 6.5G: tar B77 (1.3G, OK) ->
+  clean -> tar B78 (1.3G, OK) -> clean. OVPS 13G free. OVPS-B valid=19.
+- TVPS B25 valid 09:12:13Z (exit 0). Census clean: 720/720, 0 mismatches (acc 0.252).
+  Tar B25 (1.3G, OK) -> clean from 4.9G. TVPS 7.7G free. TVPS-B valid=23.
+- Cohort B 42/80 valid. Launched TVPS B26 solo 09:19:49Z (below 10G line) and OVPS B79
+  09:20:29Z (LAST OVPS primary, solo).
+- OVPS->TVPS push (now 4 held: B75-78, 5.2G) STILL deferred: TVPS 7.7G minus B26 growth
+  4.3G cannot take 5.2G. Consolidation to TVPS awaits capacity relief.
+- WALL UPDATE: TVPS solo steady-state nets +1.3G/dyad from 7.7G => tar margin goes negative
+  at ~B29-30 (~10h). Full-archive consolidation (~195G total) REQUIRES SVPS offload regardless;
+  the 28G cleanup dir alone only extends waves, it cannot hold the archive. Author decision
+  (SVPS host-key confirm and/or 28G dir disposal) needed within ~10h to avoid a TVPS hold.
