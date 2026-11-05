@@ -1069,3 +1069,28 @@ journal verification. Cohort B at 32/80.
 - UNBLOCK OPTIONS (author decision, unchanged): (1) SVPS host-key confirm -> offload + finish;
   (2) 28G system-cleanup dir disposal -> waves through ~B48, SVPS still needed for archive;
   (3) authorize shared-cache cleaning -> ~4 dyads.
+
+## 2026-11-05 ~13:52-14:10Z — E1: SVPS endpoint identified, data-loss scope mapped, GitHub restored
+- GitHub push RESTORED: 42 held commits pushed (main advances to B28 hold commit). AVPS key
+  works again; nothing held locally anymore.
+- SVPS probe: vps-shawn.aureuma.ai:7129 now answers as Darwin SHiONMaoM5Ultra (operator Mac,
+  zsh, OpenSSH_10.5), 926Gi disk with 838Gi free, 13Gi used, NO ~/ald-evidence, NO campaign
+  data anywhere on the nearly-empty disk. The pre-pause archive data is NOT on this endpoint.
+- Key forensics: endpoint presents rsa QC0Qbk / ed25519 D1qHve / ecdsa BM3MqVdQ. AVPS, TVPS,
+  and OVPS known_hosts ALL match all three keys AND were all modified Nov 4 14:18 (same
+  minute, hours after the 03:20Z pause). Coordinated fleet-wide key acceptance by unknown
+  hands; original pre-pause key overwritten everywhere, no backup found. Author must confirm
+  whether the 14:18 update was theirs.
+- FULL COPY CENSUS (live hosts): TVPS holds TVPS-A 28-62, TVPS-B 10-28, OVPS-A 65,66,69-79,
+  OVPS-B 63-74. OVPS holds mirror TVPS-A/B 0-6 + OVPS-B 75-79. LVPS holds mirror OVPS-A/B 7-9.
+- DATA-LOSS SCOPE (if old-endpoint data unrecoverable): 22 extension-A tarballs missing
+  everywhere (TVPS-A 10-27, OVPS-A 63,64,67,68: exactly the waves-1-3 set deleted from TVPS
+  after SVPS verify). Recoverable ONLY via deterministic regeneration (~44 CPU-h reruns;
+  journals/admissions provenance intact everywhere). Round-1: 20/20 PRESENT single-copy
+  (14 OVPS mirror + 6 LVPS mirror), all sha256sum -c OK re-verified today; second copies gone.
+- NO offload to the Mac without author approval: pause rule requires out-of-band confirm, the
+  14:18 trust was established by unknown hands, and 160G+ to a personal machine needs consent.
+- Campaign still HELD at B 46/80 (TVPS 4.9G). Monitor continues. Author decisions now: (A) what
+  was the pre-pause endpoint / is its data recoverable (un-loses 22 tarballs); (B) approve the
+  Mac as archive target (838G fits everything: offload, B29-62 resume, round-1 re-mirror,
+  C4/D consolidation); (C) if not the Mac, name the archive home.
