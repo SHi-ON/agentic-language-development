@@ -942,3 +942,11 @@ verified locally (1.3G) and held on OVPS, extracted
 cleaned (OVPS 4.7G free, still under the 12G pair line).
 Launched B/74 solo with journal verification. Cohort B
 at 30/80.
+
+### Extension TVPS-B wave 2: complete 2026-11-05T04:45Z
+
+TVPS B/19-20 (first resumed pair): 2/2 valid, both
+census-clean (720/720, 0 mismatches), tarballs verified
+(1.2G/1.3G), extracted cleaned sequentially (TVPS 28G
+free). Launched TVPS-B wave 3 (B/21-22) staggered with
+journal verification. Cohort B at 32/80.
