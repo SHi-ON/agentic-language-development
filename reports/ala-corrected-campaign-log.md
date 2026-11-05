@@ -950,3 +950,21 @@ census-clean (720/720, 0 mismatches), tarballs verified
 (1.2G/1.3G), extracted cleaned sequentially (TVPS 28G
 free). Launched TVPS-B wave 3 (B/21-22) staggered with
 journal verification. Cohort B at 32/80.
+
+## 2026-11-05 ~05:07-05:20Z — E1: B74 valid, streamed archive, B75 launched, mirror census
+- OVPS B74 went valid 05:07Z (exit 0). Census clean: 720/720 joins, 0 mismatches, acc 0.244.
+- OVPS disk was 449M: local tar impossible. Archived by streaming deterministic tar over ssh
+  OVPS -> TVPS archive/ala-lv/OVPS-B/ (same tar/gzip flags as ala-archive-dyad.sh). Transfer
+  verified: deterministic re-stream hash d04a7ef2... matches TVPS-side sha256sum -c OK (1.43GB).
+  Sidecar primary-0074.sha256 written on TVPS. Extracted dir removed on OVPS (OVPS-A precedent:
+  nothing retained locally after TVPS verify). OVPS now 4.7G free.
+- OVPS mirror census (19G): holds round-1 TVPS-A/B primary-0000..0006 tarballs. TVPS no longer
+  holds ANY primary-000x tarballs (its archive starts at extension indices); LVPS mirror holds
+  only OVPS-A/B 0007..0009; SVPS (verified copies) is dark. The OVPS mirror is the ONLY live
+  reachable copy of 14 round-1 tarballs. DECISION: mirror stays, never a cleanup candidate.
+  Capacity must come from OVPS->TVPS pushes of extension tarballs (TVPS 26G free), not mirrors.
+- POLICY CHANGE (capacity posture): OVPS->TVPS pushes RESUME at <=1 in flight (local-hold
+  lifted); TVPS has room and OVPS structurally cannot hold accumulating extension tarballs.
+  Next: drain held OVPS-B tarballs (63-73) to TVPS with per-file verify+delete.
+- Launched OVPS B75 solo 05:20:35Z (watchdog caps cpu=4.0h wall=240m gib=8). TVPS B21/B22 pair
+  healthy (~1.1G each, ~25%). Cohort B ≈ 31-33/80 valid.
