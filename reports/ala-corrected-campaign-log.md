@@ -1100,3 +1100,12 @@ journal verification. Cohort B at 32/80.
   (TVPS-A 35, TVPS-B 19, OVPS-A 13, OVPS-B 12), OVPS held 5/5 OK (B75-79). Combined with the
   20/20 round-1 mirror re-verifies earlier today: 104/104 intact. No silent corruption from
   the 100%-disk episodes. Hold continues at B 46/80 pending author archive decision.
+
+## 2026-11-08 ~15:25Z — Session conclusion (author asked to conclude finished work)
+- FINAL STATE: A 80/80 valid + archived. B 46/80 valid + archived (TVPS-B 10-28 + frozen
+  0-9, OVPS-B 63-79). Zero runners fleet-wide. 104/104 held tarballs checksum-verified.
+  Git clean, main in sync with origin/main, nothing held locally. Paper repo untouched/sealed.
+- REMAINING (blocked on author archive decision): B29-62 (34 dyads), 22 missing extension-A
+  tarball recovery (regeneration vs old-endpoint locate), C4 census, Phase D re-analysis +
+  re-freeze, timing report, n=80 paper fold-in. Monitor stopped; resume any time by answering
+  the three archive questions (Mac approval, old-endpoint data, 14:18 key acceptance).
