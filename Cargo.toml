@@ -1,0 +1,37 @@
+[workspace]
+members = [
+  "crates/ald-types",
+  "crates/ald-hashing",
+  "crates/ald-merkle",
+  "crates/ald-config",
+  "crates/ald-leakage",
+  "crates/ald-checkpoint",
+  "crates/ald-evidence",
+  "crates/ald-scenario",
+  "crates/ald-learners",
+  "crates/ald-interventions",
+  "crates/ald-isolation",
+  "crates/ald-lifecycle",
+  "crates/ald-ops",
+  "crates/ald-gateway",
+  "crates/ald-anchor",
+  "crates/ald-verifier",
+  "crates/ald-analysis",
+  "crates/ald-orchestrator",
+  "crates/ald-cli",
+]
+resolver = "2"
+
+[workspace.lints.clippy]
+pedantic = "warn"
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+sha2 = "0.10"
+hex = "0.4"
+ed25519-dalek = "2"
+base64 = "0.22"
+serde_jcs = "0.2"
+thiserror = "2"
+rusqlite = { version = "0.32", features = ["bundled"] }

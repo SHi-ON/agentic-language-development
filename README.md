@@ -1,6 +1,11 @@
 # Agentic Language Development — ALA Workshop Paper Source
 
-**Engineering snapshot:** version in `package.json` · P0 backlog re-audit 258/261 (historical).
+**Engineering:** pure-Rust workspace (`Cargo.toml`; `crates/ald-*` + `tools/integrity-auditor`).
+Branch `v3-rust-core` removed the entire TypeScript/JavaScript tree (569 files),
+the pnpm/vitest toolchain, and all `node_modules`/`dist` artifacts. Build with
+`cargo build --workspace`, test with `cargo test --workspace`, run dyads with
+`cargo run -p ald-cli -- run …`. TS-oracle differential tests (PRNG streams,
+canonical JSON, ALA seeds, bootstrap) pin Rust/TS behavioral equivalence.
 
 **Status: FEASIBILITY-ONLY. The original ALA-LV cohort study is NO-GO
 (P5 admission refused on measured cost); no study estimates exist. The

@@ -1,0 +1,22 @@
+[package]
+name = "ald-orchestrator"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+ald-types = { path = "../ald-types" }
+ald-hashing = { path = "../ald-hashing" }
+ald-analysis = { path = "../ald-analysis" }
+ald-evidence = { path = "../ald-evidence" }
+ald-scenario = { path = "../ald-scenario" }
+ald-learners = { path = "../ald-learners" }
+ald-checkpoint = { path = "../ald-checkpoint" }
+rusqlite = { workspace = true }
+ald-interventions = { path = "../ald-interventions" }
