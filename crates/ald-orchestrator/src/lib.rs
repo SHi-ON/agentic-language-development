@@ -409,6 +409,66 @@ struct CaseProbabilities {
     branches: std::collections::BTreeMap<String, BranchOutcome>,
 }
 
+/// Deterministic on-disk mirror of [`ald_analysis::dyad::RoleFolds`].
+///
+/// Field declaration order matches the committed `role-folds-*.json`
+/// fixtures exactly (`role`, `training`, `validation_fit`,
+/// `validation_selection`, `test`; per test row `record`,
+/// `native_distribution`, `replay_distribution`, `target_index`,
+/// `native_missing`, `branch_distributions`, `branch_success`). The branch
+/// maps use `BTreeMap` so the persisted bytes are byte-identical across
+/// runs; the in-memory `TestRow` maps are `HashMap` and must never be
+/// serialized directly.
+#[derive(Debug, Clone, Serialize)]
+struct PersistTestRow<'a> {
+    record: &'a ald_analysis::ledger::OrdinaryRecord,
+    native_distribution: &'a Vec<f64>,
+    replay_distribution: &'a Vec<f64>,
+    target_index: usize,
+    native_missing: bool,
+    branch_distributions: std::collections::BTreeMap<&'a str, &'a Vec<f64>>,
+    branch_success: std::collections::BTreeMap<&'a str, bool>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct PersistRoleFolds<'a> {
+    role: &'a str,
+    training: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
+    validation_fit: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
+    validation_selection: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
+    test: Vec<PersistTestRow<'a>>,
+}
+
+fn persistable_role_folds(folds: &ald_analysis::dyad::RoleFolds) -> PersistRoleFolds<'_> {
+    PersistRoleFolds {
+        role: &folds.role,
+        training: &folds.training,
+        validation_fit: &folds.validation_fit,
+        validation_selection: &folds.validation_selection,
+        test: folds
+            .test
+            .iter()
+            .map(|t| PersistTestRow {
+                record: &t.record,
+                native_distribution: &t.native_distribution,
+                replay_distribution: &t.replay_distribution,
+                target_index: t.target_index,
+                native_missing: t.native_missing,
+                branch_distributions: t
+                    .branch_distributions
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v))
+                    .collect(),
+                branch_success: t
+                    .branch_success
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), *v))
+                    .collect(),
+            })
+            .collect(),
+    }
+}
+
 struct DyadInner {
     primary: f64,
     cases_attempted: u64,
@@ -436,9 +496,11 @@ fn journal_slot_identity(
 /// manifest workload, train a per-role [`ald_learners::TrainingLedger`] on
 /// the generated training cases, score every test case with ledger-native
 /// predictions and exact paired-draw replay, evaluate every branch via
-/// [`ald_interventions::substitute_branch`], persist per-case branch
-/// probabilities per role plus evidence-stream events, journal the terminal
-/// line, and return an honest receipt with measured cost.
+/// [`ald_interventions::substitute_branch`], persist per-role branch
+/// probabilities and role folds (`role-folds-{baby-a,baby-b}.json`, the
+/// exact input schema `ala analyze select|score` reads) plus
+/// evidence-stream events, journal the terminal line, and return an honest
+/// receipt with measured cost.
 ///
 /// The evidence layout (slot dirs, receipt, root journal, admission record)
 /// matches the frozen v2 layout so existing post-check tooling keeps
@@ -753,13 +815,22 @@ fn run_dyad_inner(
             serde_json::to_string_pretty(&probs).unwrap(),
         )
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
-        roles.push(RoleFolds {
+        let folds = RoleFolds {
             role: role.to_string(),
             training,
             validation_fit,
             validation_selection,
             test,
-        });
+        };
+        // Role folds for `ala analyze select|score`: the generated
+        // training/validation/test folds with ledger-native, replay, and
+        // per-branch probabilities, in the committed fixture schema.
+        std::fs::write(
+            format!("{slot_dir}/role-folds-{role}.json"),
+            serde_json::to_string_pretty(&persistable_role_folds(&folds)).unwrap(),
+        )
+        .map_err(|e| OrchestratorError::Io(e.to_string()))?;
+        roles.push(folds);
     }
 
     let mut result = analyze_dyad(&format!("{}-{:04}", req.kind, req.index), &roles, inventory)?;
@@ -941,6 +1012,8 @@ mod tests {
             "dyad-result.json",
             "branch-probabilities-baby-a.json",
             "branch-probabilities-baby-b.json",
+            "role-folds-baby-a.json",
+            "role-folds-baby-b.json",
             "evidence.sqlite",
         ] {
             assert!(slot.join(name).exists(), "missing slot artifact {name}");
@@ -1040,6 +1113,82 @@ mod tests {
                 .any(|c| c["nativeMissing"] == serde_json::json!(true)));
         }
 
+        // Role folds: one file per role in the committed fixture schema,
+        // with per-case probabilities agreeing with branch-probabilities.
+        for role in ["baby-a", "baby-b"] {
+            let text =
+                std::fs::read_to_string(slot.join(format!("role-folds-{role}.json"))).unwrap();
+            let folds: serde_json::Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(folds["role"], serde_json::json!(role));
+            let top = folds.as_object().unwrap();
+            assert_eq!(top.len(), 5);
+            for k in [
+                "role",
+                "training",
+                "validation_fit",
+                "validation_selection",
+                "test",
+            ] {
+                assert!(top.contains_key(k), "role folds missing {k}");
+            }
+            assert_eq!(folds["training"].as_array().unwrap().len(), 1500);
+            assert_eq!(folds["validation_fit"].as_array().unwrap().len(), 120);
+            assert_eq!(folds["validation_selection"].as_array().unwrap().len(), 120);
+            let fit0 = &folds["validation_fit"][0];
+            let fit_keys = fit0.as_object().unwrap();
+            assert_eq!(fit_keys.len(), 5);
+            for k in [
+                "case_id",
+                "receiver_role",
+                "delivered_token",
+                "candidate_type_codes",
+                "actual_selected_candidate_index",
+            ] {
+                assert!(fit_keys.contains_key(k), "fold record missing {k}");
+            }
+            let test = folds["test"].as_array().unwrap();
+            assert_eq!(test.len(), 120);
+            let branch_text = std::fs::read_to_string(
+                slot.join(format!("branch-probabilities-{role}.json")),
+            )
+            .unwrap();
+            let branch_cases: Vec<serde_json::Value> =
+                serde_json::from_str(&branch_text).unwrap();
+            for (row, probs) in test.iter().zip(branch_cases.iter()) {
+                let keys = row.as_object().unwrap();
+                assert_eq!(keys.len(), 7);
+                for k in [
+                    "record",
+                    "native_distribution",
+                    "replay_distribution",
+                    "target_index",
+                    "native_missing",
+                    "branch_distributions",
+                    "branch_success",
+                ] {
+                    assert!(keys.contains_key(k), "test row missing {k}");
+                }
+                assert_eq!(row["record"]["case_id"], probs["caseId"]);
+                assert_eq!(row["native_distribution"], probs["native"]);
+                assert_eq!(row["replay_distribution"], probs["replay"]);
+                assert_eq!(row["target_index"], probs["targetIndex"]);
+                assert_eq!(row["native_missing"], probs["nativeMissing"]);
+                let dists = row["branch_distributions"].as_object().unwrap();
+                let succ = row["branch_success"].as_object().unwrap();
+                assert_eq!(dists.len(), 5);
+                assert_eq!(succ.len(), 5);
+                for b in ald_scenario::LV01_BRANCHES {
+                    assert_eq!(dists[b], probs["branches"][b]["probabilities"]);
+                    assert_eq!(succ[b], probs["branches"][b]["success"]);
+                }
+            }
+            // The persisted folds deserialize as RoleFolds for select|score.
+            let parsed: ald_analysis::dyad::RoleFolds =
+                serde_json::from_str(&text).unwrap();
+            assert_eq!(parsed.role, role);
+            assert_eq!(parsed.test.len(), 120);
+        }
+
         let _ = std::fs::remove_dir_all(&dir);
     }
 
@@ -1050,6 +1199,7 @@ mod tests {
         let mut journals = Vec::new();
         let mut primaries = Vec::new();
         let mut branch_bytes = Vec::new();
+        let mut folds_bytes = Vec::new();
         for tag in ["det-a", "det-b"] {
             let dir = fresh_temp_dir(tag);
             let manifest_path = dir.join("manifest.json");
@@ -1073,12 +1223,117 @@ mod tests {
                 )
                 .unwrap(),
             );
+            folds_bytes.push(
+                std::fs::read(
+                    evidence_root.join("development/primary-0007/role-folds-baby-a.json"),
+                )
+                .unwrap(),
+            );
             let _ = std::fs::remove_dir_all(&dir);
         }
         assert_eq!(journals[0], journals[1]);
         assert_eq!(journals[0].len(), 2);
         assert!((primaries[0] - primaries[1]).abs() < 1e-15);
         assert_eq!(branch_bytes[0], branch_bytes[1]);
+        assert_eq!(folds_bytes[0], folds_bytes[1]);
+    }
+
+    #[test]
+    fn pipeline_run_select_score_matches_receipt() {
+        // Full pipeline on a small temp dev dyad: run -> select -> score.
+        // Selection and scoring read the persisted role-folds files exactly
+        // as `ala analyze select|score` does; scoring must succeed and
+        // reproduce the receipt primary.
+        let dir = fresh_temp_dir("pipeline");
+        let manifest_path = dir.join("manifest.json");
+        std::fs::write(&manifest_path, test_manifest_text(8, 4, 4, 4)).unwrap();
+        let evidence_root = dir.join("evidence");
+        let inventory = test_inventory();
+        let req = DyadRequest {
+            manifest_path: manifest_path.to_string_lossy().into_owned(),
+            cohort: "development".to_string(),
+            kind: "primary".to_string(),
+            index: 0,
+            evidence_root: evidence_root.to_string_lossy().into_owned(),
+            treatment_batch_version: 2,
+            protocol_version: 2,
+        };
+        let receipt = run_dyad(&req, &inventory).unwrap();
+        let slot = evidence_root.join("development/primary-0000");
+
+        let mut folds = Vec::new();
+        let mut selected = Vec::new();
+        for role in ["baby-a", "baby-b"] {
+            let text =
+                std::fs::read_to_string(slot.join(format!("role-folds-{role}.json"))).unwrap();
+            let f: ald_analysis::dyad::RoleFolds = serde_json::from_str(&text).unwrap();
+            assert_eq!(f.role, role);
+            let sel = ald_analysis::select_ordinary_predictor(
+                &inventory,
+                &f.training,
+                &f.validation_fit,
+                &f.validation_selection,
+            )
+            .unwrap();
+            assert!(ald_analysis::PREDICTOR_IDS.contains(&sel.selected));
+            selected.push(sel.selected);
+            folds.push(f);
+        }
+
+        let result = ald_analysis::analyze_dyad("primary-0000", &folds, &inventory).unwrap();
+        for (role_result, want) in result.roles.iter().zip(selected.iter()) {
+            assert_eq!(&role_result.selected_predictor_id, want);
+        }
+        assert!(
+            (result.primary - receipt.primary).abs() < 1e-9,
+            "scored primary {} differs from receipt {}",
+            result.primary,
+            receipt.primary
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn artifact_consolidation_under_50_files() {
+        // A full frozen-workload dyad must stay consolidated: v2 wrote
+        // ~163k files/dyad (per-case artifacts); v3 writes a handful of
+        // per-role files. Fails closed if per-case writes ever recur.
+        let dir = fresh_temp_dir("consol");
+        let manifest_path = dir.join("manifest.json");
+        std::fs::write(&manifest_path, test_manifest_text(3000, 240, 240, 240)).unwrap();
+        let evidence_root = dir.join("evidence");
+        let req = DyadRequest {
+            manifest_path: manifest_path.to_string_lossy().into_owned(),
+            cohort: "development".to_string(),
+            kind: "primary".to_string(),
+            index: 0,
+            evidence_root: evidence_root.to_string_lossy().into_owned(),
+            treatment_batch_version: 2,
+            protocol_version: 2,
+        };
+        run_dyad(&req, &test_inventory()).unwrap();
+
+        fn count_files(path: &std::path::Path) -> usize {
+            let mut n = 0;
+            for entry in std::fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                let file_type = entry.file_type().unwrap();
+                if file_type.is_dir() {
+                    n += count_files(&entry.path());
+                } else if file_type.is_file() {
+                    n += 1;
+                }
+            }
+            n
+        }
+        let total = count_files(&evidence_root);
+        assert!(
+            total < 50,
+            "a full dyad wrote {total} files; artifact consolidation regressed"
+        );
+
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
