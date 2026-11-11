@@ -16,16 +16,18 @@ pub enum AnalysisError {
     LengthMismatch(String),
 }
 
+pub mod artifacts;
 pub mod contrasts;
 pub mod dyad;
 pub mod ledger;
 pub mod special;
 pub mod stats;
 
+pub use artifacts::{branch_cases, BranchOutcomeArtifact, CaseProbabilities, ROLES};
 pub use contrasts::{
-    brier_control_contrasts, invalidity_bounds, simultaneous_bounds, success_control_contrasts,
-    CONTRAST_IDS, CONTROL_BRANCHES, FAMILY_ALPHA, FAMILY_SIZE, PRIMARY_ADMISSIBLE,
-    SUCCESS_CONTRAST_ADMISSIBLE,
+    brier_control_contrasts, fidelity, invalidity_bounds, simultaneous_bounds,
+    success_control_contrasts, CONTRAST_IDS, CONTROL_BRANCHES, FAMILY_ALPHA, FAMILY_SIZE,
+    PRIMARY_ADMISSIBLE, SUCCESS_CONTRAST_ADMISSIBLE,
 };
 pub use dyad::{analyze_dyad, analyze_role, cohort_interval};
 pub use ledger::{brier, select_ordinary_predictor, PredictorId, PREDICTOR_IDS};

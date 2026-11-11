@@ -160,6 +160,48 @@ pub fn simultaneous_bounds(
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Fidelity {
+    pub n: usize,
+    pub mean_squared_distance: f64,
+}
+
+/// Native/replay fidelity: mean over cases of the squared Euclidean distance
+/// between the native distribution and the exact replay distribution.
+/// (Protocol `fidelity.measure`: mean squared distance of native to exact
+/// replay probabilities.)
+pub fn fidelity(native: &[Vec<f64>], replay: &[Vec<f64>]) -> Result<Fidelity, AnalysisError> {
+    if native.len() != replay.len() {
+        return Err(AnalysisError::LengthMismatch(format!(
+            "fidelity needs paired native/replay distributions ({} vs {})",
+            native.len(),
+            replay.len()
+        )));
+    }
+    if native.is_empty() {
+        return Err(AnalysisError::EmptySample(
+            "fidelity needs at least one case".to_string(),
+        ));
+    }
+    let mut total = 0.0;
+    for (n, r) in native.iter().zip(replay.iter()) {
+        if n.len() != r.len() {
+            return Err(AnalysisError::LengthMismatch(
+                "fidelity case distributions have different lengths".to_string(),
+            ));
+        }
+        total += n
+            .iter()
+            .zip(r.iter())
+            .map(|(a, b)| (a - b).powi(2))
+            .sum::<f64>();
+    }
+    Ok(Fidelity {
+        n: native.len(),
+        mean_squared_distance: total / native.len() as f64,
+    })
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InvalidityBounds {
     pub valid_n: usize,
     pub attempted_n: usize,

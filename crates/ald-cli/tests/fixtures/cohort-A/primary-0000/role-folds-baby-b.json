@@ -1,0 +1,216 @@
+{
+ "role": "baby-b",
+ "training": [],
+ "validation_fit": [
+  {
+   "case_id": "A-baby-b-fit-0",
+   "receiver_role": "baby-b",
+   "delivered_token": null,
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 0
+  },
+  {
+   "case_id": "A-baby-b-fit-1",
+   "receiver_role": "baby-b",
+   "delivered_token": null,
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 0
+  },
+  {
+   "case_id": "A-baby-b-fit-2",
+   "receiver_role": "baby-b",
+   "delivered_token": null,
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 0
+  },
+  {
+   "case_id": "A-baby-b-fit-3",
+   "receiver_role": "baby-b",
+   "delivered_token": null,
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 0
+  }
+ ],
+ "validation_selection": [
+  {
+   "case_id": "A-baby-b-sel-0",
+   "receiver_role": "baby-b",
+   "delivered_token": "tok31",
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 1
+  },
+  {
+   "case_id": "A-baby-b-sel-1",
+   "receiver_role": "baby-b",
+   "delivered_token": "tok31",
+   "candidate_type_codes": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "actual_selected_candidate_index": 1
+  }
+ ],
+ "test": [
+  {
+   "record": {
+    "case_id": "A-baby-b-test-0",
+    "receiver_role": "baby-b",
+    "delivered_token": "tok05",
+    "candidate_type_codes": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "actual_selected_candidate_index": 0
+   },
+   "native_distribution": [
+    0.3153344747200705,
+    0.2282218417599765,
+    0.2282218417599765,
+    0.2282218417599765
+   ],
+   "replay_distribution": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "target_index": 0,
+   "native_missing": false,
+   "branch_distributions": {
+    "normal": [
+     0.3153344747200705,
+     0.2282218417599765,
+     0.2282218417599765,
+     0.2282218417599765
+    ],
+    "disabled": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "constant": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "random": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "shuffled": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ]
+   },
+   "branch_success": {
+    "normal": true,
+    "disabled": false,
+    "constant": false,
+    "random": false,
+    "shuffled": false
+   }
+  },
+  {
+   "record": {
+    "case_id": "A-baby-b-test-1",
+    "receiver_role": "baby-b",
+    "delivered_token": "tok05",
+    "candidate_type_codes": [
+     0,
+     1,
+     2,
+     3
+    ],
+    "actual_selected_candidate_index": 0
+   },
+   "native_distribution": [
+    0.3153344747200705,
+    0.2282218417599765,
+    0.2282218417599765,
+    0.2282218417599765
+   ],
+   "replay_distribution": [
+    1.0,
+    0.0,
+    0.0,
+    0.0
+   ],
+   "target_index": 0,
+   "native_missing": false,
+   "branch_distributions": {
+    "normal": [
+     0.3153344747200705,
+     0.2282218417599765,
+     0.2282218417599765,
+     0.2282218417599765
+    ],
+    "disabled": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "constant": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "random": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ],
+    "shuffled": [
+     0.25,
+     0.25,
+     0.25,
+     0.25
+    ]
+   },
+   "branch_success": {
+    "normal": true,
+    "disabled": false,
+    "constant": false,
+    "random": false,
+    "shuffled": false
+   }
+  }
+ ]
+}

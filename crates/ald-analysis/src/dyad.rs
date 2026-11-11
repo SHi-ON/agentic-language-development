@@ -67,6 +67,7 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
     )?;
     let mut ordinary = 0.0;
     let mut native = 0.0;
+    let mut replay = 0.0;
     let mut missing = 0u64;
     for row in &folds.test {
         if row.record.receiver_role != folds.role {
@@ -82,8 +83,10 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
             &row.record.delivered_token,
             inventory,
         )?;
-        ordinary += brier(&dist, row.record.actual_selected_candidate_index);
-        native += brier(&row.native_distribution, row.record.actual_selected_candidate_index);
+        let action = row.record.actual_selected_candidate_index;
+        ordinary += brier(&dist, action);
+        native += brier(&row.native_distribution, action);
+        replay += brier(&row.replay_distribution, action);
         if row.native_missing {
             missing += 1;
         }
@@ -96,8 +99,8 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
         test_cases: folds.test.len(),
         ordinary_brier: ordinary / n,
         native_brier: native / n,
-        replay_brier: 0.0,
-        mean_excess_replay_brier: 0.0,
+        replay_brier: replay / n,
+        mean_excess_replay_brier: (native - replay) / n,
         difference: (ordinary - native) / n,
         native_missing_tokens: missing,
     })
