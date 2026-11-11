@@ -25,7 +25,7 @@ pub struct Delivery {
 /// Route a case to its receiver; control branches carry the same token as
 /// normal (substitution happens at scoring, never at delivery).
 pub fn route(case_id: &str, role: &str, token: Option<&str>, branch: &str) -> Result<Delivery, GatewayError> {
-    if role != "baby-a" && role != "baby-b" {
+    if role != "agent-0" && role != "agent-1" {
         return Err(GatewayError::Domain(format!("unknown receiver role {role}")));
     }
     if !["normal", "disabled", "constant", "random", "shuffled"].contains(&branch) {
@@ -45,12 +45,12 @@ mod tests {
 
     #[test]
     fn routes_control_with_same_token() {
-        let d = route("c1", "baby-a", Some("tok01"), "shuffled").unwrap();
+        let d = route("c1", "agent-0", Some("tok01"), "shuffled").unwrap();
         assert_eq!(d.token.as_deref(), Some("tok01"));
     }
 
     #[test]
     fn rejects_unknown_role() {
-        assert!(route("c1", "baby-c", None, "normal").is_err());
+        assert!(route("c1", "agent-2", None, "normal").is_err());
     }
 }

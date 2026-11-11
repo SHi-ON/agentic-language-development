@@ -55,7 +55,7 @@ pub fn brier_control_contrasts(
         }
     }
     let mut out = std::collections::HashMap::new();
-    for role in ["baby-a", "baby-b"] {
+    for role in ["agent-0", "agent-1"] {
         let role_cases: Vec<&BranchCase> = cases.iter().filter(|c| c.role == role).collect();
         if role_cases.is_empty() {
             return Err(AnalysisError::Domain(format!(
@@ -94,7 +94,7 @@ pub fn success_control_contrasts(
         return Err(AnalysisError::Domain(format!("dyad {dyad} has no branch-outcome cases")));
     }
     let mut out = std::collections::HashMap::new();
-    for role in ["baby-a", "baby-b"] {
+    for role in ["agent-0", "agent-1"] {
         let role_cases: Vec<&BranchCase> = cases.iter().filter(|c| c.role == role).collect();
         if role_cases.is_empty() {
             return Err(AnalysisError::Domain(format!(
@@ -267,8 +267,8 @@ mod tests {
     #[test]
     fn brier_contrast_zero_when_equal() {
         let cases = vec![
-            case("a1", "baby-a", true, true),
-            case("b1", "baby-b", true, true),
+            case("a1", "agent-0", true, true),
+            case("b1", "agent-1", true, true),
         ];
         let c = brier_control_contrasts("d", &cases).unwrap();
         for id in CONTRAST_IDS {
@@ -279,8 +279,8 @@ mod tests {
     #[test]
     fn success_contrast_positive_when_normal_wins() {
         let cases = vec![
-            case("a1", "baby-a", true, false),
-            case("b1", "baby-b", true, false),
+            case("a1", "agent-0", true, false),
+            case("b1", "agent-1", true, false),
         ];
         let c = success_control_contrasts("d", &cases).unwrap();
         assert_eq!(c["normal-minus-disabled"], 1.0);

@@ -100,8 +100,8 @@ mod tests {
     #[test]
     fn generation_is_deterministic() {
         let inv: Vec<String> = (0..32).map(|i| format!("tok{i:02}")).collect();
-        let a = generate_cases("s", 7, "baby-a", 50, &inv);
-        let b = generate_cases("s", 7, "baby-a", 50, &inv);
+        let a = generate_cases("s", 7, "agent-0", 50, &inv);
+        let b = generate_cases("s", 7, "agent-0", 50, &inv);
         assert_eq!(a.len(), 50);
         assert_eq!(
             a.iter().map(|c| c.case_id.clone()).collect::<Vec<_>>(),
@@ -111,7 +111,7 @@ mod tests {
 
     #[test]
     fn draw_bits_roundtrip() {
-        let p = plan_paired_case("s", "baby-a-7-0001");
+        let p = plan_paired_case("s", "agent-0-7-0001");
         assert!(p.shared_draw >= 0.0 && p.shared_draw < 1.0);
         assert_eq!(p.draw_bits_hex.len(), 16);
     }

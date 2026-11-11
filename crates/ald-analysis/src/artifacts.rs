@@ -2,15 +2,15 @@
 //!
 //! A scored dyad directory carries per-role folds plus the per-case branch
 //! probabilities persisted by `run_dyad`:
-//! `role-folds-{baby-a,baby-b}.json` ([`RoleFolds`]) and
-//! `branch-probabilities-{baby-a,baby-b}.json` ([`CaseProbabilities`]).
+//! `role-folds-{agent-0,agent-1}.json` ([`RoleFolds`]) and
+//! `branch-probabilities-{agent-0,agent-1}.json` ([`CaseProbabilities`]).
 
 use crate::contrasts::{BranchCase, CONTROL_BRANCHES};
 use crate::AnalysisError;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const ROLES: [&str; 2] = ["baby-a", "baby-b"];
+pub const ROLES: [&str; 2] = ["agent-0", "agent-1"];
 
 /// One persisted per-case branch-probability record (mirrors the `run_dyad`
 /// writer; camelCase on disk).
@@ -107,9 +107,9 @@ mod tests {
 
     #[test]
     fn converts_to_contrast_cases() {
-        let cases = branch_cases("d", "baby-a", &probs()).unwrap();
+        let cases = branch_cases("d", "agent-0", &probs()).unwrap();
         assert_eq!(cases.len(), 1);
-        assert_eq!(cases[0].case_id, "baby-a/c1");
+        assert_eq!(cases[0].case_id, "agent-0/c1");
         assert_eq!(cases[0].control_distributions.len(), 4);
     }
 
@@ -117,6 +117,6 @@ mod tests {
     fn missing_branch_fails_closed() {
         let mut p = probs();
         p[0].branches.remove("random");
-        assert!(branch_cases("d", "baby-a", &p).is_err());
+        assert!(branch_cases("d", "agent-0", &p).is_err());
     }
 }

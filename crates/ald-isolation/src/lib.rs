@@ -27,7 +27,7 @@ impl IsolationMode {
     pub const fn process_boundary_between_babies(self) -> &'static str {
         match self {
             Self::Prototype => "none-shared-process",
-            Self::ResearchGrade => "separate-process-or-container-per-baby",
+            Self::ResearchGrade => "separate-process-or-container-per-agent",
         }
     }
 

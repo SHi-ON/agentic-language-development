@@ -1,99 +1,78 @@
 # Configuration
 
-Runtime configuration is loaded through `@ald/config`. Environment variables contain
-only non-secret operational values or short-lived file paths materialized by `fort`.
-Private key material, signer seeds, RPC credentials, and API tokens must never be
-stored directly in environment variables or repository files.
+The `ala` CLI (`crates/ald-cli`) is configured entirely by command-line
+flags and the execution manifest; a dyad run needs no environment
+variables. Signature:
+
+```text
+ala run --manifest <path> --cohort <C> --kind <K> --index <N>
+        --evidence-root <dir>
+        [--treatment-batch-version N]   (default 2)
+        [--protocol-version N]          (default 2)
+ala analyze select|score --dyad <dir>... --cohort <C> --out <path>
+        [--selection <path>] [--coverage F]
+        [--bootstrap-seed S] [--bootstrap-resamples N] [--attempted N]
+ala verify <evidence.sqlite>
+ala manifest --protocol-version <1|2>
+ala journal --journal <path> --line <json>
+```
+
+Unknown or bare arguments are rejected with exit code 2 (a silently
+dropped `--dyad` would corrupt the cohort count). `analyze` refuses
+to overwrite an existing `--out` file.
+
+The manifest (`protocols/ala-lv-execution-manifest.v2.json`) must
+carry `manifestVersion: "ala-lv-execution-manifest/v1"`,
+`studyId: "ALA-LV"`, and a `workload` block with positive
+`trainingCases`, `validationFitCases`, `validationSelectionCases`,
+and `withinSupportTestCases`, each evenly divisible across the two
+roles. Study cohorts `A` and `B` additionally require
+`<evidence-root>/admission.json` with a GO decision; other cohorts
+run without admission. `--index` must fit a zero-padded 4-digit slot
+(0–9999).
+
+## Runtime environment (`ald-config`)
+
+`crates/ald-config` provides `load_runtime_environment`, the
+environment contract for hosts that embed the workspace crates
+(`ala` itself does not read the process environment). Variables are
+read from a caller-supplied map; defaults apply when a variable is
+absent or empty.
+
+| Variable | Type | Default |
+|---|---|---|
+| `ALD_DTSF_PORT` | Positive integer (1–65535) | `4123` |
+| `ALD_TWIN_PACKS_DIR` | Path | `./twin-packs` |
+| `ALD_DEPLOYMENT_MODE` | `prototype` or `research-grade` | `prototype` |
+| `ALD_EVIDENCE_DIR` | Path | `./evidence` |
+| `ALD_DATABASE_PATH` | Path | `./evidence/evidence.sqlite` |
+| `ALD_SIGNER_SEEDS_FILE` | Path (optional) | none |
+| `ALD_LOG_LEVEL` | `debug`, `info`, `warn`, or `error` | `info` |
+| `ALD_ANCHOR_CLASS` | String | `simulated` |
+| `ALD_BASE_NETWORK` | String | `base-sepolia` |
+| `ALD_BASE_RPC_URL_FILE` | Path (optional) | none |
+| `ALD_ANCHOR_KEY_FILE` | Path (optional) | none |
+
+Invalid ports, deployment modes, and log levels fail loading with a
+named error instead of falling back silently.
+
+## Secret handling
+
+- Secret values never appear directly in environment variables.
+  `load_runtime_environment` rejects `ALD_RUN_SIGNER_SEEDS_JSON`,
+  `ALD_BASE_RPC_URL`, and `ALD_ANCHOR_KEY` outright; supply the
+  corresponding `*_FILE` paths instead, materialized by `fort` in
+  files mode.
+- Do not commit `.env` files; the repository ignores `.env` and
+  `.env.*`.
+- The default anchor class is `simulated`: no wallet, RPC credential,
+  or chain transaction is used by any dyad run.
+- Evidence artifacts contain no secret material: seeds derive case
+  streams and are recorded only through their public derivation
+  inputs (cohort, kind, index, role, partition).
 
 ## Toolchain
 
-Node.js is pinned at `24.21.0` (see `.node-version`; `package.json`
-`engines` requires pnpm `12.3.4`). Newer runtimes break the pinned
-native modules: Node 26 reports `better-sqlite3` as compiled against a
-different `NODE_MODULE_VERSION` and fails the checkpoint/service
-suites that are green under Node 24. Run the test suites with Node
-`24.21.0` (e.g. `PATH=/usr/bin:$PATH` where that is the pinned
-interpreter).
-
-## Variables
-
-| Variable | Type | Default | Required |
-|---|---|---|---|
-| `DTSF_PORT` | Positive integer | `8080` | No |
-| `DTSF_TWIN_PACKS_DIR` | Path | `./twins/packs` | No |
-| `ALD_DEPLOYMENT_MODE` | `prototype` or `research-grade` | `prototype` | No |
-| `ALD_EVIDENCE_DIR` | Path | `./evidence` | No |
-| `ALD_DATABASE_PATH` | Path | `<evidence>/ald.sqlite` | No |
-| `ALD_RUN_SIGNER_SEEDS_JSON_FILE` | Fort-materialized path | None | Yes in research-grade mode |
-| `ALD_LOG_LEVEL` | `debug`, `info`, `warn`, or `error` | `info` | No |
-| `ALD_ANCHOR_CLASS` | `simulated` or `public-chain` | `simulated` | No |
-| `ALD_BASE_NETWORK` | `base-sepolia` or `base-mainnet` | `base-sepolia` | No |
-| `ALD_BASE_RPC_URL_FILE` | Fort-materialized path | None | Required only for an amended `public-chain` profile |
-| `ALD_ANCHOR_KEY_FILE` | Fort-materialized path | None | Required only for an amended `public-chain` profile |
-| `ALD_ALLOW_MAINNET_ANCHORING` | `true` or unset | unset | Must be `true` (together with an explicit publisher opt-in) before any Base mainnet transaction is submitted |
-
-## Secret Handling
-
-- Store all secret values only in the encrypted `safe` repository and access them
-  through `fort`; do not create ad-hoc secret files.
-- Do not commit `.env` files. The repository ignores `.env` and `.env.*`.
-- The approved research `RunConfig` defaults to `anchorClass: "simulated"` and uses
-  no wallet, RPC credential, faucet, token, or fee.
-- If a future amendment permits `anchorClass: "public-chain"`, use a dedicated,
-  low-balance anchor wallet and independent verification endpoint.
-- Run `pnpm run scan:secrets` before committing.
-- Research-grade mode fails fast unless Fort materializes
-  `ALD_RUN_SIGNER_SEEDS_JSON_FILE` in files mode.
-- Mainnet anchoring is double opt-in: the anchor publisher must be constructed with `allowMainnet: true` and `ALD_ALLOW_MAINNET_ANCHORING=true` must be set. The current governance policy separately prohibits all public-chain research transactions.
-- The signer material is a versioned JSON envelope containing an exact run-id map
-  and all six Ed25519 signer domains. The Nursery reads its mode-0600 regular file
-  once; the path is then removed from the child environment. Learner containers
-  never receive the path or file mount. Seeds never enter the evidence store or a
-  bundle.
-
-## Examples
-
-Prototype defaults require no environment variables:
-
-```powershell
-pnpm run build
-```
-
-Research-grade Mode R used Fort file materialization (2026-10-09: retired
-with the Mode R campaign; command removed, deployment archived):
-
-```sh
-fort --host https://fort.aureuma.ai run --repo agentic-language-development --env dev \
-  --keys ALD_RUN_SIGNER_SEEDS_JSON --mode files -- \
-  pnpm run test:mode-r-study
-```
-
-The encrypted value must authorize each exact study run id. The qualification
-command can run without credentials using ephemeral in-memory signers, but that
-path is explicitly non-confirmatory. Simulated funding removes the wallet/RPC
-dependency; it does not remove the persistent per-run signer or registration gates.
-
-## Toolchain Law (permanent user order, 2026-10-04)
-
-- NEVER install anything via Homebrew on this machine (old installation, no
-  bottles; R was attempted and abandoned for this reason).
-- System packages go through MacPorts ONLY (`port`).
-- Python goes through uv ONLY (`~/.local/bin/uv`, already installed; do NOT
-  reinstall it via MacPorts). Project environments live in the repo `.venv`.
-- The independent-statistics sidecar is Python/scipy (port of the former R
-  scripts); R/Rscript must not be reintroduced to code, docs, or CI.
-
-## Independent-statistics venv setup
-
-The confirmatory gates spawn `scripts/*.py` through the repo-local `.venv`
-(resolved by `scripts/resolve-venv-python.mjs`; no PATH or absolute-path setup).
-Create it once per checkout:
-
-```sh
-uv sync
-```
-
-`pyproject.toml` + tracked `uv.lock` pin the exact versions the frozen
-receipts were generated with (single in-project `.venv` for both the
-statistics sidecar and the worksheets). CI provisions the same venv via
-`astral-sh/setup-uv`.
+Rust only. Build with `cargo build --workspace`, test with
+`cargo test --workspace`. The workspace lints with Clippy pedantic
+at `warn` (`Cargo.toml`, `[workspace.lints.clippy]`).

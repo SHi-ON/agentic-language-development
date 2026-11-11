@@ -97,7 +97,7 @@ fn assert_inventory(inventory: &[String]) -> Result<(), AnalysisError> {
 }
 
 fn assert_record(r: &OrdinaryRecord, inventory: &[String]) -> Result<(), AnalysisError> {
-    if r.case_id.is_empty() || (r.receiver_role != "baby-a" && r.receiver_role != "baby-b") {
+    if r.case_id.is_empty() || (r.receiver_role != "agent-0" && r.receiver_role != "agent-1") {
         return Err(AnalysisError::Domain("ordinary record identity is invalid".to_string()));
     }
     let types_distinct = {
@@ -238,7 +238,7 @@ pub fn select_ordinary_predictor(
         .first()
         .or(validation_fit.first())
         .map(|r| r.receiver_role.clone())
-        .unwrap_or_else(|| "baby-a".to_string());
+        .unwrap_or_else(|| "agent-0".to_string());
     for r in training.iter().chain(validation_fit).chain(validation_selection) {
         if r.receiver_role != role {
             return Err(AnalysisError::Domain("ordinary predictors must be fit per receiver role".to_string()));
@@ -364,7 +364,7 @@ mod tests {
     fn row(case: &str, action: usize) -> OrdinaryRecord {
         OrdinaryRecord {
             case_id: case.to_string(),
-            receiver_role: "baby-a".to_string(),
+            receiver_role: "agent-0".to_string(),
             delivered_token: None,
             candidate_type_codes: vec![0, 1, 2, 3],
             actual_selected_candidate_index: action,

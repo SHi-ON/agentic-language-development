@@ -2,8 +2,8 @@
 
 One minimal dyad per study cohort (`cohort-A/primary-0000`,
 `cohort-B/primary-0000`), each with per-role folds
-(`role-folds-{baby-a,baby-b}.json`) and per-case branch probabilities
-(`branch-probabilities-{baby-a,baby-b}.json`) in the `run_dyad` layout.
+(`role-folds-{agent-0,agent-1}.json`) and per-case branch probabilities
+(`branch-probabilities-{agent-0,agent-1}.json`) in the `run_dyad` layout.
 
 Each dyad is engineered so `analyze_dyad` reproduces the locked v2 cohort
 mean as its primary: the uniform ordinary predictor is selected (ordinary

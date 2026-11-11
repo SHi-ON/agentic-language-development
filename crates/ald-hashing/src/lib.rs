@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn ala_seed_matches_ts_oracle() {
-        // TS deriveAlaSeed(A/primary/0300/scenario/baby-a-receiver, v2 root).
+        // TS deriveAlaSeed(A/primary/0300/scenario/agent-0-receiver, v2 root).
         assert_eq!(
             derive_seed_hex(&[
                 "ala-ledger-value-v2",
@@ -351,9 +351,9 @@ mod tests {
                 "primary",
                 "0300",
                 "scenario",
-                "baby-a-receiver"
+                "agent-0-receiver"
             ]),
-            "58778456477394e6355405069f9c086a73ac0f61a172b2edbe9752964d978db3"
+            "7fff5297553ff5a3b209a57a73b784984e9c4d1231d1999362220566d7fe8cbc"
         );
     }
 

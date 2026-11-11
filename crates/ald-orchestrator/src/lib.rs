@@ -31,8 +31,8 @@ pub const ALA_STUDY_ID: &str = "ALA-LV";
 
 pub const SEED_PURPOSES: [&str; 8] = [
     "scenario",
-    "learner/baby-a",
-    "learner/baby-b",
+    "learner/agent-0",
+    "learner/agent-1",
     "channel",
     "action-draw",
     "intervention-shuffle",
@@ -475,20 +475,8 @@ struct DyadInner {
     cases_valid: u64,
 }
 
-/// First-maximum position over 4 scores, mirroring the feasibility probe's
-/// `post.index(max(post))` (ties resolve to the earliest position).
-fn argmax_first4(post: &[f64; 4]) -> usize {
-    let mut best = 0;
-    for (i, &v) in post.iter().enumerate().skip(1) {
-        if v > post[best] {
-            best = i;
-        }
-    }
-    best
-}
-
-/// Candidate type codes as ledger indices. Callers only pass validated
-/// generated cases (4 distinct codes below 16).
+/// Candidate type codes as agent-policy indices. Callers only pass
+/// validated generated cases (4 distinct codes below 16).
 fn candidate_types(codes: &[u32]) -> [usize; 4] {
     [
         codes[0] as usize,
@@ -501,7 +489,7 @@ fn candidate_types(codes: &[u32]) -> [usize; 4] {
 /// One role's generated folds plus the seeds they were generated from. The
 /// training records carry the target types + candidate codes the emergent
 /// training episodes are built from; test tokens are resampled from the
-/// frozen sender at scoring time.
+/// frozen opposite agent (as sender) at scoring time.
 struct RoleBundle {
     role: String,
     train_seed: String,
@@ -530,21 +518,21 @@ fn journal_slot_identity(
 
 /// Execute one full ALA dyad: validate the execution manifest and P5
 /// admission, journal the attempt, generate LV01 cases per role from the
-/// manifest workload, jointly train ONE shared
-/// [`ald_learners::TabularSender`] with per-role
-/// [`ald_learners::TypeLedger`] receivers (alternating roles, REINFORCE on
-/// receiver success, 1/8 token-drop channel, all randomness from derived
-/// seed streams), freeze the policies at test (tokens from the sender,
-/// native predictions from the receiver position posteriors), score every
-/// test case with emergent-native predictions and exact paired-draw replay,
-/// evaluate every branch via [`ald_interventions::substitute_branch`],
-/// persist per-role branch probabilities and role folds
-/// (`role-folds-{baby-a,baby-b}.json`, the exact input schema
-/// `ala analyze select|score` reads) plus the frozen sender policy
-/// (`sender-policy.json`), per-role receiver ledgers
-/// (`receiver-ledger-{baby-a,baby-b}.json`), and evidence-stream events,
-/// journal the terminal line, and return an honest receipt with measured
-/// cost.
+/// manifest workload, symmetrically co-train two
+/// [`ald_learners::AgentPolicy`] agents unsupervised (alternating
+/// sender/receiver per step, receiver samples its candidate position and
+/// never sees the true type, shared episode reward, 1/8 token-drop
+/// channel, all randomness from derived seed streams), freeze the
+/// policies at test (tokens from the opposite agent as sender, native
+/// predictions from the role agent's receiver position posteriors), score
+/// every test case with emergent-native predictions and exact paired-draw
+/// replay, evaluate every branch via
+/// [`ald_interventions::substitute_branch`], persist per-role branch
+/// probabilities and role folds (`role-folds-{agent-0,agent-1}.json`, the
+/// exact input schema `ala analyze select|score` reads) plus the frozen
+/// full agent policies (`agent-policy-{agent-0,agent-1}.json`), and
+/// evidence-stream events, journal the terminal line, and return an
+/// honest receipt with measured cost.
 ///
 /// The evidence layout (slot dirs, receipt, root journal, admission record)
 /// matches the frozen v2 layout so existing post-check tooling keeps
@@ -679,7 +667,7 @@ fn run_dyad_inner(
     use ald_analysis::analyze_dyad;
     use ald_analysis::dyad::{RoleFolds, TestRow};
     use ald_analysis::ledger::OrdinaryRecord;
-    use ald_learners::{TabularSender, TypeLedger};
+    use ald_learners::AgentPolicy;
     use ald_scenario::{generate_cases, plan_paired_case};
 
     let seed_root = if req.protocol_version >= 2 {
@@ -703,7 +691,7 @@ fn run_dyad_inner(
     // Training records carry the target types + candidate codes the
     // emergent episodes are built from.
     let mut bundles = Vec::new();
-    for role in ["baby-a", "baby-b"] {
+    for role in ["agent-0", "agent-1"] {
         let mk = |part: &str| AlaSeedInput {
             cohort: req.cohort.clone(),
             slot_kind: req.kind.clone(),
@@ -747,71 +735,70 @@ fn run_dyad_inner(
         });
     }
 
-    // Phase 2: joint emergent training — ONE shared sender, one receiver
-    // ledger per role, alternating roles each step. Mirrors the feasibility
-    // probe exactly: the sender samples a token for the true target type,
-    // the 1/8 channel may drop it, the receiver scores the position
-    // posterior from its current counts, the ledger fits the delivered
-    // observation supervised by the true type, and the sender takes a
-    // REINFORCE step on receiver success (even when dropped). Every draw
-    // comes from per-role derived seed streams, so training is
+    // Phase 2: symmetric unsupervised co-training — two agents alternate
+    // sender/receiver, one episode per direction per step over the
+    // receiver role's training folds. Mirrors probe v4 exactly: the
+    // sender agent samples a token for the true target type, the 1/8
+    // channel may drop it, the receiver agent SAMPLES a candidate
+    // position from its posterior (it never sees the true type), both
+    // share the episode reward, the sender REINFORCEs its sampled token
+    // (even when dropped), and the receiver REINFORCEs toward the chosen
+    // candidate's type only (a dropped token is a receiver no-op). Every
+    // draw comes from per-role derived seed streams, so training is
     // bit-deterministic per dyad.
-    let mut sender = TabularSender::new(inventory.len());
-    let mut ledgers = [TypeLedger::new(), TypeLedger::new()];
+    let mut agents = [AgentPolicy::new(), AgentPolicy::new()];
     let mut train_rngs: Vec<ald_hashing::SeededPrng> = bundles
         .iter()
         .map(|b| ald_hashing::SeededPrng::new(&b.train_seed).derive("emergent-train"))
         .collect();
     for step in 0..per_role_train {
-        for ((bundle, ledger), rng) in bundles
-            .iter()
-            .zip(ledgers.iter_mut())
-            .zip(train_rngs.iter_mut())
-        {
-            let rec = &bundle.training[step];
+        for receiver_idx in 0..bundles.len() {
+            let sender_idx = 1 - receiver_idx;
+            let rec = &bundles[receiver_idx].training[step];
             let cands = candidate_types(&rec.candidate_type_codes);
             let target_type = cands[rec.actual_selected_candidate_index];
-            let token = sender.sample(target_type, rng);
+            let rng = &mut train_rngs[receiver_idx];
+            let token = agents[sender_idx].sample_token(target_type, rng);
             let delivered = if rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
                 Some(token)
             };
-            let post = ledger.position_posterior(delivered, &cands);
-            let success = if argmax_first4(&post) == rec.actual_selected_candidate_index {
+            let choice = agents[receiver_idx].sample_position(delivered, &cands, rng);
+            let reward = if choice == rec.actual_selected_candidate_index {
                 1.0
             } else {
                 0.0
             };
-            if delivered.is_some() {
-                ledger.observe(delivered, target_type);
-            }
-            sender.update(target_type, token, success);
+            agents[sender_idx].update_sender(target_type, token, reward);
+            agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
         }
     }
 
-    // Phase 3: persist the frozen policies as dyad artifacts. Both
-    // serializers are deterministic (fixed field order, BTreeMap counts,
-    // stabilized floats), so the bytes are byte-identical across runs.
-    std::fs::write(format!("{slot_dir}/sender-policy.json"), sender.to_bytes())
-        .map_err(|e| OrchestratorError::Io(e.to_string()))?;
-    for (bundle, ledger) in bundles.iter().zip(ledgers.iter()) {
+    // Phase 3: persist the frozen full agent policies (sender + receiver
+    // tables) as dyad artifacts. The serializer is deterministic (fixed
+    // field order, stabilized floats), so the bytes are byte-identical
+    // across runs.
+    for (bundle, agent) in bundles.iter().zip(agents.iter()) {
         std::fs::write(
-            format!("{}/receiver-ledger-{}.json", slot_dir, bundle.role),
-            ledger.to_bytes(),
+            format!("{}/agent-policy-{}.json", slot_dir, bundle.role),
+            agent.to_bytes(),
         )
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
     }
 
     // Phase 4: frozen-policy scoring per role. Test tokens come from the
-    // shared sender through the same 1/8 channel; native predictions are
-    // the role receiver's position posteriors. Dropped tokens predict exact
-    // uniform. Branch probabilities, role folds, receipt, and journal keep
-    // their exact shapes.
+    // OPPOSITE agent as sender through the same 1/8 channel; native
+    // predictions are the role agent's frozen receiver position
+    // posteriors (argmax scoring downstream). Dropped tokens predict
+    // exact uniform. Branch probabilities, role folds, receipt, and
+    // journal keep their exact shapes.
     let mut roles = Vec::new();
     let mut cases_attempted = 0u64;
     let mut cases_valid = 0u64;
-    for (bundle, ledger) in bundles.iter().zip(ledgers.iter()) {
+    for (receiver_idx, bundle) in bundles.iter().enumerate() {
+        let receiver = &agents[receiver_idx];
+        let sender = &agents[1 - receiver_idx];
         let role = bundle.role.as_str();
         let test_seed = bundle.test_seed.as_str();
         let mut test_rng = ald_hashing::SeededPrng::new(test_seed).derive("emergent-test");
@@ -820,21 +807,21 @@ fn run_dyad_inner(
         let mut probs = Vec::with_capacity(bundle.test_cases.len());
         for c in &bundle.test_cases {
             let plan = plan_paired_case(test_seed, &c.case_id);
-            // Frozen policies: the shared sender emits the test token
-            // through the same 1/8 drop channel, and the role receiver
-            // scores its position posterior. The generated placeholder
-            // token is discarded.
+            // Frozen policies: the opposite agent as sender emits the test
+            // token through the same 1/8 drop channel, and the role agent
+            // as receiver scores its position posterior. The generated
+            // placeholder token is discarded.
             let cands = candidate_types(&c.candidate_type_codes);
             let target_type = cands[c.target_index];
-            let token = sender.sample(target_type, &mut test_rng);
+            let token = sender.sample_token(target_type, &mut test_rng);
             let delivered = if test_rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
                 Some(token)
             };
             let delivered_token = delivered.map(|id| inventory[id].clone());
-            let native: Vec<f64> = ledger
-                .position_posterior(delivered, &cands)
+            let native: Vec<f64> = receiver
+                .receiver_position_posterior(delivered, &cands)
                 .iter()
                 .map(|v| stable_f64(*v))
                 .collect();
@@ -1009,7 +996,7 @@ mod tests {
             slot_kind: "primary".to_string(),
             slot_index: "0300".to_string(),
             purpose: "scenario".to_string(),
-            role: "baby-a-receiver".to_string(),
+            role: "agent-0-receiver".to_string(),
             partition: Some("training".to_string()),
             case_id: None,
             branch: None,
@@ -1137,13 +1124,12 @@ mod tests {
             "dyad-receipt.json",
             "primary.json",
             "dyad-result.json",
-            "sender-policy.json",
-            "receiver-ledger-baby-a.json",
-            "receiver-ledger-baby-b.json",
-            "branch-probabilities-baby-a.json",
-            "branch-probabilities-baby-b.json",
-            "role-folds-baby-a.json",
-            "role-folds-baby-b.json",
+            "agent-policy-agent-0.json",
+            "agent-policy-agent-1.json",
+            "branch-probabilities-agent-0.json",
+            "branch-probabilities-agent-1.json",
+            "role-folds-agent-0.json",
+            "role-folds-agent-1.json",
             "evidence.sqlite",
         ] {
             assert!(slot.join(name).exists(), "missing slot artifact {name}");
@@ -1178,7 +1164,7 @@ mod tests {
 
         // Per-case probabilities: full branch maps, valid distributions,
         // exact one-hot replay on the paired draw.
-        for role in ["baby-a", "baby-b"] {
+        for role in ["agent-0", "agent-1"] {
             let text =
                 std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
                     .unwrap();
@@ -1208,14 +1194,22 @@ mod tests {
         }
 
         // Native distributions come from the frozen emergent policies:
-        // reload the persisted sender + per-role ledgers and reproduce the
-        // first test case's token and native prediction exactly.
-        let sender = ald_learners::TabularSender::from_bytes(
-            &std::fs::read(slot.join("sender-policy.json")).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(sender.num_tokens(), inventory.len());
-        for role in ["baby-a", "baby-b"] {
+        // reload both persisted full agent policies and reproduce the
+        // first test case's token and native prediction exactly (the
+        // opposite agent sends, the role agent receives).
+        let policies: Vec<ald_learners::AgentPolicy> = ["agent-0", "agent-1"]
+            .iter()
+            .map(|role| {
+                ald_learners::AgentPolicy::from_bytes(
+                    &std::fs::read(slot.join(format!("agent-policy-{role}.json"))).unwrap(),
+                )
+                .unwrap()
+            })
+            .collect();
+        for (receiver_idx, role) in ["agent-0", "agent-1"].iter().enumerate() {
+            let role = *role;
+            let sender = &policies[1 - receiver_idx];
+            let receiver = &policies[receiver_idx];
             let mk = |part: &str| AlaSeedInput {
                 cohort: "development".to_string(),
                 slot_kind: "primary".to_string(),
@@ -1228,10 +1222,6 @@ mod tests {
                 seed_root: Some(ALA_SEED_ROOT_V2.to_string()),
             };
             let test_seed = derive_ala_seed(&mk("within-support-test")).unwrap();
-            let ledger = ald_learners::TypeLedger::from_bytes(
-                &std::fs::read(slot.join(format!("receiver-ledger-{role}.json"))).unwrap(),
-            )
-            .unwrap();
             let text =
                 std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
                     .unwrap();
@@ -1240,22 +1230,22 @@ mod tests {
             let cands = candidate_types(&first_test.candidate_type_codes);
             let target_type = cands[first_test.target_index];
             let mut rng = ald_hashing::SeededPrng::new(&test_seed).derive("emergent-test");
-            let token = sender.sample(target_type, &mut rng);
+            let token = sender.sample_token(target_type, &mut rng);
             let delivered = if rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
                 Some(token)
             };
             let expect_token = delivered.map(|id| inventory[id].clone());
-            let expect_native: Vec<f64> = ledger
-                .position_posterior(delivered, &cands)
+            let expect_native: Vec<f64> = receiver
+                .receiver_position_posterior(delivered, &cands)
                 .iter()
                 .map(|v| stable_f64(*v))
                 .collect();
             match expect_token {
                 None => assert!(
                     cases[0]["deliveredToken"].is_null(),
-                    "first test token is not the frozen sender sample"
+                    "first test token is not the frozen opposite-agent sample"
                 ),
                 Some(t) => assert_eq!(cases[0]["deliveredToken"], serde_json::json!(t)),
             }
@@ -1282,7 +1272,7 @@ mod tests {
 
         // Role folds: one file per role in the committed fixture schema,
         // with per-case probabilities agreeing with branch-probabilities.
-        for role in ["baby-a", "baby-b"] {
+        for role in ["agent-0", "agent-1"] {
             let text =
                 std::fs::read_to_string(slot.join(format!("role-folds-{role}.json"))).unwrap();
             let folds: serde_json::Value = serde_json::from_str(&text).unwrap();
@@ -1364,8 +1354,7 @@ mod tests {
         let mut primaries = Vec::new();
         let mut branch_bytes = Vec::new();
         let mut folds_bytes = Vec::new();
-        let mut sender_bytes = Vec::new();
-        let mut ledger_bytes = Vec::new();
+        let mut policy_bytes = Vec::new();
         for tag in ["det-a", "det-b"] {
             let dir = fresh_temp_dir(tag);
             let manifest_path = dir.join("manifest.json");
@@ -1385,26 +1374,25 @@ mod tests {
             primaries.push(receipt.primary);
             branch_bytes.push(
                 std::fs::read(
-                    evidence_root.join("development/primary-0007/branch-probabilities-baby-a.json"),
+                    evidence_root
+                        .join("development/primary-0007/branch-probabilities-agent-0.json"),
                 )
                 .unwrap(),
             );
             folds_bytes.push(
                 std::fs::read(
-                    evidence_root.join("development/primary-0007/role-folds-baby-a.json"),
+                    evidence_root.join("development/primary-0007/role-folds-agent-0.json"),
                 )
                 .unwrap(),
             );
-            // Frozen emergent policies are byte-identical across runs too.
-            sender_bytes.push(
-                std::fs::read(evidence_root.join("development/primary-0007/sender-policy.json"))
-                    .unwrap(),
-            );
-            for role in ["baby-a", "baby-b"] {
-                ledger_bytes.push(
-                    std::fs::read(evidence_root.join(format!(
-                        "development/primary-0007/receiver-ledger-{role}.json"
-                    )))
+            // Frozen emergent agent policies are byte-identical across
+            // runs too.
+            for role in ["agent-0", "agent-1"] {
+                policy_bytes.push(
+                    std::fs::read(
+                        evidence_root
+                            .join(format!("development/primary-0007/agent-policy-{role}.json")),
+                    )
                     .unwrap(),
                 );
             }
@@ -1415,16 +1403,16 @@ mod tests {
         assert!((primaries[0] - primaries[1]).abs() < 1e-15);
         assert_eq!(branch_bytes[0], branch_bytes[1]);
         assert_eq!(folds_bytes[0], folds_bytes[1]);
-        assert_eq!(sender_bytes[0], sender_bytes[1]);
-        assert_eq!(ledger_bytes[0], ledger_bytes[2]);
-        assert_eq!(ledger_bytes[1], ledger_bytes[3]);
+        assert_eq!(policy_bytes[0], policy_bytes[2]);
+        assert_eq!(policy_bytes[1], policy_bytes[3]);
     }
 
     #[test]
     fn emergence_native_beats_uniform_by_margin() {
-        // End-to-end emergence on the frozen workload: 1500 training
-        // episodes per role co-train the shared sender, so each role's
-        // frozen native Brier must beat uniform (0.75) by over 0.2.
+        // End-to-end emergence on the frozen workload: 1500 unsupervised
+        // training episodes per direction symmetrically co-train the two
+        // agents, so each role's frozen native Brier must beat uniform
+        // (0.75) by over 0.3.
         let dir = fresh_temp_dir("emerge");
         let manifest_path = dir.join("manifest.json");
         std::fs::write(&manifest_path, test_manifest_text(3000, 240, 240, 240)).unwrap();
@@ -1449,7 +1437,7 @@ mod tests {
         for r in &result.roles {
             let advantage = 0.75 - r.native_brier;
             assert!(
-                advantage > 0.2,
+                advantage > 0.3,
                 "role {} shows no emergence: native_brier={:.4} advantage={:.4}",
                 r.role,
                 r.native_brier,
@@ -1485,7 +1473,7 @@ mod tests {
 
         let mut folds = Vec::new();
         let mut selected = Vec::new();
-        for role in ["baby-a", "baby-b"] {
+        for role in ["agent-0", "agent-1"] {
             let text =
                 std::fs::read_to_string(slot.join(format!("role-folds-{role}.json"))).unwrap();
             let f: ald_analysis::dyad::RoleFolds = serde_json::from_str(&text).unwrap();

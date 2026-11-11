@@ -116,7 +116,7 @@ pub fn analyze_dyad(
     }
     let mut ids: Vec<&str> = roles.iter().map(|r| r.role.as_str()).collect();
     ids.sort();
-    if ids != ["baby-a", "baby-b"] {
+    if ids != ["agent-0", "agent-1"] {
         return Err(AnalysisError::Domain(format!(
             "dyad {dyad} folds do not cover both receiver roles"
         )));

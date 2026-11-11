@@ -1,63 +1,101 @@
-# Reproduction guide (active)
+# Reproduction guide
 
-Two distinct operations; do not conflate them.
+Everything runs locally with a Rust toolchain. No network, external
+service, or second language runtime is involved.
 
-## Fast analysis reproduction (reviewers)
-
-Regenerates every table, figure, macro, and abstract number from the
-sealed compact export, without rerunning training. Runs in the paper
-repository (sibling `agentic-language-development-paper`):
+## Build and test
 
 ```sh
-make reproduce
+cargo build --workspace
+cargo test --workspace
 ```
 
-Inputs: `results/summary.json` (sealed export), the provenance chain
-`results/manifest.json` through `results/manifest.v4.json` (the v4
-per-source table is authoritative), `results/per-dyad.tsv` (sufficient
-analysis inputs), pinned
-`pyproject.toml` + `uv.lock` (self-contained uv environment). No private token,
-sibling repo, network fetch, or host path is required.
+The emergence claim is pinned by
+`agent_policies_co_train_unsupervised_like_probe_v4` in
+`crates/ald-learners`: 3,000 alternating training episodes (1,500 per
+direction) from exact-uniform initial policies, asserting Brier
+advantage over uniform above 0.4 and receiver sharpness above 0.8
+(measured 0.5353 and 0.8414 under the test's fixed seed).
 
-Current state: the sealed export is FEASIBILITY-ONLY (methods
-measurements, no study estimates; `per-dyad.tsv` has no rows by design).
-`make reproduce` regenerates methods macros only.
-
-## Fresh training replication (not available)
-
-The original study would rerun from the frozen protocol as:
+## Run one dyad
 
 ```sh
-pnpm run paper:run --manifest <execution-manifest> --cohort <name> --index <n>
+cargo run -p ald-cli -- run \
+  --manifest protocols/ala-lv-execution-manifest.v2.json \
+  --cohort development --kind primary --index 0 \
+  --evidence-root ./evidence
 ```
 
-but P5 admission was refused (NO-GO) and the development budget is
-spent, so no cohort is runnable. Same-seed `--resume` reruns a crashed
-slot only. Any future study needs a new versioned protocol revision and
-a fresh prospective allowance; it would be a new study, never completion
-of the v1 campaign.
+The manifest fixes the workload: 3,000 training cases (1,500 per
+role, i.e. 1,500 training episodes per direction), 240
+validation-fit, 240 validation-selection, and 240 within-support
+test cases. Cohorts `A` and `B` refuse to run without a GO admission
+record at `<evidence-root>/admission.json`; `development` needs none.
 
-## Environment
+The run prints the dyad receipt as JSON and writes
+`./evidence/development/primary-0000/`:
 
-Everything runs locally; neither this fork nor the paper repository
-has CI (no `.github/` workflows in either tree).
+- `agent-policy-agent-0.json`, `agent-policy-agent-1.json` — the
+  frozen sender+receiver policies;
+- `role-folds-agent-0.json`, `role-folds-agent-1.json` — per-role
+  folds with native and replay test distributions;
+- `branch-probabilities-agent-0.json`,
+  `branch-probabilities-agent-1.json` — per-case native, replay, and
+  control-branch distributions;
+- `primary.json`, `dyad-result.json`, `dyad-receipt.json`;
+- `evidence.sqlite` — hash-chained event streams for the run;
 
-- Node 24.x (`.node-version`), pnpm 12.3.4 (`engines`), uv-managed
-  Python (paper repo `pyproject.toml` + `uv.lock`, stdlib-only
-  scripts; no R/Rscript).
-- Paper PDFs build locally via the paper repo in the pinned
-  `texlive/texlive` container (digest in the paper README) or an
-  approved local TeX installation; inspect the local PDF and log
-  with `pdfinfo`/`pdftotext`/rendering. Nothing is uploaded
-  anywhere and no hosted run registers checks.
+plus attempted/terminal lines appended to `./evidence/journal.jsonl`.
 
-## Provenance checks
+## Analyze
 
-- `pnpm run paper:validate` — secrets + frozen claim boundary + protocol
-  binding.
-- `pnpm run paper:audit` — claim boundary only; reports PARTIAL and exits
-  2. There is no sealed study-evidence audit (no study ran).
-- Every manuscript measurement traces to the sealed export via
-  `docs/claims.tsv` in the paper repo; protocol design constants cite
-  the frozen contracts digested in the export manifest. No console
-  summaries, placeholder macros, or hand-typed table cells.
+Selection and scoring are separate stages. `analyze` refuses to
+overwrite an existing output path, and unknown arguments are
+rejected rather than dropped.
+
+```sh
+cargo run -p ald-cli -- analyze select \
+  --dyad ./evidence/development/primary-0000 \
+  --cohort development --out ./evidence/selection.json
+cargo run -p ald-cli -- analyze score \
+  --dyad ./evidence/development/primary-0000 \
+  --cohort development --selection ./evidence/selection.json \
+  --bootstrap-seed <seed> --out ./evidence/score.json
+```
+
+`select` locks the lowest-validation-Brier ordinary predictor per
+role and prints each record's hash. `score` recomputes the selection
+and aborts if it differs from the locked record, then writes
+per-dyad primaries, control contrasts, the cohort interval, and a
+bootstrap interval. Pass one `--dyad` per dyad directory for a
+cohort; `--coverage`, `--bootstrap-resamples`, and `--attempted`
+override the defaults 0.975, 10,000, and the dyad count.
+
+## Verify evidence
+
+```sh
+cargo run -p ald-cli -- verify ./evidence/development/primary-0000/evidence.sqlite
+```
+
+Prints a verification report (`ok: true` on success, with stream and
+event counts) and exits nonzero on any chain or checkpoint failure.
+
+## Determinism check
+
+Rerun the same dyad into a second evidence root and compare:
+
+```sh
+cargo run -p ald-cli -- run \
+  --manifest protocols/ala-lv-execution-manifest.v2.json \
+  --cohort development --kind primary --index 0 \
+  --evidence-root ./evidence-2
+diff ./evidence/development/primary-0000/agent-policy-agent-0.json \
+     ./evidence-2/development/primary-0000/agent-policy-agent-0.json
+diff ./evidence/development/primary-0000/primary.json \
+     ./evidence-2/development/primary-0000/primary.json
+```
+
+Policy, fold, and probability artifacts are byte-identical across
+runs; only the receipt's measured wall-clock seconds differ. The
+`determinism` tests in `crates/ald-orchestrator` assert this in the
+suite.

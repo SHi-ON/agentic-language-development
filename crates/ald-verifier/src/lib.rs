@@ -35,8 +35,8 @@ pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierEr
     let mut events = 0u64;
     let mut streams = 0u64;
     for stream in [
-        ald_types::EventStream::BabyALedger,
-        ald_types::EventStream::BabyBLedger,
+        ald_types::EventStream::Agent0Ledger,
+        ald_types::EventStream::Agent1Ledger,
         ald_types::EventStream::Channel,
         ald_types::EventStream::Affect,
         ald_types::EventStream::Audit,

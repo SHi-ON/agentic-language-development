@@ -10,7 +10,7 @@ pub const GENESIS_HASH: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
 pub mod hash_domains {
-    pub const LEDGER_ENTRY: &str = "dtsf-baby-ledger-entry-v1";
+    pub const LEDGER_ENTRY: &str = "dtsf-agent-ledger-entry-v1";
     pub const MERKLE_LEAF: &str = "dtsf-merkle-leaf-v1";
     pub const MERKLE_NODE: &str = "dtsf-merkle-node-v1";
     pub const CHECKPOINT: &str = "dtsf-ledger-checkpoint-v1";
@@ -21,7 +21,7 @@ pub mod hash_domains {
     pub const AUDIT_LEDGER_ENTRY: &str = "dtsf-audit-ledger-entry-v1";
     pub const INTERVENTION_EVENT: &str = "dtsf-intervention-event-v1";
     pub const TURN_RECORD: &str = "dtsf-turn-record-v1";
-    pub const BABY_PROPOSAL: &str = "dtsf-baby-proposal-v1";
+    pub const AGENT_PROPOSAL: &str = "dtsf-agent-proposal-v1";
     pub const REJECTED_PAYLOAD: &str = "dtsf-rejected-payload-v1";
     pub const RUN_CONFIG: &str = "dtsf-run-config-v1";
     pub const RUN_ID: &str = "dtsf-run-id-v1";
@@ -38,10 +38,10 @@ pub mod hash_domains {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EventStream {
-    #[serde(rename = "baby-a-ledger")]
-    BabyALedger,
-    #[serde(rename = "baby-b-ledger")]
-    BabyBLedger,
+    #[serde(rename = "agent-0-ledger")]
+    Agent0Ledger,
+    #[serde(rename = "agent-1-ledger")]
+    Agent1Ledger,
     #[serde(rename = "channel")]
     Channel,
     #[serde(rename = "affect")]
@@ -58,7 +58,7 @@ impl EventStream {
     #[must_use]
     pub const fn hash_domain(self) -> &'static str {
         match self {
-            Self::BabyALedger | Self::BabyBLedger => hash_domains::LEDGER_ENTRY,
+            Self::Agent0Ledger | Self::Agent1Ledger => hash_domains::LEDGER_ENTRY,
             Self::Channel => hash_domains::CHANNEL_EVENT,
             Self::Affect => hash_domains::AFFECT_EVENT,
             Self::Audit => hash_domains::AUDIT_LEDGER_ENTRY,
@@ -70,8 +70,8 @@ impl EventStream {
     #[must_use]
     pub const fn as_str(self) -> &'static str {
         match self {
-            Self::BabyALedger => "baby-a-ledger",
-            Self::BabyBLedger => "baby-b-ledger",
+            Self::Agent0Ledger => "agent-0-ledger",
+            Self::Agent1Ledger => "agent-1-ledger",
             Self::Channel => "channel",
             Self::Affect => "affect",
             Self::Audit => "audit",
@@ -85,27 +85,27 @@ pub const SIGNATURE_FIELDS: [&str; 2] = ["entryHash", "writerSignature"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub enum BabyRole {
-    #[serde(rename = "baby-a")]
-    BabyA,
-    #[serde(rename = "baby-b")]
-    BabyB,
+pub enum AgentRole {
+    #[serde(rename = "agent-0")]
+    Agent0,
+    #[serde(rename = "agent-1")]
+    Agent1,
 }
 
-impl BabyRole {
+impl AgentRole {
     #[must_use]
-    pub const fn baby_id(self) -> char {
+    pub const fn agent_id(self) -> char {
         match self {
-            Self::BabyA => 'A',
-            Self::BabyB => 'B',
+            Self::Agent0 => '0',
+            Self::Agent1 => '1',
         }
     }
 
     #[must_use]
     pub const fn other(self) -> Self {
         match self {
-            Self::BabyA => Self::BabyB,
-            Self::BabyB => Self::BabyA,
+            Self::Agent0 => Self::Agent1,
+            Self::Agent1 => Self::Agent0,
         }
     }
 }
@@ -150,8 +150,8 @@ mod tests {
     #[test]
     fn stream_domains_match_ts() {
         assert_eq!(
-            EventStream::BabyALedger.hash_domain(),
-            "dtsf-baby-ledger-entry-v1"
+            EventStream::Agent0Ledger.hash_domain(),
+            "dtsf-agent-ledger-entry-v1"
         );
         assert_eq!(
             EventStream::Channel.hash_domain(),
@@ -162,7 +162,7 @@ mod tests {
 
     #[test]
     fn role_helpers() {
-        assert_eq!(BabyRole::BabyA.baby_id(), 'A');
-        assert_eq!(BabyRole::BabyA.other(), BabyRole::BabyB);
+        assert_eq!(AgentRole::Agent0.agent_id(), '0');
+        assert_eq!(AgentRole::Agent0.other(), AgentRole::Agent1);
     }
 }
