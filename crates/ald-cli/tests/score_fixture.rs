@@ -163,3 +163,56 @@ fn analyze_refuses_to_overwrite_outputs() {
         "score overwrote an existing output"
     );
 }
+
+#[test]
+fn analyze_rejects_bare_dyad_paths() {
+    // Regression: bare paths after --dyad used to be silently dropped,
+    // scoring n=1 with exit 0. Every token must be a known flag or value.
+    let dir = scratch_dir("stray");
+    let out = dir.join("o.json");
+    let stray = ala()
+        .args([
+            "analyze",
+            "score",
+            "--dyad",
+            &fixture_dyad("A"),
+            &fixture_dyad("B"),
+            "--cohort",
+            "A",
+            "--out",
+            out.to_str().unwrap(),
+            "--selection",
+            "none",
+            "--bootstrap-seed",
+            "s",
+        ])
+        .status()
+        .unwrap();
+    assert_eq!(stray.code(), Some(2), "bare path must exit 2");
+    assert!(!out.exists(), "rejected invocation must not write output");
+
+    let multi = ala()
+        .args([
+            "analyze",
+            "select",
+            "--dyad",
+            &fixture_dyad("A"),
+            "--dyad",
+            &fixture_dyad("B"),
+            "--cohort",
+            "A",
+            "--out",
+            out.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        multi.status.success(),
+        "repeated --dyad flags must be accepted"
+    );
+    let stdout = String::from_utf8_lossy(&multi.stdout);
+    assert!(
+        stdout.contains("SELECT OK: 4 record(s)"),
+        "two dyads x two roles must yield 4 records, got: {stdout}"
+    );
+}

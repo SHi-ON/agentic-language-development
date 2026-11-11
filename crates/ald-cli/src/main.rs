@@ -46,6 +46,19 @@ fn inventory() -> Vec<String> {
 }
 
 fn cmd_run(args: &[String]) {
+    reject_stray_args(
+        args,
+        "run",
+        &[
+            "--manifest",
+            "--cohort",
+            "--kind",
+            "--index",
+            "--evidence-root",
+            "--treatment-batch-version",
+            "--protocol-version",
+        ],
+    );
     let req = ald_orchestrator::DyadRequest {
         manifest_path: arg(args, "--manifest").unwrap_or_else(|| usage()),
         cohort: arg(args, "--cohort").unwrap_or_else(|| usage()),
@@ -68,11 +81,39 @@ fn cmd_run(args: &[String]) {
     }
 }
 
+/// Reject unknown or bare arguments: silently dropping a `--dyad`
+/// value would corrupt `n` with a zero exit code.
+fn reject_stray_args(args: &[String], what: &str, flags: &[&str]) {
+    let mut i = 0;
+    while i < args.len() {
+        if flags.contains(&args[i].as_str()) {
+            i += 2; // flag + value; a missing value surfaces as usage() below
+        } else {
+            eprintln!("ala {what}: unexpected argument {:?}", args[i]);
+            std::process::exit(2);
+        }
+    }
+}
+
 fn cmd_analyze(args: &[String]) {
     if args.is_empty() {
         usage();
     }
     let stage = args[0].clone();
+    reject_stray_args(
+        &args[1..],
+        "analyze",
+        &[
+            "--dyad",
+            "--cohort",
+            "--out",
+            "--selection",
+            "--coverage",
+            "--bootstrap-seed",
+            "--bootstrap-resamples",
+            "--attempted",
+        ],
+    );
     let dyads: Vec<String> = args
         .windows(2)
         .filter(|w| w[0] == "--dyad")
