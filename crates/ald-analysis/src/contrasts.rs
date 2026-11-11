@@ -1,8 +1,7 @@
 //! Control contrasts: V2 binary-success version plus the V3 paired-Brier
 //! version, simultaneous one-sided t bounds, invalidity bounds, fidelity.
 //!
-//! Ports the estimation block of `packages/analysis/src/ala-lv-estimation.ts`
-//! and extends it: each case's normal-branch and control-branch full
+//! Estimation: each case's normal-branch and control-branch full
 //! distributions give a paired Brier difference on the same scale as the
 //! primary, instead of a 0/1 turn-success difference.
 
@@ -20,7 +19,7 @@ pub const CONTRAST_IDS: [&str; 4] = [
 /// Simultaneous family: 0.05 over eight contrasts (four per cohort x A/B).
 pub const FAMILY_ALPHA: f64 = 0.05;
 pub const FAMILY_SIZE: usize = 8;
-/// Admissible ranges carried over from the TS contract.
+/// Admissible ranges for the primary and success contrasts.
 pub const PRIMARY_ADMISSIBLE: (f64, f64) = (-2.0, 2.0);
 pub const SUCCESS_CONTRAST_ADMISSIBLE: (f64, f64) = (-1.0, 1.0);
 

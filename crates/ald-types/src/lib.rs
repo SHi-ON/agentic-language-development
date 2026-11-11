@@ -1,7 +1,6 @@
 //! Shared ALD domain separators, hash/stream contracts, and ALA-LV types.
 //!
-//! Port of `packages/types/src/domains.ts` + the ALA-relevant subset of
-//! contracts/schemas: every hash is `sha256:<64 hex>`, construction is
+//! Every hash is `sha256:<64 hex>`, construction is
 //! `SHA-256(domain || 0x00 || payload)` unless noted.
 
 use serde::{Deserialize, Serialize};

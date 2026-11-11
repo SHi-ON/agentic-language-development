@@ -1,4 +1,4 @@
-//! Runtime environment loading. Ports `packages/config/src/index.ts`.
+//! Runtime environment loading.
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

@@ -1,8 +1,7 @@
 //! ALD analysis toolkit: descriptive stats, special functions, bootstrap,
 //! LV01 predictors, ALA-LV dyad estimation, and V3 control contrasts.
 //!
-//! Rust port of `packages/analysis/src`. Estimation-only: no supported
-//! labels, no power claims.
+//! Estimation-only: no supported labels, no power claims.
 
 use thiserror::Error;
 

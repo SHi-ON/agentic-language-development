@@ -1,6 +1,6 @@
 //! Intervention events and gateway branch substitution.
 //!
-//! Rust port of `packages/interventions/src`: typed intervention events
+//! Typed intervention events
 //! with entry hashes, and the four control-branch substitutions
 //! (disabled / constant / random / shuffled) applied to a normal
 //! distribution.

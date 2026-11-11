@@ -1,6 +1,6 @@
 //! Run lifecycle: register → execute → checkpoint → anchor → verify.
 //!
-//! Rust port of `packages/lifecycle/src`: the linear state machine that
+//! The linear state machine that
 //! gates every run. Transitions are total functions returning the next
 //! state or a domain error; illegal transitions are unrepresentable at
 //! runtime and rejected here.

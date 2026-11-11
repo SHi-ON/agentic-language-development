@@ -1,6 +1,6 @@
 //! Operations: failure correlation digests and retention policy.
 //!
-//! Rust port of `packages/ops/src`: operator-only failure digests
+//! Operator-only failure digests
 //! (`SHA-256("dtsf-ops-failure-message-v1" || 0x00 || message)`) and the
 //! retention window check.
 

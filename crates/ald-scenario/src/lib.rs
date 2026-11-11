@@ -1,9 +1,7 @@
 //! Referential scenario engine (LV01): deterministic candidate generation,
 //! transcript production, and paired-branch execution plans.
 //!
-//! Rust port of the `ReferentialScenarioEngine` surface in
-//! `packages/scenario/src` plus the LV01 branch plan in
-//! `packages/orchestrator/src/experiments/ledger-value.ts`.
+//! The `ReferentialScenarioEngine` surface plus the LV01 branch plan.
 
 use ald_hashing::SeededPrng;
 use serde::{Deserialize, Serialize};

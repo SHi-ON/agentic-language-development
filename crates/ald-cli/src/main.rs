@@ -1,7 +1,7 @@
 //! `ala` — the single ALD command-line interface.
 //!
-//! Replaces every `scripts/ala-*.ts`, `scripts/*.mjs`, and shell harness:
-//! `ala run`, `ala analyze select|score`, `ala verify`, `ala manifest`.
+//! Single entry point for every ALA operation: `ala run`,
+//! `ala analyze select|score`, `ala verify`, `ala manifest`.
 
 use ald_hashing::{canonical_json, hash_canonical};
 use std::path::PathBuf;

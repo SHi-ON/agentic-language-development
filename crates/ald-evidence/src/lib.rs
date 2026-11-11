@@ -1,7 +1,7 @@
 //! SQLite evidence store: hash-chained event streams, checkpoints, export.
 //!
-//! Rust port of `packages/evidence/src/database.ts` + `export.ts` surface:
-//! one SQLite file, one table per concern; every event carries `entryHash =
+//! Database and export surface: one SQLite file, one table per concern;
+//! every event carries `entryHash =
 //! SHA-256(stream-domain || 0x00 || canonical(unsigned event))` and chains to
 //! the previous hash. Single-writer discipline is the caller's contract.
 

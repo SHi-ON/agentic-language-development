@@ -1,8 +1,8 @@
 //! ALA dyad orchestration: seeds, workload, manifest, and the dyad runner.
 //!
-//! Rust port of `packages/orchestrator/src/ala/` (seeds, workload,
-//! manifest, runner) plus the LV01 experiment wiring used by the ALA path.
-//! The runner executes one full dyad deterministically from the frozen
+//! Seeds, workload, manifest, and runner, plus the LV01 experiment
+//! wiring used by the ALA path. The runner executes one full dyad
+//! deterministically from the frozen
 //! manifest and writes the evidence database, journal lines, and receipt.
 
 use ald_hashing::derive_seed_hex;
@@ -22,7 +22,7 @@ pub enum OrchestratorError {
 }
 
 // ---------------------------------------------------------------------------
-// Seeds (ala-seeds.ts)
+// Seeds
 // ---------------------------------------------------------------------------
 
 pub const ALA_SEED_ROOT: &str = "ala-ledger-value-v1";
@@ -107,7 +107,7 @@ pub fn derive_ala_seed(input: &AlaSeedInput) -> Result<String, OrchestratorError
 }
 
 // ---------------------------------------------------------------------------
-// Workload (ala-workload.ts)
+// Workload
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

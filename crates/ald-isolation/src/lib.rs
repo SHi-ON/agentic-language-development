@@ -1,7 +1,7 @@
 //! Isolation modes: prototype (in-process, logical separation) and
 //! research-grade (separate-process boundary contract).
 //!
-//! Rust port of `packages/isolation/src`: the mode contract table plus the
+//! The mode contract table plus the
 //! transport boundary check. Research-grade process spawning is expressed as
 //! an explicit `Boundary` the runtime must satisfy; the prototype transport
 //! is in-process channels.

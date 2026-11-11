@@ -1,6 +1,4 @@
 //! Descriptive statistics, Wilson intervals, bootstrap, t-tests.
-//!
-//! Ports `packages/analysis/src/{descriptive,bootstrap,hypothesis}.ts`.
 
 use crate::special::normal_quantile;
 use crate::AnalysisError;
@@ -42,7 +40,7 @@ fn assert_level(level: f64, name: &str) -> Result<(), AnalysisError> {
 }
 
 /// Sample summary with unbiased (n-1) variance; variance/sd are NaN at n=1;
-/// exact 0.0 variance for point masses (matches TS).
+/// exact 0.0 variance for point masses.
 pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
     assert_sample(values, "values")?;
     let n = values.len();
@@ -264,7 +262,7 @@ mod tests {
 
     #[test]
     fn bootstrap_matches_ts_oracle() {
-        // TS bootstrapMeanCi([0.1,0.2,0.3], seed 's', 100 reps, 0.95).
+        // Reference values for [0.1,0.2,0.3], seed 's', 100 reps, 0.95.
         let r = bootstrap_mean_ci(&[0.1, 0.2, 0.3], "s", 100, 0.95).unwrap();
         assert!((r.estimate - 0.20000000000000004).abs() < 1e-15);
         assert!((r.lower - 0.11583333333333343).abs() < 1e-12);

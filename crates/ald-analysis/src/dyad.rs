@@ -1,7 +1,7 @@
 //! ALA-LV dyad estimation: per-role scoring, dyad primary, cohort t-interval.
 //!
-//! Ports `packages/analysis/src/ala-lv-dyad.ts`. V3 addition: test rows
-//! retain per-branch native distributions so control contrasts are paired
+//! V3 test rows retain per-branch native distributions so control
+//! contrasts are paired
 //! Brier differences on the same scale as the primary.
 
 use crate::ledger::{

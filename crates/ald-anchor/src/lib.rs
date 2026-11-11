@@ -1,6 +1,6 @@
 //! Anchor publisher: simulated-chain anchor receipts and verification.
 //!
-//! Rust port of `packages/anchor/src` (simulated transport): an anchor
+//! Simulated transport: an anchor
 //! receipt binds a checkpoint hash to a monotonically increasing height;
 //! verification checks the binding hash.
 

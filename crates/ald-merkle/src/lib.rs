@@ -1,6 +1,6 @@
 //! Merkle leaf/node hashing and inclusion/consistency proofs.
 //!
-//! Ports `packages/merkle/src/{hashes,tree,verify}.ts`:
+//! Hash construction:
 //! leaf = SHA-256(merkle-leaf-domain || 0x00 || uint64BE(seq) || entryHashBytes)
 //! node = SHA-256(merkle-node-domain || 0x01 || leftBytes || rightBytes).
 
@@ -55,7 +55,7 @@ pub const fn node_domain() -> &'static str {
     hash_domains::MERKLE_NODE
 }
 
-/// Unused-compat alias kept for TS `hashCarrierMark` callers.
+/// Compatibility alias for carrier-mark callers.
 #[must_use]
 pub fn carrier_mark(carrier_mode: &str, artifact_canonical: &str) -> String {
     domain_hash(

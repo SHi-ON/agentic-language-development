@@ -1,6 +1,6 @@
 //! Symbol gateway: delivery routing and control-branch substitution point.
 //!
-//! Rust port of `packages/gateway/src` surface used by ALA: route a
+//! ALA surface: route a
 //! delivered token to the receiver role, and expose the branch at which
 //! control substitution happens (the substitution math itself lives in
 //! `ald-interventions`).

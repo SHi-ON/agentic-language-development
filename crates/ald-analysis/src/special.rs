@@ -1,7 +1,7 @@
 //! Special functions: log-gamma, normal CDF/quantile, Student-t CDF/quantile.
 //!
-//! Ports `packages/analysis/src/special.ts` (Cephes-style incomplete beta,
-//! Acklam normal quantile, bisection t quantile).
+//! Cephes-style incomplete beta, Acklam normal quantile, and
+//! bisection t quantile.
 
 use crate::AnalysisError;
 

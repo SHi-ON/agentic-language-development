@@ -1,8 +1,7 @@
 //! Canonical JSON (RFC 8785 JCS), SHA-256 domain hashing, and the
 //! deterministic `SeededPrng` (SHA-256 counter mode).
 //!
-//! Ports `packages/hashing/src/canonical.ts`, `sha256.ts`, and `prng.ts`.
-//! JCS here is implemented directly (sorted keys, minimal escaping) so the
+//! JCS is implemented directly (sorted keys, minimal escaping) so the
 //! crate has no non-audited canonicalization dependency.
 
 use ald_types::SIGNATURE_FIELDS;
@@ -184,8 +183,8 @@ pub fn compute_entry_hash(
     hash_canonical(stream.hash_domain(), &body)
 }
 
-/// Deterministic SHA-256 counter-mode PRNG. Stream layout matches the TS
-/// `SeededPrng`: key = SHA-256(seed-domain || 0x00 || utf8(seed)),
+/// Deterministic SHA-256 counter-mode PRNG (`SeededPrng` stream
+/// layout): key = SHA-256(seed-domain || 0x00 || utf8(seed)),
 /// block = SHA-256(key || uint64BE(counter)).
 pub struct SeededPrng {
     key: [u8; 32],
@@ -208,7 +207,7 @@ impl SeededPrng {
     }
 
     /// Independent child stream; same label always yields the same stream.
-    /// Matches TS `derive`: `new SeededPrng(hex(key) + "/" + label)`.
+    /// Construction: `SeededPrng::new(hex(key) + "/" + label)`.
     #[must_use]
     pub fn derive(&self, label: &str) -> Self {
         Self::new(&format!("{}/{}", hex::encode(self.key), label))
@@ -312,8 +311,8 @@ mod tests {
 
     #[test]
     fn prng_matches_ts_oracle_seed_x() {
-        // Oracle values from the TS SeededPrng (packages/hashing/src/prng.ts),
-        // seed "x": three uint32s, then nextFloat, then nextInt(700).
+        // Reference oracle values for seed "x": three uint32s, then
+        // next_float, then next_int(700).
         let mut rng = SeededPrng::new("x");
         assert_eq!(rng.next_u32(), 3255788481);
         assert_eq!(rng.next_u32(), 3306436351);
@@ -324,14 +323,15 @@ mod tests {
 
     #[test]
     fn canonical_matches_ts_oracle() {
-        // TS canonicalize({b:1,a:[2,1]}) === '{"a":[2,1],"b":1}'.
+        // Canonical form of {b:1,a:[2,1]} is '{"a":[2,1],"b":1}'.
         let v: Value = serde_json::from_str(r#"{"b":1,"a":[2,1]}"#).unwrap();
         assert_eq!(canonical_json(&v).unwrap(), r#"{"a":[2,1],"b":1}"#);
     }
 
     #[test]
     fn prng_matches_ts_oracle_d6_seed() {
-        // TS SeededPrng("a136f247...df357a"): first uint32, first float, nextInt(10000).
+        // Reference stream for seed "a136f247...df357a": first uint32,
+        // first float, next_int(10000).
         let mut rng = SeededPrng::new(
             "a136f247e0b12755021e5027a4e7b5f41d3b630e418a609c2d30cfd995df357a",
         );
@@ -342,7 +342,8 @@ mod tests {
 
     #[test]
     fn ala_seed_matches_ts_oracle() {
-        // TS deriveAlaSeed(A/primary/0300/scenario/agent-0-receiver, v2 root).
+        // Reference seed derivation
+        // (A/primary/0300/scenario/agent-0-receiver, v2 root).
         assert_eq!(
             derive_seed_hex(&[
                 "ala-ledger-value-v2",

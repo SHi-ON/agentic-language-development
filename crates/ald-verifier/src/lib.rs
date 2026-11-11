@@ -1,6 +1,6 @@
 //! Independent bundle verifier: chain-walk, checkpoint, and inclusion checks.
 //!
-//! Rust port of `packages/verifier/src/verify-bundle.ts` surface: verify a
+//! Verify a
 //! stream's hash chain (via `ald-evidence`), re-check checkpoint hashes, and
 //! validate Merkle inclusion proofs.
 

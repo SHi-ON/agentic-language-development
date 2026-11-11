@@ -1,6 +1,6 @@
 //! Outcome-safe ordinary-record predictors (LV01).
 //!
-//! Ports `packages/analysis/src/ledger-value.ts`: five predictors
+//! Five predictors
 //! (uniform, validation-majority, transcript-only, task-history,
 //! ordinary-record-softmax), Laplace-smoothed count fits, 2000-step
 //! gradient softmax, Brier selection with EPS tie-break, refit on

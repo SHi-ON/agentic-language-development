@@ -1,8 +1,8 @@
 //! Deterministic semantic-leakage qualification (SPEC §6.5).
 //!
-//! Ports the `SEMANTIC_LEAKAGE_*` constants and the linear-probe decision
-//! rule of `packages/leakage/src/index.ts`. The probe itself is a pure
-//! function over caller-supplied accuracies so offline analysis stays
+//! `SEMANTIC_LEAKAGE_*` constants and the linear-probe decision rule.
+//! The probe itself is a pure function over caller-supplied accuracies
+//! so offline analysis stays
 //! dependency-free.
 
 pub const SEMANTIC_LEAKAGE_ANALYSIS_VERSION: &str = "semantic-leakage-v2";
