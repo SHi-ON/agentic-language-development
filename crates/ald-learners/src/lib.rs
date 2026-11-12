@@ -103,6 +103,17 @@ fn reinforce_row(
     }
 }
 
+/// Optional persisted policy metadata. Absent on every legacy policy, so
+/// legacy [`AgentPolicy::to_bytes`] output is byte-identical with or without
+/// this field.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AgentPolicyMetadata {
+    /// Sender vocabulary constraint: sampling, normalization, and updates
+    /// use only tokens `0..active_sender_tokens`. The persisted tables keep
+    /// the full 32-token shape regardless.
+    pub active_sender_tokens: u32,
+}
+
 /// Symmetric emergent agent: sender logits `[NUM_TYPES][NUM_TOKENS]` plus
 /// receiver logits `[NUM_TOKENS][NUM_TYPES]`, mirroring probe v4 exactly.
 ///
@@ -128,6 +139,11 @@ pub struct AgentPolicy {
     receiver_baseline: [f64; NUM_TOKENS],
     /// Observation counts backing the receiver baselines.
     receiver_baseline_counts: [u64; NUM_TOKENS],
+    /// Development-only constraint record; `None` means the full 32-token
+    /// sender. Skipped on the wire when absent, so default serialization is
+    /// unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    metadata: Option<AgentPolicyMetadata>,
 }
 
 impl Default for AgentPolicy {
@@ -147,17 +163,58 @@ impl AgentPolicy {
             sender_baseline_counts: [0; NUM_TYPES],
             receiver_baseline: [0.0; NUM_TOKENS],
             receiver_baseline_counts: [0; NUM_TOKENS],
+            metadata: None,
         }
     }
 
+    /// Fresh agent whose sender is constrained to the first `k` tokens.
+    /// Sampling, normalization ([`AgentPolicy::sender_probs`]), and sender
+    /// updates all operate on tokens `0..k` only; probabilities outside are
+    /// exact `0.0` and logits outside stay exactly `0.0`. The persisted
+    /// tables keep the full 32-token shape, and `k` is recorded in metadata.
+    /// The CLI/orchestrator restrict `k` to 8/16/32; this constructor accepts
+    /// any `1..=NUM_TOKENS` and rejects anything else without fallback.
+    pub fn with_active_sender_tokens(k: usize) -> Result<Self, LearnerError> {
+        if !(1..=NUM_TOKENS).contains(&k) {
+            return Err(LearnerError::Domain(format!(
+                "active sender tokens must be within 1..={NUM_TOKENS}, got {k}"
+            )));
+        }
+        let mut policy = Self::new();
+        if k != NUM_TOKENS {
+            policy.metadata = Some(AgentPolicyMetadata {
+                active_sender_tokens: k as u32,
+            });
+        }
+        Ok(policy)
+    }
+
+    /// Number of sender tokens this policy samples from (`NUM_TOKENS` unless
+    /// a development constraint is recorded in metadata).
+    #[must_use]
+    pub fn active_sender_tokens(&self) -> usize {
+        self.metadata
+            .as_ref()
+            .map_or(NUM_TOKENS, |m| m.active_sender_tokens as usize)
+    }
+
     /// Softmax token distribution the sender uses for one type (sums to 1).
+    /// Under an active-token constraint the softmax normalizes over the
+    /// first `k` logits only and pads exact `0.0` beyond; unconstrained
+    /// policies take the legacy full-row path bit-identically.
     ///
     /// # Panics
     ///
     /// Panics when `type_idx` is out of range.
     #[must_use]
     pub fn sender_probs(&self, type_idx: usize) -> Vec<f64> {
-        softmax(&self.sender_logits[type_idx])
+        let k = self.active_sender_tokens();
+        if k == NUM_TOKENS {
+            return softmax(&self.sender_logits[type_idx]);
+        }
+        let mut probs = softmax(&self.sender_logits[type_idx][..k]);
+        probs.resize(NUM_TOKENS, 0.0);
+        probs
     }
 
     /// Sample a token from the type's sender softmax using `rng` (one
@@ -236,26 +293,44 @@ impl AgentPolicy {
     /// probe v4). Applied on every training episode, including dropped
     /// tokens: the sender still learns from the shared outcome. Non-finite
     /// rewards are ignored so a broken reward signal can never poison the
-    /// persisted policy.
+    /// persisted policy. Under an active-token constraint the REINFORCE
+    /// step runs on the first-`k` sub-row only (baseline/counts still
+    /// advance); logits at `k..` are never touched. Unconstrained policies
+    /// take the legacy full-row path bit-identically.
     ///
     /// # Panics
     ///
-    /// Panics when `type_idx` or `token` is out of range.
+    /// Panics when `type_idx` or `token` is out of range, or when `token`
+    /// is outside the active set under a constraint.
     pub fn update_sender(&mut self, type_idx: usize, token: usize, reward: f64) {
         if !reward.is_finite() {
             return;
         }
         assert!(type_idx < NUM_TYPES, "AgentPolicy sender type out of range");
         assert!(token < NUM_TOKENS, "AgentPolicy sender token out of range");
-        let row = &mut self.sender_logits[type_idx];
-        reinforce_row(
-            row,
-            &mut self.sender_baseline[type_idx],
-            &mut self.sender_baseline_counts[type_idx],
-            token,
-            reward,
-            SENDER_LEARNING_RATE,
-        );
+        let k = self.active_sender_tokens();
+        assert!(token < k, "AgentPolicy sender token outside the active set");
+        if k == NUM_TOKENS {
+            let row = &mut self.sender_logits[type_idx];
+            reinforce_row(
+                row,
+                &mut self.sender_baseline[type_idx],
+                &mut self.sender_baseline_counts[type_idx],
+                token,
+                reward,
+                SENDER_LEARNING_RATE,
+            );
+        } else {
+            let row = &mut self.sender_logits[type_idx][..k];
+            reinforce_row(
+                row,
+                &mut self.sender_baseline[type_idx],
+                &mut self.sender_baseline_counts[type_idx],
+                token,
+                reward,
+                SENDER_LEARNING_RATE,
+            );
+        }
     }
 
     /// Receiver REINFORCE update on the SAMPLED candidate position with the
@@ -312,6 +387,26 @@ impl AgentPolicy {
         serde_json::to_vec(self).expect("AgentPolicy serialization is infallible")
     }
 
+    /// Sender logit row for one type (read-only inspection).
+    ///
+    /// # Panics
+    ///
+    /// Panics when `type_idx` is out of range.
+    #[must_use]
+    pub fn sender_logits(&self, type_idx: usize) -> &[f64] {
+        &self.sender_logits[type_idx]
+    }
+
+    /// Observation count backing one sender type's baseline.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `type_idx` is out of range.
+    #[must_use]
+    pub fn sender_baseline_count(&self, type_idx: usize) -> u64 {
+        self.sender_baseline_counts[type_idx]
+    }
+
     /// Restore a policy persisted with [`AgentPolicy::to_bytes`].
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, LearnerError> {
         let policy: Self =
@@ -334,9 +429,14 @@ impl AgentPolicy {
             .chain(policy.sender_baseline.iter())
             .chain(policy.receiver_baseline.iter())
             .all(|v| v.is_finite());
-        if !sender_ok || !receiver_ok || !finite {
+        let meta_ok = policy
+            .metadata
+            .as_ref()
+            .is_none_or(|m| (1..=NUM_TOKENS as u32).contains(&m.active_sender_tokens));
+        if !sender_ok || !receiver_ok || !finite || !meta_ok {
             return Err(LearnerError::Domain(
-                "AgentPolicy bytes have a bad shape or non-finite floats".to_string(),
+                "AgentPolicy bytes have a bad shape, bad metadata, or non-finite floats"
+                    .to_string(),
             ));
         }
         Ok(policy)
@@ -535,5 +635,79 @@ mod tests {
             advantage > 0.4,
             "Brier advantage over uniform should exceed 0.4, got {advantage} (brier {brier})"
         );
+    }
+
+    #[test]
+    fn active_sender_tokens_constrain_support_normalization_and_update() {
+        for k in [8usize, 16] {
+            let mut a = AgentPolicy::with_active_sender_tokens(k).unwrap();
+            assert_eq!(a.active_sender_tokens(), k);
+            // Normalization: first-k sums to 1, exact zero outside.
+            for ty in 0..NUM_TYPES {
+                let p = a.sender_probs(ty);
+                assert_eq!(p.len(), NUM_TOKENS);
+                assert!((p[..k].iter().sum::<f64>() - 1.0).abs() < 1e-12);
+                assert!(
+                    p[k..].iter().all(|v| *v == 0.0),
+                    "probs outside k must be exact 0.0"
+                );
+            }
+            // Support: sampling never leaves the active set.
+            let mut rng = ald_hashing::SeededPrng::new("support").derive("loop");
+            for _ in 0..2000 {
+                let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+                let t = a.sample_token(ty, &mut rng);
+                assert!(t < k, "sampled token {t} escapes the active set of {k}");
+            }
+            // Update: REINFORCE moves only the first-k sub-row; the rest
+            // stays exactly 0.0 while baselines/counts still advance.
+            for i in 0..300 {
+                let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+                let t = a.sample_token(ty, &mut rng);
+                // Mixed rewards: a constant reward would zero the advantage
+                // and move nothing.
+                a.update_sender(ty, t, f64::from((i % 2) as u8));
+            }
+            for ty in 0..NUM_TYPES {
+                assert!(a.sender_logits(ty)[k..].iter().all(|v| *v == 0.0));
+            }
+            assert!(a.sender_probs(3)[..k].iter().any(|v| *v != 1.0 / k as f64));
+            let total: u64 = (0..NUM_TYPES).map(|ty| a.sender_baseline_count(ty)).sum();
+            assert_eq!(
+                total, 300,
+                "every sender update must advance exactly one baseline count"
+            );
+            // Metadata round-trips with the 32-token tables intact.
+            let bytes = a.to_bytes();
+            let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(
+                v["metadata"]["active_sender_tokens"],
+                serde_json::json!(k as u32)
+            );
+            assert_eq!(v["sender_logits"].as_array().unwrap().len(), NUM_TYPES);
+            assert_eq!(v["sender_logits"][0].as_array().unwrap().len(), NUM_TOKENS);
+            let back = AgentPolicy::from_bytes(&bytes).unwrap();
+            assert_eq!(back, a);
+            assert_eq!(back.to_bytes(), bytes);
+        }
+    }
+
+    #[test]
+    fn active_sender_tokens_full_width_is_legacy() {
+        // k = 32 carries no metadata and serializes exactly like new().
+        let full = AgentPolicy::with_active_sender_tokens(32).unwrap();
+        assert_eq!(full.active_sender_tokens(), 32);
+        assert_eq!(full.to_bytes(), AgentPolicy::new().to_bytes());
+        let v: serde_json::Value = serde_json::from_slice(&full.to_bytes()).unwrap();
+        assert!(v.get("metadata").is_none());
+        // Out-of-range widths are rejected, never clamped.
+        assert!(AgentPolicy::with_active_sender_tokens(0).is_err());
+        assert!(AgentPolicy::with_active_sender_tokens(33).is_err());
+        let mut bad: serde_json::Value =
+            serde_json::from_slice(&AgentPolicy::new().to_bytes()).unwrap();
+        bad["metadata"] = serde_json::json!({"active_sender_tokens": 0});
+        assert!(AgentPolicy::from_bytes(&serde_json::to_vec(&bad).unwrap()).is_err());
+        bad["metadata"] = serde_json::json!({"active_sender_tokens": 99});
+        assert!(AgentPolicy::from_bytes(&serde_json::to_vec(&bad).unwrap()).is_err());
     }
 }

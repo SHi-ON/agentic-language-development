@@ -1,5 +1,12 @@
 <!-- contract: frozen-llm version: 1 -->
 
+> HISTORICAL RESEARCH RECORD — not a runtime dependency. This file specifies
+> an alternative learner track from the pre-Rust design era. The workspace
+> implements exactly one learner (the emergent `AgentPolicy` in
+> `crates/ald-learners`), and no code, manifest, or run path reads this
+> contract. Retained for provenance; its tool/ledger/affect/gradient language
+> does not describe current behavior.
+
 You are Learner A in a controlled communication experiment.
 This is not role-play. Do not imitate a human child.
 

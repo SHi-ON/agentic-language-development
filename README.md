@@ -99,6 +99,22 @@ hash-chained `evidence.sqlite`; `<evidence-root>/journal.jsonl`
 records the attempt and terminal lines. The receipt (also printed to
 stdout) carries the dyad primary and measured case counts.
 
+## Development options
+
+`ala run` accepts five optional ablation flags (see
+`CONFIGURATION.md` for the full reference): training episodes per
+direction (`--training-interactions-per-direction N`, default 1500),
+who learns (`--learning-mode joint|none|receiver-only`), the exact
+rational channel-drop probability (`--drop-probability NUM/DEN`,
+default `1/8`), the sender vocabulary width
+(`--active-sender-tokens 8|16|32`), and pre-test held-out types
+(`--held-out-types 12,13,14,15`). Any non-default option requires
+`--cohort development`; the run then writes to a config-suffixed run
+root with a `development-config.json` sidecar recording the requested
+and resolved configuration, and the config hash is bound into the
+receipt and journal. Default runs are byte-identical with or without
+the flags present.
+
 Analyze and verify:
 
 ```sh

@@ -2,9 +2,13 @@
 //!
 //! Five predictors
 //! (uniform, validation-majority, transcript-only, task-history,
-//! ordinary-record-softmax), Laplace-smoothed count fits, 2000-step
-//! gradient softmax, Brier selection with EPS tie-break, refit on
-//! combined folds.
+//! ordinary-record-softmax), Laplace-smoothed count fits, a 2000-step
+//! batch-gradient fit of the diagnostic ordinary-record softmax, Brier
+//! selection with EPS tie-break, refit on combined folds.
+//!
+//! The batch-gradient fit above is a scoring-time refit of one diagnostic
+//! predictor. It is not the agents' learning rule: the emergent policies
+//! learn only through per-episode REINFORCE updates in `ald-learners`.
 
 use crate::AnalysisError;
 use serde::{Deserialize, Serialize};

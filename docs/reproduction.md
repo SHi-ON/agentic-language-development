@@ -47,6 +47,40 @@ The run prints the dyad receipt as JSON and writes
 
 plus attempted/terminal lines appended to `./evidence/journal.jsonl`.
 
+## Run one development ablation
+
+Non-default development flags (full reference in
+`../CONFIGURATION.md`) require `--cohort development`:
+
+```sh
+cargo run -p ald-cli -- run \
+  --manifest protocols/ala-lv-execution-manifest.v2.json \
+  --cohort development --kind primary --index 0 \
+  --evidence-root ./evidence-dev \
+  --training-interactions-per-direction 500 \
+  --learning-mode joint \
+  --drop-probability 1/4 \
+  --active-sender-tokens 16 \
+  --held-out-types 12,13,14,15
+```
+
+The run root is suffixed with the configuration id
+(`./evidence-dev/development/primary-0000-dev-<8 hex>/`) and carries a
+`development-config.json` sidecar with the requested and resolved
+options, digests, per-role per-split seeds, the `2N`/`N` counts, the
+exposure census, and the protocol versions; the same config hash is
+bound into the receipt and both journal lines. Rerunning the identical
+configuration into the same root is refused; use a fresh evidence
+root per ablation (or per config, since distinct configs already land
+in distinct roots). Rejected invocations — a non-development cohort, a
+malformed value, a repeated flag — exit nonzero before creating any
+directory, journal, or database.
+
+Development runs are deterministic like default runs: rerun the same
+flags into a second root and every JSON artifact (plus the journal)
+is byte-identical. `analyze select|score` read an ablation's run root
+like any dyad directory.
+
 ## Analyze
 
 Selection and scoring are separate stages. `analyze` refuses to

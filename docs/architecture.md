@@ -59,6 +59,47 @@ score and verify its evidence.
    `dyad-result.json`, `dyad-receipt.json`, `evidence.sqlite`, and
    attempted/terminal lines in the evidence-root `journal.jsonl`.
 
+## Development options
+
+Five optional `run` flags ablate the dyad without touching the legacy
+path (`crates/ald-cli/src/main.rs` parses them into
+`DevelopmentOptions`; `crates/ald-orchestrator/src/lib.rs` validates
+and resolves them against the manifest, gates non-default configs to
+`--cohort development`, and applies them in `run_dyad_inner`):
+
+- Training length (`--training-interactions-per-direction N`) changes
+  only the episode loop bound: records generate as one deterministic
+  `max(N, fold)` stream per role, episodes run over its `N`-prefix,
+  and the persisted folds keep the manifest-count prefix. Validation
+  and test generation, seeds, and eval streams are untouched.
+- Learning mode (`--learning-mode`) gates only the two update calls in
+  the training loop; token sampling, channel draws, and position
+  sampling consume identical draws in every mode. `none` leaves both
+  policies bit-frozen; `receiver-only` leaves the sender exactly
+  uniform.
+- Drop probability (`--drop-probability NUM/DEN`) swaps the channel
+  predicate for the exact rational test `drop_draw_less_than`, called
+  with one draw per interaction in both training and test. The legacy
+  `u < 1.0 / 8.0` comparison runs verbatim on default runs.
+- Sender width (`--active-sender-tokens K`) builds the two agents with
+  `AgentPolicy::with_active_sender_tokens`, which constrains sender
+  sampling, normalization, and REINFORCE sub-rows to the first `K`
+  tokens and records `K` in policy metadata; tables keep the 32-token
+  shape.
+- Held-out types (`--held-out-types`) route pre-test fold generation
+  through `generate_cases_excluding` (same stream, deterministic
+  per-case replacement fills); test generation always calls
+  `generate_cases` unfiltered.
+
+Resolution, cohort gating, and the existing-root refusal all happen in
+`run_dyad` before any directory, journal, or database is created.
+Non-default runs suffix the run root with the 8-hex config id, write
+the `development-config.json` sidecar (requested + resolved options,
+digests, seeds, `2N`/`N` counts, exposure census, protocol versions),
+and bind the config hash into the receipt and both journal lines via
+optional fields that are absent on default runs — so default
+draws, arithmetic, serialization, and layout are unchanged.
+
 ## Boundaries
 
 - Agents share nothing except the delivered token (or its absence)

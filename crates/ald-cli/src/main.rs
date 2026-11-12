@@ -9,6 +9,8 @@ use std::path::PathBuf;
 fn usage() -> ! {
     eprintln!("usage: ala <run|analyze|verify|manifest|journal> [args...]");
     eprintln!("  ala run --manifest <path> --cohort <C> --kind <K> --index <N> --evidence-root <dir> [--treatment-batch-version N] [--protocol-version N]");
+    eprintln!("        [--training-interactions-per-direction N] [--learning-mode joint|none|receiver-only]");
+    eprintln!("        [--drop-probability NUM/DEN] [--active-sender-tokens 8|16|32] [--held-out-types 12,13,14,15]");
     eprintln!("  ala analyze select|score --dyad <dir>... --cohort <C> --out <path> [--selection <path>] [--coverage F] [--bootstrap-seed S] [--bootstrap-resamples N] [--attempted N]");
     eprintln!("  ala verify <evidence.sqlite>");
     eprintln!("  ala manifest --protocol-version <1|2>");
@@ -46,19 +48,23 @@ fn inventory() -> Vec<String> {
 }
 
 fn cmd_run(args: &[String]) {
-    reject_stray_args(
-        args,
-        "run",
-        &[
-            "--manifest",
-            "--cohort",
-            "--kind",
-            "--index",
-            "--evidence-root",
-            "--treatment-batch-version",
-            "--protocol-version",
-        ],
-    );
+    const RUN_FLAGS: &[&str] = &[
+        "--manifest",
+        "--cohort",
+        "--kind",
+        "--index",
+        "--evidence-root",
+        "--treatment-batch-version",
+        "--protocol-version",
+        "--training-interactions-per-direction",
+        "--learning-mode",
+        "--drop-probability",
+        "--active-sender-tokens",
+        "--held-out-types",
+    ];
+    reject_stray_args(args, "run", RUN_FLAGS);
+    reject_duplicate_flags(args, "run", RUN_FLAGS);
+    let development = parse_development_options(args);
     let req = ald_orchestrator::DyadRequest {
         manifest_path: arg(args, "--manifest").unwrap_or_else(|| usage()),
         cohort: arg(args, "--cohort").unwrap_or_else(|| usage()),
@@ -69,6 +75,7 @@ fn cmd_run(args: &[String]) {
         evidence_root: arg(args, "--evidence-root").unwrap_or_else(|| usage()),
         treatment_batch_version: arg_u32(args, "--treatment-batch-version", 2),
         protocol_version: arg_u32(args, "--protocol-version", 2),
+        development,
     };
     match ald_orchestrator::run_dyad(&req, &inventory()) {
         Ok(receipt) => {
@@ -77,6 +84,59 @@ fn cmd_run(args: &[String]) {
         Err(e) => {
             eprintln!("ala run failed: {e}");
             std::process::exit(1);
+        }
+    }
+}
+
+/// Parse the development flags into requested [`ald_orchestrator::DevelopmentOptions`].
+/// Returns `None` when no development flag was passed. Malformed values exit
+/// 2 with a naming message; nothing falls back to a default silently.
+fn parse_development_options(args: &[String]) -> Option<ald_orchestrator::DevelopmentOptions> {
+    let any = [
+        "--training-interactions-per-direction",
+        "--learning-mode",
+        "--drop-probability",
+        "--active-sender-tokens",
+        "--held-out-types",
+    ]
+    .iter()
+    .any(|f| arg(args, f).is_some());
+    if !any {
+        return None;
+    }
+    let bad = |e: ald_orchestrator::OrchestratorError| -> ! {
+        eprintln!("ala run: {e}");
+        std::process::exit(2);
+    };
+    Some(ald_orchestrator::DevelopmentOptions {
+        training_interactions_per_direction: arg(args, "--training-interactions-per-direction")
+            .map(|v| ald_orchestrator::parse_training_interactions(&v).unwrap_or_else(|e| bad(e))),
+        learning_mode: arg(args, "--learning-mode")
+            .map(|v| ald_orchestrator::parse_learning_mode(&v).unwrap_or_else(|e| bad(e))),
+        drop_probability: arg(args, "--drop-probability")
+            .map(|v| ald_orchestrator::parse_drop_probability(&v).unwrap_or_else(|e| bad(e))),
+        active_sender_tokens: arg(args, "--active-sender-tokens")
+            .map(|v| ald_orchestrator::parse_active_sender_tokens(&v).unwrap_or_else(|e| bad(e))),
+        held_out_types: arg(args, "--held-out-types")
+            .map(|v| ald_orchestrator::parse_held_out_types(&v).unwrap_or_else(|e| bad(e))),
+    })
+}
+
+/// Reject a repeated scalar flag: a second `--drop-probability` (or any
+/// other repeated flag) is almost certainly a copy-paste slip, and silently
+/// taking the first value would run the wrong ablation with a zero exit code.
+fn reject_duplicate_flags(args: &[String], what: &str, flags: &[&str]) {
+    let mut seen = std::collections::HashSet::new();
+    let mut i = 0;
+    while i < args.len() {
+        if flags.contains(&args[i].as_str()) {
+            if !seen.insert(args[i].clone()) {
+                eprintln!("ala {what}: duplicate flag {:?}", args[i]);
+                std::process::exit(2);
+            }
+            i += 2; // flag + value; a missing value surfaces as usage() below
+        } else {
+            i += 1; // strays are reported by reject_stray_args
         }
     }
 }

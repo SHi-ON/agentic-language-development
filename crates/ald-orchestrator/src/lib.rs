@@ -176,6 +176,295 @@ pub fn prototype_workload(counts: &StudyCounts) -> Result<CollectionWorkload, Or
 }
 
 // ---------------------------------------------------------------------------
+// Development options (cohort-gated ablations)
+// ---------------------------------------------------------------------------
+
+/// Cohort allowed to run with non-default development options.
+pub const DEVELOPMENT_COHORT: &str = "development";
+/// Domain separating the development-config binding hash.
+pub const DEVELOPMENT_CONFIG_DOMAIN: &str = "ala-development-config-v1";
+/// Default channel-drop probability: the legacy 1/8 channel.
+pub const DEFAULT_DROP_NUMERATOR: u64 = 1;
+/// Default channel-drop denominator (see [`DEFAULT_DROP_NUMERATOR`]).
+pub const DEFAULT_DROP_DENOMINATOR: u64 = 8;
+/// Default sender width: the full 32-token inventory.
+pub const DEFAULT_ACTIVE_SENDER_TOKENS: u32 = 32;
+/// Permitted `--active-sender-tokens` values.
+pub const ACTIVE_SENDER_TOKEN_CHOICES: [u32; 3] = [8, 16, 32];
+
+/// Who learns during joint-training episodes. `Joint` is the legacy path:
+/// sender and receiver both REINFORCE. `None` freezes every logit, baseline,
+/// and count while consuming the identical sampling draws. `ReceiverOnly`
+/// freezes the sender (exactly uniform) while the receiver learns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum LearningMode {
+    Joint,
+    None,
+    ReceiverOnly,
+}
+
+/// Exact rational channel-drop probability in `[0, 1]`, written `NUM/DEN`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DropProbability {
+    pub numerator: u64,
+    pub denominator: u64,
+}
+
+/// Requested development options: every field is optional and `None` means
+/// the frozen default. The CLI builds this from the `--training-...` /
+/// `--learning-mode` / `--drop-probability` / `--active-sender-tokens` /
+/// `--held-out-types` flags; [`resolve_development_options`] validates and
+/// fills defaults against the manifest.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DevelopmentOptions {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub training_interactions_per_direction: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub learning_mode: Option<LearningMode>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub drop_probability: Option<DropProbability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub active_sender_tokens: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub held_out_types: Option<Vec<u32>>,
+}
+
+/// Fully validated development configuration with defaults resolved.
+/// `training_interactions_total` is exactly `2 * per_direction` (one
+/// episode per direction per step). `held_out_types` is sorted ascending.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedDevelopment {
+    pub training_interactions_per_direction: u64,
+    pub training_interactions_total: u64,
+    pub learning_mode: LearningMode,
+    pub drop_probability: DropProbability,
+    pub active_sender_tokens: u32,
+    pub held_out_types: Vec<u32>,
+}
+
+/// Parse `--training-interactions-per-direction N`: a positive integer.
+/// Rejects zero, non-numeric input, and anything else without fallback.
+pub fn parse_training_interactions(s: &str) -> Result<u64, OrchestratorError> {
+    let n: u64 = s.parse().map_err(|_| {
+        OrchestratorError::Domain(format!(
+            "development options: --training-interactions-per-direction must be a positive integer, got {s:?}"
+        ))
+    })?;
+    if n < 1 {
+        return Err(OrchestratorError::Domain(
+            "development options: --training-interactions-per-direction must be >= 1".to_string(),
+        ));
+    }
+    Ok(n)
+}
+
+/// Parse `--learning-mode joint|none|receiver-only` exactly.
+pub fn parse_learning_mode(s: &str) -> Result<LearningMode, OrchestratorError> {
+    match s {
+        "joint" => Ok(LearningMode::Joint),
+        "none" => Ok(LearningMode::None),
+        "receiver-only" => Ok(LearningMode::ReceiverOnly),
+        _ => Err(OrchestratorError::Domain(format!(
+            "development options: --learning-mode must be joint|none|receiver-only, got {s:?}"
+        ))),
+    }
+}
+
+/// Parse `--drop-probability NUM/DEN`: an exact rational in `[0, 1]`.
+/// Both parts must be bare non-negative integers with `DEN >= 1` and
+/// `NUM <= DEN`; malformed or out-of-range input is rejected outright.
+pub fn parse_drop_probability(s: &str) -> Result<DropProbability, OrchestratorError> {
+    let bad = || {
+        OrchestratorError::Domain(format!(
+            "development options: --drop-probability must be NUM/DEN in [0,1], got {s:?}"
+        ))
+    };
+    let (num_s, den_s) = s.split_once('/').ok_or_else(bad)?;
+    if num_s.is_empty() || den_s.is_empty() {
+        return Err(bad());
+    }
+    let num: u64 = num_s.parse().map_err(|_| bad())?;
+    let den: u64 = den_s.parse().map_err(|_| bad())?;
+    if den < 1 || num > den {
+        return Err(bad());
+    }
+    Ok(DropProbability {
+        numerator: num,
+        denominator: den,
+    })
+}
+
+/// Parse `--active-sender-tokens K`: exactly 8, 16, or 32.
+pub fn parse_active_sender_tokens(s: &str) -> Result<u32, OrchestratorError> {
+    let k: u32 = s.parse().map_err(|_| {
+        OrchestratorError::Domain(format!(
+            "development options: --active-sender-tokens must be one of 8, 16, 32, got {s:?}"
+        ))
+    })?;
+    if !ACTIVE_SENDER_TOKEN_CHOICES.contains(&k) {
+        return Err(OrchestratorError::Domain(format!(
+            "development options: --active-sender-tokens must be one of 8, 16, 32, got {k}"
+        )));
+    }
+    Ok(k)
+}
+
+/// Parse `--held-out-types`, e.g. `12,13,14,15`: distinct type codes below
+/// 16 leaving at least 4 permitted types. The empty string selects the empty
+/// set. Duplicates, out-of-range codes, and empty entries are rejected.
+pub fn parse_held_out_types(s: &str) -> Result<Vec<u32>, OrchestratorError> {
+    let bad = |why: &str| {
+        OrchestratorError::Domain(format!(
+            "development options: --held-out-types {why}, got {s:?}"
+        ))
+    };
+    if s.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut out = Vec::new();
+    for entry in s.split(',') {
+        let trimmed = entry.trim();
+        if trimmed.is_empty() {
+            return Err(bad("must not contain empty entries"));
+        }
+        let t: u32 = trimmed
+            .parse()
+            .map_err(|_| bad("must be comma-separated type codes below 16"))?;
+        if t >= ald_learners::NUM_TYPES as u32 {
+            return Err(bad("must be comma-separated type codes below 16"));
+        }
+        if out.contains(&t) {
+            return Err(bad("must not repeat a type code"));
+        }
+        out.push(t);
+    }
+    if out.len() > ald_learners::NUM_TYPES - ald_scenario::CANDIDATES {
+        return Err(bad("must leave at least 4 permitted types"));
+    }
+    Ok(out)
+}
+
+/// Validate requested options and fill defaults. `manifest_per_role_training`
+/// is the manifest's per-role training count (the default interactions per
+/// direction). Every malformed or out-of-range value is an error; nothing
+/// falls back silently.
+pub fn resolve_development_options(
+    requested: &DevelopmentOptions,
+    manifest_per_role_training: u64,
+) -> Result<ResolvedDevelopment, OrchestratorError> {
+    let per_direction = requested
+        .training_interactions_per_direction
+        .unwrap_or(manifest_per_role_training);
+    if per_direction < 1 {
+        return Err(OrchestratorError::Domain(
+            "development options: training interactions per direction must be >= 1".to_string(),
+        ));
+    }
+    let total = per_direction.checked_mul(2).ok_or_else(|| {
+        OrchestratorError::Domain(
+            "development options: training interactions per direction is out of range".to_string(),
+        )
+    })?;
+    if usize::try_from(per_direction).is_err() {
+        return Err(OrchestratorError::Domain(
+            "development options: training interactions per direction is out of range".to_string(),
+        ));
+    }
+    let drop = requested.drop_probability.unwrap_or(DropProbability {
+        numerator: DEFAULT_DROP_NUMERATOR,
+        denominator: DEFAULT_DROP_DENOMINATOR,
+    });
+    if drop.denominator < 1 || drop.numerator > drop.denominator {
+        return Err(OrchestratorError::Domain(
+            "development options: drop probability must be NUM/DEN in [0,1]".to_string(),
+        ));
+    }
+    let k = requested
+        .active_sender_tokens
+        .unwrap_or(DEFAULT_ACTIVE_SENDER_TOKENS);
+    if !ACTIVE_SENDER_TOKEN_CHOICES.contains(&k) {
+        return Err(OrchestratorError::Domain(
+            "development options: active sender tokens must be one of 8, 16, 32".to_string(),
+        ));
+    }
+    let mut held_out = requested.held_out_types.clone().unwrap_or_default();
+    {
+        let mut seen = std::collections::HashSet::new();
+        for t in &held_out {
+            if *t >= ald_learners::NUM_TYPES as u32 || !seen.insert(*t) {
+                return Err(OrchestratorError::Domain(
+                    "development options: held-out types must be distinct codes below 16"
+                        .to_string(),
+                ));
+            }
+        }
+        if held_out.len() > ald_learners::NUM_TYPES - ald_scenario::CANDIDATES {
+            return Err(OrchestratorError::Domain(
+                "development options: held-out types must leave at least 4 permitted types"
+                    .to_string(),
+            ));
+        }
+    }
+    held_out.sort_unstable();
+    Ok(ResolvedDevelopment {
+        training_interactions_per_direction: per_direction,
+        training_interactions_total: total,
+        learning_mode: requested.learning_mode.unwrap_or(LearningMode::Joint),
+        drop_probability: drop,
+        active_sender_tokens: k,
+        held_out_types: held_out,
+    })
+}
+
+/// True when a resolved configuration equals the frozen defaults (so the run
+/// takes the legacy path byte-identically: no sidecar, no slot suffix, no
+/// extra receipt/journal fields).
+pub fn resolved_is_default(
+    resolved: &ResolvedDevelopment,
+    manifest_per_role_training: u64,
+) -> bool {
+    resolved.training_interactions_per_direction == manifest_per_role_training
+        && resolved.learning_mode == LearningMode::Joint
+        && resolved.drop_probability.numerator == DEFAULT_DROP_NUMERATOR
+        && resolved.drop_probability.denominator == DEFAULT_DROP_DENOMINATOR
+        && resolved.active_sender_tokens == DEFAULT_ACTIVE_SENDER_TOKENS
+        && resolved.held_out_types.is_empty()
+}
+
+/// Binding hash over a resolved development configuration (canonical JSON
+/// under [`DEVELOPMENT_CONFIG_DOMAIN`]). Non-default runs carry this hash in
+/// the receipt, the journal lines, and the `development-config.json` sidecar.
+pub fn development_config_hash(
+    resolved: &ResolvedDevelopment,
+) -> Result<String, OrchestratorError> {
+    let v = serde_json::to_value(resolved).map_err(|e| OrchestratorError::Domain(e.to_string()))?;
+    ald_hashing::hash_canonical(DEVELOPMENT_CONFIG_DOMAIN, &v)
+        .map_err(|e| OrchestratorError::Domain(e.to_string()))
+}
+
+/// Short config id (8 hex chars) suffixing non-default run roots.
+pub fn development_config_short_id(hash: &str) -> String {
+    hash.chars().skip(7).take(8).collect()
+}
+
+/// Exact rational channel-drop decision for one unit draw `u`: drop iff
+/// `u < numerator/denominator`, computed in integer arithmetic so thirds and
+/// other non-dyadic probabilities are exact. `u` is a 53-bit `next_float`
+/// draw, i.e. exactly `m / 2^53` for an integer `m`, so scaling by `2^53` is
+/// exact and the comparison `m*den < num*2^53` is bit-exact. At `(1, 8)` this
+/// agrees with the legacy `u < 1.0 / 8.0` comparison for every `u`.
+pub fn drop_draw_less_than(u: f64, numerator: u64, denominator: u64) -> bool {
+    const SCALE: f64 = 9_007_199_254_740_992.0; // 2^53
+    const SCALE_U128: u128 = 9_007_199_254_740_992;
+    let m = (u * SCALE) as u64;
+    u128::from(m) * u128::from(denominator) < u128::from(numerator) * SCALE_U128
+}
+
+// ---------------------------------------------------------------------------
 // Dyad runner
 // ---------------------------------------------------------------------------
 
@@ -189,6 +478,8 @@ pub struct DyadRequest {
     pub evidence_root: String,
     pub treatment_batch_version: u32,
     pub protocol_version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development: Option<DevelopmentOptions>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,6 +507,11 @@ pub struct DyadReceipt {
     pub attempted_hash: String,
     #[serde(default)]
     pub terminal_hash: String,
+    /// Development-config binding hash ([`development_config_hash`]) for
+    /// non-default runs. Absent on legacy runs, so default receipt bytes are
+    /// unchanged.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub development_config_sha256: Option<String>,
 }
 
 /// Parse workload counts from an ALA execution manifest.
@@ -433,9 +729,9 @@ struct PersistTestRow<'a> {
 #[derive(Debug, Clone, Serialize)]
 struct PersistRoleFolds<'a> {
     role: &'a str,
-    training: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
-    validation_fit: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
-    validation_selection: &'a Vec<ald_analysis::ledger::OrdinaryRecord>,
+    training: &'a [ald_analysis::ledger::OrdinaryRecord],
+    validation_fit: &'a [ald_analysis::ledger::OrdinaryRecord],
+    validation_selection: &'a [ald_analysis::ledger::OrdinaryRecord],
     test: Vec<PersistTestRow<'a>>,
 }
 
@@ -475,6 +771,31 @@ struct DyadInner {
     cases_valid: u64,
 }
 
+/// Per-split per-type exposure census for one role: candidate-set appearances
+/// of each of the 16 types. The training census covers the `N` episode
+/// records per direction the agents actually trained on (a prefix of — or,
+/// for `N` above the manifest count, an extension of — the persisted fold);
+/// the other three cover the persisted folds.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RoleExposure {
+    role: String,
+    training: [u64; 16],
+    validation_fit: [u64; 16],
+    validation_selection: [u64; 16],
+    within_support_test: [u64; 16],
+}
+
+fn exposure_histogram(codes: &[Vec<u32>]) -> [u64; 16] {
+    let mut h = [0u64; 16];
+    for row in codes {
+        for c in row {
+            h[*c as usize] += 1;
+        }
+    }
+    h
+}
+
 /// Candidate type codes as agent-policy indices. Callers only pass
 /// validated generated cases (4 distinct codes below 16).
 fn candidate_types(codes: &[u32]) -> [usize; 4] {
@@ -489,10 +810,14 @@ fn candidate_types(codes: &[u32]) -> [usize; 4] {
 /// One role's generated folds plus the seeds they were generated from. The
 /// training records carry the target types + candidate codes the emergent
 /// training episodes are built from; test tokens are resampled from the
-/// frozen opposite agent (as sender) at scoring time.
+/// frozen opposite agent (as sender) at scoring time. `training` holds
+/// `max(N, fold)` records: the persisted fold is its manifest-count prefix
+/// and the episodes run over its `N`-prefix.
 struct RoleBundle {
     role: String,
     train_seed: String,
+    fit_seed: String,
+    sel_seed: String,
     test_seed: String,
     training: Vec<ald_analysis::ledger::OrdinaryRecord>,
     validation_fit: Vec<ald_analysis::ledger::OrdinaryRecord>,
@@ -537,6 +862,14 @@ fn journal_slot_identity(
 /// The evidence layout (slot dirs, receipt, root journal, admission record)
 /// matches the frozen v2 layout so existing post-check tooling keeps
 /// working during migration.
+///
+/// Development options ride along in `req.development`: they are resolved
+/// and gated BEFORE any directory, journal, or database is created, so a
+/// rejected run leaves no partial artifacts. Resolved-default runs take the
+/// legacy path byte-identically; non-default runs require
+/// `--cohort development`, write to a config-suffixed run root, refuse to
+/// overwrite an existing root, and bind the config hash into the receipt,
+/// the journal lines, and a `development-config.json` sidecar.
 pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, OrchestratorError> {
     let started = std::time::Instant::now();
     if req.cohort.is_empty() || req.kind.is_empty() || req.evidence_root.is_empty() {
@@ -569,10 +902,45 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
     let workload = prototype_workload(&counts)?;
     let manifest_sha256 = manifest_sha256_hex(&manifest_raw);
 
+    // Gate 1b: development options (resolve + cohort gate). Runs before any
+    // directory, journal, or database exists, so rejections are artifact-free.
+    let manifest_per_role_training = counts.training_cases / 2;
+    let requested = req.development.clone().unwrap_or_default();
+    let resolved = resolve_development_options(&requested, manifest_per_role_training)?;
+    let dev_active = !resolved_is_default(&resolved, manifest_per_role_training);
+    let dev_hash: Option<String> = if dev_active {
+        Some(development_config_hash(&resolved)?)
+    } else {
+        None
+    };
+    if dev_active && req.cohort != DEVELOPMENT_COHORT {
+        return Err(OrchestratorError::Domain(format!(
+            "development options: non-default options require --cohort {DEVELOPMENT_COHORT}, got {:?}",
+            req.cohort
+        )));
+    }
+
     // Gate 2: P5 admission for study cohorts.
     check_admission(&req.evidence_root, &req.cohort)?;
 
-    let slot_dir = format!("{}/{}/{}-{}", req.evidence_root, req.cohort, req.kind, pad);
+    // Non-default configs run in a separate config-suffixed root so different
+    // ablations never share (or silently overwrite) one slot directory.
+    let slot_dir = match &dev_hash {
+        Some(h) => format!(
+            "{}/{}/{}-{}-dev-{}",
+            req.evidence_root,
+            req.cohort,
+            req.kind,
+            pad,
+            development_config_short_id(h)
+        ),
+        None => format!("{}/{}/{}-{}", req.evidence_root, req.cohort, req.kind, pad),
+    };
+    if dev_active && std::path::Path::new(&slot_dir).exists() {
+        return Err(OrchestratorError::Domain(format!(
+            "development options: refusing to overwrite existing run root {slot_dir}"
+        )));
+    }
     std::fs::create_dir_all(&slot_dir).map_err(|e| OrchestratorError::Io(e.to_string()))?;
     let db_path = format!("{slot_dir}/evidence.sqlite");
     let conn = ald_evidence::open(&db_path)?;
@@ -589,6 +957,9 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         "treatmentBatchVersion".to_string(),
         serde_json::json!(req.treatment_batch_version),
     );
+    if let Some(h) = &dev_hash {
+        attempted.insert("developmentConfigSha256".to_string(), serde_json::json!(h));
+    }
     let attempted_hash = journal_append(&journal_path, attempted)?;
 
     let inner = match run_dyad_inner(
@@ -600,6 +971,9 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         &slot_dir,
         &conn,
         &pad,
+        &requested,
+        &resolved,
+        &dev_hash,
     ) {
         Ok(ok) => ok,
         Err(e) => {
@@ -607,6 +981,9 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
             terminal.insert("kind".to_string(), serde_json::json!("terminal"));
             terminal.insert("state".to_string(), serde_json::json!("invalid"));
             terminal.insert("error".to_string(), serde_json::json!(e.to_string()));
+            if let Some(h) = &dev_hash {
+                terminal.insert("developmentConfigSha256".to_string(), serde_json::json!(h));
+            }
             let _ = journal_append(&journal_path, terminal);
             return Err(e);
         }
@@ -624,6 +1001,9 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         serde_json::json!(inner.cases_valid),
     );
     terminal.insert("primary".to_string(), serde_json::json!(inner.primary));
+    if let Some(h) = &dev_hash {
+        terminal.insert("developmentConfigSha256".to_string(), serde_json::json!(h));
+    }
     let terminal_hash = journal_append(&journal_path, terminal)?;
 
     let wall_seconds = started.elapsed().as_secs_f64();
@@ -641,6 +1021,7 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         wall_seconds,
         attempted_hash,
         terminal_hash,
+        development_config_sha256: dev_hash.clone(),
     };
     let body =
         serde_json::to_value(&receipt).map_err(|e| OrchestratorError::Domain(e.to_string()))?;
@@ -663,13 +1044,17 @@ fn run_dyad_inner(
     slot_dir: &str,
     conn: &rusqlite::Connection,
     pad: &str,
+    requested: &DevelopmentOptions,
+    resolved: &ResolvedDevelopment,
+    dev_hash: &Option<String>,
 ) -> Result<DyadInner, OrchestratorError> {
     use ald_analysis::analyze_dyad;
     use ald_analysis::dyad::{RoleFolds, TestRow};
     use ald_analysis::ledger::OrdinaryRecord;
     use ald_learners::AgentPolicy;
-    use ald_scenario::{generate_cases, plan_paired_case};
+    use ald_scenario::{generate_cases, generate_cases_excluding, plan_paired_case};
 
+    let dev_active = dev_hash.is_some();
     let seed_root = if req.protocol_version >= 2 {
         ALA_SEED_ROOT_V2
     } else {
@@ -682,6 +1067,30 @@ fn run_dyad_inner(
     let per_role_fit = workload.validation_fit_cases as usize;
     let per_role_sel = workload.validation_selection_cases as usize;
     let per_role_test = workload.within_support_test_cases as usize;
+    // Episodes per direction: the manifest count on legacy runs, the
+    // `--training-interactions-per-direction` override otherwise. Training
+    // records are generated as one deterministic `max(N, fold)` stream, so an
+    // override below the fold trains on the fold's prefix and an override
+    // above it extends the same stream with fresh draws (never duplication).
+    let episodes_per_direction = usize::try_from(resolved.training_interactions_per_direction)
+        .map_err(|_| {
+            OrchestratorError::Domain(
+                "development options: training interactions per direction is out of range"
+                    .to_string(),
+            )
+        })?;
+    let generated_train = episodes_per_direction.max(per_role_train);
+    let channel_dropped = |draw: f64| {
+        if dev_active {
+            drop_draw_less_than(
+                draw,
+                resolved.drop_probability.numerator,
+                resolved.drop_probability.denominator,
+            )
+        } else {
+            draw < 1.0 / 8.0
+        }
+    };
 
     let mut audit_attempted = journal_slot_identity(req, pad, manifest_sha256);
     audit_attempted.insert("kind".to_string(), serde_json::json!("attempted"));
@@ -689,7 +1098,9 @@ fn run_dyad_inner(
 
     // Phase 1: generate every role's folds from the manifest workload.
     // Training records carry the target types + candidate codes the
-    // emergent episodes are built from.
+    // emergent episodes are built from. Non-default runs exclude held-out
+    // types from every pre-test fold in both directions; test folds always
+    // cover all 16 types.
     let mut bundles = Vec::new();
     for role in ["agent-0", "agent-1"] {
         let mk = |part: &str| AlaSeedInput {
@@ -709,7 +1120,12 @@ fn run_dyad_inner(
         let test_seed = derive_ala_seed(&mk("within-support-test"))?;
 
         let to_records = |seed: &str, n: usize, off: u64| -> Vec<OrdinaryRecord> {
-            generate_cases(seed, off, role, n, inventory)
+            let cases = if dev_active {
+                generate_cases_excluding(seed, off, role, n, inventory, &resolved.held_out_types)
+            } else {
+                generate_cases(seed, off, role, n, inventory)
+            };
+            cases
                 .into_iter()
                 .map(|c| OrdinaryRecord {
                     case_id: c.case_id,
@@ -720,13 +1136,15 @@ fn run_dyad_inner(
                 })
                 .collect()
         };
-        let training = to_records(&train_seed, per_role_train, 0);
+        let training = to_records(&train_seed, generated_train, 0);
         let validation_fit = to_records(&fit_seed, per_role_fit, 1);
         let validation_selection = to_records(&sel_seed, per_role_sel, 2);
         let test_cases = generate_cases(&test_seed, 3, role, per_role_test, inventory);
         bundles.push(RoleBundle {
             role: role.to_string(),
             train_seed,
+            fit_seed,
+            sel_seed,
             test_seed,
             training,
             validation_fit,
@@ -745,13 +1163,25 @@ fn run_dyad_inner(
     // (even when dropped), and the receiver REINFORCEs toward the chosen
     // candidate's type only (a dropped token is a receiver no-op). Every
     // draw comes from per-role derived seed streams, so training is
-    // bit-deterministic per dyad.
-    let mut agents = [AgentPolicy::new(), AgentPolicy::new()];
+    // bit-deterministic per dyad. Development runs may constrain the sender
+    // width, replace the channel probability, and freeze one or both sides
+    // (`--learning-mode` gates ONLY the update calls: sampling draws are
+    // consumed identically in every mode).
+    let mut agents = if resolved.active_sender_tokens == DEFAULT_ACTIVE_SENDER_TOKENS {
+        [AgentPolicy::new(), AgentPolicy::new()]
+    } else {
+        [
+            AgentPolicy::with_active_sender_tokens(resolved.active_sender_tokens as usize)
+                .map_err(|e| OrchestratorError::Domain(e.to_string()))?,
+            AgentPolicy::with_active_sender_tokens(resolved.active_sender_tokens as usize)
+                .map_err(|e| OrchestratorError::Domain(e.to_string()))?,
+        ]
+    };
     let mut train_rngs: Vec<ald_hashing::SeededPrng> = bundles
         .iter()
         .map(|b| ald_hashing::SeededPrng::new(&b.train_seed).derive("emergent-train"))
         .collect();
-    for step in 0..per_role_train {
+    for step in 0..episodes_per_direction {
         for receiver_idx in 0..bundles.len() {
             let sender_idx = 1 - receiver_idx;
             let rec = &bundles[receiver_idx].training[step];
@@ -759,7 +1189,8 @@ fn run_dyad_inner(
             let target_type = cands[rec.actual_selected_candidate_index];
             let rng = &mut train_rngs[receiver_idx];
             let token = agents[sender_idx].sample_token(target_type, rng);
-            let delivered = if rng.next_float() < 1.0 / 8.0 {
+            let channel_draw = rng.next_float();
+            let delivered = if channel_dropped(channel_draw) {
                 None
             } else {
                 Some(token)
@@ -770,8 +1201,16 @@ fn run_dyad_inner(
             } else {
                 0.0
             };
-            agents[sender_idx].update_sender(target_type, token, reward);
-            agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
+            match resolved.learning_mode {
+                LearningMode::Joint => {
+                    agents[sender_idx].update_sender(target_type, token, reward);
+                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
+                }
+                LearningMode::None => {}
+                LearningMode::ReceiverOnly => {
+                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
+                }
+            }
         }
     }
 
@@ -814,7 +1253,8 @@ fn run_dyad_inner(
             let cands = candidate_types(&c.candidate_type_codes);
             let target_type = cands[c.target_index];
             let token = sender.sample_token(target_type, &mut test_rng);
-            let delivered = if test_rng.next_float() < 1.0 / 8.0 {
+            let channel_draw = test_rng.next_float();
+            let delivered = if channel_dropped(channel_draw) {
                 None
             } else {
                 Some(token)
@@ -931,7 +1371,9 @@ fn run_dyad_inner(
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
         let folds = RoleFolds {
             role: role.to_string(),
-            training: bundle.training.clone(),
+            // The persisted training fold is always the manifest-count
+            // prefix, however many episodes ran over the bundle.
+            training: bundle.training[..per_role_train].to_vec(),
             validation_fit: bundle.validation_fit.clone(),
             validation_selection: bundle.validation_selection.clone(),
             test,
@@ -966,6 +1408,90 @@ fn run_dyad_inner(
         serde_json::to_string_pretty(&result).unwrap(),
     )
     .map_err(|e| OrchestratorError::Io(e.to_string()))?;
+
+    // Non-default runs record the full development configuration alongside
+    // the dyad artifacts: requested + resolved options, digests, the seeds
+    // every split was generated from, the 2N/N counts, and the per-split
+    // per-type exposure census. Legacy runs write no sidecar.
+    if let Some(hash) = dev_hash {
+        let mut seeds = serde_json::Map::new();
+        let mut exposure = serde_json::Map::new();
+        for b in &bundles {
+            let mut role_seeds = serde_json::Map::new();
+            role_seeds.insert("training".to_string(), serde_json::json!(b.train_seed));
+            role_seeds.insert("validationFit".to_string(), serde_json::json!(b.fit_seed));
+            role_seeds.insert(
+                "validationSelection".to_string(),
+                serde_json::json!(b.sel_seed),
+            );
+            role_seeds.insert(
+                "withinSupportTest".to_string(),
+                serde_json::json!(b.test_seed),
+            );
+            seeds.insert(b.role.clone(), serde_json::Value::Object(role_seeds));
+            let train_codes: Vec<Vec<u32>> = b.training[..episodes_per_direction]
+                .iter()
+                .map(|r| r.candidate_type_codes.clone())
+                .collect();
+            let fit_codes: Vec<Vec<u32>> = b
+                .validation_fit
+                .iter()
+                .map(|r| r.candidate_type_codes.clone())
+                .collect();
+            let sel_codes: Vec<Vec<u32>> = b
+                .validation_selection
+                .iter()
+                .map(|r| r.candidate_type_codes.clone())
+                .collect();
+            let test_codes: Vec<Vec<u32>> = b
+                .test_cases
+                .iter()
+                .map(|c| c.candidate_type_codes.to_vec())
+                .collect();
+            exposure.insert(
+                b.role.clone(),
+                serde_json::to_value(RoleExposure {
+                    role: b.role.clone(),
+                    training: exposure_histogram(&train_codes),
+                    validation_fit: exposure_histogram(&fit_codes),
+                    validation_selection: exposure_histogram(&sel_codes),
+                    within_support_test: exposure_histogram(&test_codes),
+                })
+                .map_err(|e| OrchestratorError::Domain(e.to_string()))?,
+            );
+        }
+        let sidecar = serde_json::json!({
+            "requested": requested,
+            "resolved": resolved,
+            "digests": {
+                "manifestSha256": manifest_sha256,
+                "developmentConfigSha256": hash,
+            },
+            "seeds": {
+                "seedRoot": seed_root,
+                "roles": seeds,
+            },
+            "counts": {
+                "perRoleTrainFold": per_role_train,
+                "trainingInteractionsPerDirection": resolved.training_interactions_per_direction,
+                "trainingInteractionsTotal": resolved.training_interactions_total,
+                "perRoleValidationFit": per_role_fit,
+                "perRoleValidationSelection": per_role_sel,
+                "perRoleTest": per_role_test,
+            },
+            "exposureCounts": exposure,
+            "versions": {
+                "protocolVersion": req.protocol_version,
+                "treatmentBatchVersion": req.treatment_batch_version,
+                "manifestVersion": "ala-lv-execution-manifest/v1",
+            },
+        });
+        std::fs::write(
+            format!("{slot_dir}/development-config.json"),
+            serde_json::to_string_pretty(&sidecar).unwrap(),
+        )
+        .map_err(|e| OrchestratorError::Io(e.to_string()))?;
+    }
 
     let mut audit_terminal = journal_slot_identity(req, pad, manifest_sha256);
     audit_terminal.insert("kind".to_string(), serde_json::json!("terminal"));
@@ -1103,6 +1629,7 @@ mod tests {
             evidence_root: evidence_root.to_string_lossy().into_owned(),
             treatment_batch_version: 2,
             protocol_version: 2,
+            development: None,
         };
         let receipt = run_dyad(&req, &inventory).unwrap();
 
@@ -1368,6 +1895,7 @@ mod tests {
                 evidence_root: evidence_root.to_string_lossy().into_owned(),
                 treatment_batch_version: 2,
                 protocol_version: 2,
+                development: None,
             };
             let receipt = run_dyad(&req, &test_inventory()).unwrap();
             journals.push(journal_hashes(&evidence_root.join("journal.jsonl")));
@@ -1425,6 +1953,7 @@ mod tests {
             evidence_root: evidence_root.to_string_lossy().into_owned(),
             treatment_batch_version: 2,
             protocol_version: 2,
+            development: None,
         };
         let receipt = run_dyad(&req, &test_inventory()).unwrap();
         assert_eq!(receipt.state, "valid");
@@ -1467,6 +1996,7 @@ mod tests {
             evidence_root: evidence_root.to_string_lossy().into_owned(),
             treatment_batch_version: 2,
             protocol_version: 2,
+            development: None,
         };
         let receipt = run_dyad(&req, &inventory).unwrap();
         let slot = evidence_root.join("development/primary-0000");
@@ -1521,6 +2051,7 @@ mod tests {
             evidence_root: evidence_root.to_string_lossy().into_owned(),
             treatment_batch_version: 2,
             protocol_version: 2,
+            development: None,
         };
         run_dyad(&req, &test_inventory()).unwrap();
 
@@ -1567,6 +2098,7 @@ mod tests {
                 evidence_root: dir.join("evidence").to_string_lossy().into_owned(),
                 treatment_batch_version: 2,
                 protocol_version: 2,
+                development: None,
             };
             let err = run_dyad(&req, &test_inventory()).unwrap_err().to_string();
             assert!(err.contains("manifest"), "unexpected error: {err}");
@@ -1588,6 +2120,7 @@ mod tests {
             evidence_root: evidence_root.to_string_lossy().into_owned(),
             treatment_batch_version: 2,
             protocol_version: 2,
+            development: None,
         };
         // No admission.json: study cohort refused before any work.
         let err = run_dyad(&req, &test_inventory()).unwrap_err().to_string();
@@ -1609,6 +2142,1190 @@ mod tests {
         let receipt = run_dyad(&req, &test_inventory()).unwrap();
         assert_eq!(receipt.state, "valid");
         assert_eq!((receipt.cases_attempted, receipt.cases_valid), (4, 4));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // -- development options -------------------------------------------------
+
+    fn dev_test_req(
+        dir: &std::path::Path,
+        manifest_text: &str,
+        cohort: &str,
+        index: u32,
+        dev: Option<DevelopmentOptions>,
+    ) -> (DyadRequest, std::path::PathBuf) {
+        let manifest_path = dir.join(format!("manifest-{index}.json"));
+        std::fs::write(&manifest_path, manifest_text).unwrap();
+        let evidence_root = dir.join("evidence");
+        (
+            DyadRequest {
+                manifest_path: manifest_path.to_string_lossy().into_owned(),
+                cohort: cohort.to_string(),
+                kind: "primary".to_string(),
+                index,
+                evidence_root: evidence_root.to_string_lossy().into_owned(),
+                treatment_batch_version: 2,
+                protocol_version: 2,
+                development: dev,
+            },
+            evidence_root,
+        )
+    }
+
+    fn small_manifest_text() -> String {
+        test_manifest_text(16, 8, 8, 8)
+    }
+
+    /// The single run root under `<root>/development` (fresh-root tests run
+    /// exactly one dyad).
+    fn only_slot(evidence_root: &std::path::Path) -> std::path::PathBuf {
+        let entries: Vec<_> = std::fs::read_dir(evidence_root.join("development"))
+            .unwrap()
+            .map(|e| e.unwrap().path())
+            .collect();
+        assert_eq!(entries.len(), 1, "expected exactly one run root");
+        entries.into_iter().next().unwrap()
+    }
+
+    fn read_json(path: &std::path::Path) -> serde_json::Value {
+        serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap()
+    }
+
+    fn dev_opts(
+        n: Option<u64>,
+        mode: Option<LearningMode>,
+        drop: Option<DropProbability>,
+        k: Option<u32>,
+        held: Option<Vec<u32>>,
+    ) -> DevelopmentOptions {
+        DevelopmentOptions {
+            training_interactions_per_direction: n,
+            learning_mode: mode,
+            drop_probability: drop,
+            active_sender_tokens: k,
+            held_out_types: held,
+        }
+    }
+
+    #[test]
+    fn dev_parse_and_resolve_matrix() {
+        // Valid parses.
+        assert_eq!(parse_training_interactions("1").unwrap(), 1);
+        assert_eq!(parse_training_interactions("1500").unwrap(), 1500);
+        assert_eq!(parse_learning_mode("joint").unwrap(), LearningMode::Joint);
+        assert_eq!(parse_learning_mode("none").unwrap(), LearningMode::None);
+        assert_eq!(
+            parse_learning_mode("receiver-only").unwrap(),
+            LearningMode::ReceiverOnly
+        );
+        assert_eq!(
+            parse_drop_probability("1/8").unwrap(),
+            DropProbability {
+                numerator: 1,
+                denominator: 8
+            }
+        );
+        assert_eq!(
+            parse_drop_probability("0/1").unwrap(),
+            DropProbability {
+                numerator: 0,
+                denominator: 1
+            }
+        );
+        assert_eq!(
+            parse_drop_probability("1/1").unwrap(),
+            DropProbability {
+                numerator: 1,
+                denominator: 1
+            }
+        );
+        assert_eq!(parse_active_sender_tokens("8").unwrap(), 8);
+        assert_eq!(parse_active_sender_tokens("16").unwrap(), 16);
+        assert_eq!(parse_active_sender_tokens("32").unwrap(), 32);
+        assert_eq!(parse_held_out_types("").unwrap(), Vec::<u32>::new());
+        assert_eq!(
+            parse_held_out_types("12,13,14,15").unwrap(),
+            vec![12, 13, 14, 15]
+        );
+        // Malformed / out-of-range input is rejected, never defaulted.
+        for bad in ["0", "abc", "-3", "1.5", ""] {
+            assert!(parse_training_interactions(bad).is_err(), "N={bad:?}");
+        }
+        for bad in ["", "JOINT", "both", "receiver", "sender-only"] {
+            assert!(parse_learning_mode(bad).is_err(), "mode={bad:?}");
+        }
+        for bad in [
+            "", "1", "1/", "/8", "1/0", "2/1", "9/8", "a/b", "1/8/2", "-1/8", " 1/8",
+        ] {
+            assert!(parse_drop_probability(bad).is_err(), "drop={bad:?}");
+        }
+        for bad in ["", "0", "7", "31", "33", "64", "abc"] {
+            assert!(parse_active_sender_tokens(bad).is_err(), "K={bad:?}");
+        }
+        for bad in [
+            "16",
+            "1,1",
+            "0,16",
+            "a",
+            "12,,13",
+            "0,1,2,3,4,5,6,7,8,9,10,11,12",
+        ] {
+            assert!(parse_held_out_types(bad).is_err(), "held={bad:?}");
+        }
+        // Resolution fills defaults and records 2N/N.
+        let d = resolve_development_options(&DevelopmentOptions::default(), 1500).unwrap();
+        assert_eq!(d.training_interactions_per_direction, 1500);
+        assert_eq!(d.training_interactions_total, 3000);
+        assert_eq!(d.learning_mode, LearningMode::Joint);
+        assert_eq!(
+            d.drop_probability,
+            DropProbability {
+                numerator: 1,
+                denominator: 8
+            }
+        );
+        assert_eq!(d.active_sender_tokens, 32);
+        assert!(d.held_out_types.is_empty());
+        assert!(resolved_is_default(&d, 1500));
+        assert!(!resolved_is_default(&d, 8));
+        let non = resolve_development_options(
+            &dev_opts(
+                Some(8),
+                Some(LearningMode::None),
+                None,
+                None,
+                Some(vec![15, 12]),
+            ),
+            1500,
+        )
+        .unwrap();
+        assert_eq!(non.training_interactions_total, 16);
+        assert_eq!(non.held_out_types, vec![12, 15]);
+        assert!(!resolved_is_default(&non, 1500));
+        // Struct-level validation (bypassing the parsers) rejects too.
+        assert!(
+            resolve_development_options(&dev_opts(Some(0), None, None, None, None), 8).is_err()
+        );
+        assert!(resolve_development_options(
+            &dev_opts(
+                None,
+                None,
+                Some(DropProbability {
+                    numerator: 2,
+                    denominator: 1
+                }),
+                None,
+                None
+            ),
+            8
+        )
+        .is_err());
+        assert!(
+            resolve_development_options(&dev_opts(None, None, None, Some(7), None), 8).is_err()
+        );
+        assert!(resolve_development_options(
+            &dev_opts(None, None, None, None, Some(vec![3, 3])),
+            8
+        )
+        .is_err());
+        // Config hash is stable and binds the resolved values.
+        let h1 = development_config_hash(&non).unwrap();
+        let h2 = development_config_hash(&non).unwrap();
+        assert_eq!(h1, h2);
+        assert!(h1.starts_with("sha256:"));
+        assert_eq!(development_config_short_id(&h1).len(), 8);
+        let mut other = non.clone();
+        other.training_interactions_per_direction = 9;
+        assert_ne!(development_config_hash(&other).unwrap(), h1);
+    }
+
+    #[test]
+    fn dev_drop_draw_is_exact_rational() {
+        // Endpoints decide without ambiguity (one draw is still consumed by
+        // the caller in every case).
+        assert!(!drop_draw_less_than(0.0, 0, 1));
+        assert!(!drop_draw_less_than(0.999_999, 0, 1));
+        assert!(drop_draw_less_than(0.0, 1, 1));
+        assert!(drop_draw_less_than(0.999_999, 1, 1));
+        // (1,8) agrees with the legacy float comparison for EVERY draw,
+        // including the exact boundary m = 2^50.
+        const SCALE: f64 = 9_007_199_254_740_992.0;
+        for m in [
+            0u64,
+            1,
+            (1 << 50) - 1,
+            1 << 50,
+            (1 << 50) + 1,
+            (1 << 53) - 1,
+        ] {
+            let u = m as f64 / SCALE;
+            assert_eq!(
+                drop_draw_less_than(u, 1, 8),
+                u < 1.0 / 8.0,
+                "rational (1,8) must match legacy at m={m}"
+            );
+        }
+        let mut rng = ald_hashing::SeededPrng::new("drop-sweep").derive("draws");
+        for _ in 0..50_000 {
+            let u = rng.next_float();
+            assert_eq!(drop_draw_less_than(u, 1, 8), u < 1.0 / 8.0);
+        }
+        // Non-dyadic probabilities are exact: (1,3) drops iff m < 2^53/3.
+        let third = (1u128 << 53) / 3; // 3002399751580330 (floor), threshold is m <= this
+        for (m, expect) in [
+            (third as u64 - 1, true),
+            (third as u64, true),
+            (third as u64 + 1, false),
+            (0u64, true),
+            ((1u64 << 53) - 1, false),
+        ] {
+            let u = m as f64 / SCALE;
+            assert_eq!(drop_draw_less_than(u, 1, 3), expect, "m={m}");
+        }
+        // Half-open sanity: P(drop) over the stream approximates NUM/DEN.
+        let mut rng = ald_hashing::SeededPrng::new("drop-rate").derive("draws");
+        let n = 20_000u64;
+        let mut dropped = 0u64;
+        for _ in 0..n {
+            if drop_draw_less_than(rng.next_float(), 1, 4) {
+                dropped += 1;
+            }
+        }
+        let rate = dropped as f64 / n as f64;
+        assert!((rate - 0.25).abs() < 0.02, "rate {rate} far from 1/4");
+    }
+
+    struct TrainNRuns {
+        train_fold: serde_json::Value,
+        test_records: Vec<serde_json::Value>,
+        sidecar: Option<serde_json::Value>,
+        slot_name: String,
+        policy0: Vec<u8>,
+    }
+
+    fn run_train_n(tag: &str, n: u64) -> (TrainNRuns, std::path::PathBuf) {
+        let dir = fresh_temp_dir(tag);
+        let (req, root) = dev_test_req(
+            &dir,
+            &small_manifest_text(),
+            "development",
+            0,
+            Some(dev_opts(Some(n), None, None, None, None)),
+        );
+        let receipt = run_dyad(&req, &test_inventory()).unwrap();
+        assert_eq!(receipt.state, "valid");
+        let slot = only_slot(&root);
+        let folds = read_json(&slot.join("role-folds-agent-0.json"));
+        let sidecar_path = slot.join("development-config.json");
+        let runs = TrainNRuns {
+            train_fold: folds["training"].clone(),
+            test_records: folds["test"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|row| row["record"].clone())
+                .collect(),
+            sidecar: std::fs::metadata(&sidecar_path)
+                .is_ok()
+                .then(|| read_json(&sidecar_path)),
+            slot_name: slot.file_name().unwrap().to_string_lossy().into_owned(),
+            policy0: std::fs::read(slot.join("agent-policy-agent-0.json")).unwrap(),
+        };
+        (runs, dir)
+    }
+
+    #[test]
+    fn dev_training_interactions_prefix_folds_and_eval_streams() {
+        // Manifest fold is 8/direction; N=3 trains on the fold prefix, N=12
+        // extends the same stream with fresh draws. N=8 is covered by the
+        // explicit-default identity test below.
+        let (r3, d3) = run_train_n("n3", 3);
+        let (r12, d12) = run_train_n("n12", 12);
+        // Folds unchanged: identical persisted training folds at both N.
+        assert_eq!(r3.train_fold, r12.train_fold);
+        assert_eq!(r3.train_fold.as_array().unwrap().len(), 8);
+        // Identical eval streams: generated test records agree exactly (only
+        // the trained policies' delivered tokens may differ).
+        assert_eq!(r3.test_records, r12.test_records);
+        assert_eq!(r3.test_records.len(), 4);
+        // Both runs record 2N and N.
+        for (r, n) in [(&r3, 3u64), (&r12, 12)] {
+            let s = r.sidecar.as_ref().expect("non-default N writes a sidecar");
+            assert_eq!(s["counts"]["trainingInteractionsPerDirection"], n);
+            assert_eq!(s["counts"]["trainingInteractionsTotal"], 2 * n);
+            assert_eq!(s["resolved"]["trainingInteractionsPerDirection"], n);
+            assert_eq!(s["counts"]["perRoleTrainFold"], 8);
+            assert!(r.slot_name.contains("-dev-"), "dev runs suffix the root");
+        }
+        // Prefix identity, N=3: the episode census equals the histogram of
+        // the fold's first 3 records.
+        let census3 = &r3.sidecar.as_ref().unwrap()["exposureCounts"]["agent-0"]["training"];
+        let mut expect = [0u64; 16];
+        for rec in r3.train_fold.as_array().unwrap().iter().take(3) {
+            for c in rec["candidate_type_codes"].as_array().unwrap() {
+                expect[c.as_u64().unwrap() as usize] += 1;
+            }
+        }
+        assert_eq!(
+            census3.as_array().unwrap(),
+            &expect
+                .iter()
+                .map(|c| serde_json::json!(c))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            census3
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| c.as_u64().unwrap())
+                .sum::<u64>(),
+            12,
+            "3 episodes x 4 candidates"
+        );
+        // Prefix identity, N=12: the episode census equals the histogram of
+        // the first 12 records regenerated from the sidecar train seed (the
+        // 8 fold records plus 4 fresh stream draws, no duplication).
+        let s12 = r12.sidecar.as_ref().unwrap();
+        let seed = s12["seeds"]["roles"]["agent-0"]["training"]
+            .as_str()
+            .unwrap();
+        let regen = ald_scenario::generate_cases(seed, 0, "agent-0", 12, &test_inventory());
+        let mut expect12 = [0u64; 16];
+        for c in &regen {
+            for t in c.candidate_type_codes {
+                expect12[t as usize] += 1;
+            }
+        }
+        let census12 = s12["exposureCounts"]["agent-0"]["training"]
+            .as_array()
+            .unwrap();
+        assert_eq!(
+            census12,
+            &expect12
+                .iter()
+                .map(|c| serde_json::json!(c))
+                .collect::<Vec<_>>()
+        );
+        // ... and the regenerated 8-prefix is exactly the persisted fold.
+        for (rec, case) in r12
+            .train_fold
+            .as_array()
+            .unwrap()
+            .iter()
+            .zip(regen.iter().take(8))
+        {
+            let codes: Vec<u32> = rec["candidate_type_codes"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|c| c.as_u64().unwrap() as u32)
+                .collect();
+            assert_eq!(&codes, &case.candidate_type_codes.to_vec());
+            assert_eq!(rec["case_id"], case.case_id);
+        }
+        // More training moves the policies (and deterministically so).
+        assert_ne!(r3.policy0, r12.policy0);
+        let (r12b, d12b) = run_train_n("n12b", 12);
+        assert_eq!(r12.policy0, r12b.policy0);
+        for d in [d3, d12, d12b] {
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+
+    #[test]
+    fn dev_learning_mode_none_freezes_and_zero_primary() {
+        // Small workload, index 2: ordinary selection is uniform on both
+        // roles (probed on the legacy path), so frozen-uniform natives give
+        // primary exactly 0.0 case-by-case.
+        let dir = fresh_temp_dir("none");
+        let (req, root) = dev_test_req(
+            &dir,
+            &small_manifest_text(),
+            "development",
+            2,
+            Some(dev_opts(None, Some(LearningMode::None), None, None, None)),
+        );
+        let receipt = run_dyad(&req, &test_inventory()).unwrap();
+        assert_eq!(receipt.state, "valid");
+        let slot = only_slot(&root);
+        // Logits, baselines, and counts frozen: bytes equal fresh policies.
+        let fresh = ald_learners::AgentPolicy::new().to_bytes();
+        for role in ["agent-0", "agent-1"] {
+            let bytes = std::fs::read(slot.join(format!("agent-policy-{role}.json"))).unwrap();
+            assert_eq!(bytes, fresh, "{role} policy must be bit-frozen");
+        }
+        // Primary exactly 0.0, case-by-case.
+        assert_eq!(receipt.primary, 0.0);
+        let result: ald_analysis::dyad::DyadResult =
+            serde_json::from_str(&std::fs::read_to_string(slot.join("dyad-result.json")).unwrap())
+                .unwrap();
+        assert_eq!(result.primary, 0.0);
+        let inventory = test_inventory();
+        for role in ["agent-0", "agent-1"] {
+            let folds_text =
+                std::fs::read_to_string(slot.join(format!("role-folds-{role}.json"))).unwrap();
+            let folds: ald_analysis::dyad::RoleFolds = serde_json::from_str(&folds_text).unwrap();
+            let sel = ald_analysis::select_ordinary_predictor(
+                &inventory,
+                &folds.training,
+                &folds.validation_fit,
+                &folds.validation_selection,
+            )
+            .unwrap();
+            assert_eq!(sel.selected, ald_analysis::PredictorId::Uniform);
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            for (row, case) in folds.test.iter().zip(probs.iter()) {
+                let ordinary = ald_analysis::ledger::score_ordinary_fit(
+                    sel.selected,
+                    &sel.refit,
+                    &row.record.candidate_type_codes,
+                    &row.record.delivered_token,
+                    &inventory,
+                )
+                .unwrap();
+                let native: Vec<f64> = serde_json::from_value(case["native"].clone()).unwrap();
+                assert_eq!(native, vec![0.25; 4]);
+                assert_eq!(ordinary, native, "per-case gap must be exactly 0");
+            }
+        }
+        // Same sampling draws consumed: delivered test tokens equal an
+        // independent uniform-stream resimulation (token draw + channel draw
+        // per case, in order).
+        let sidecar = read_json(&slot.join("development-config.json"));
+        for (receiver_idx, role) in ["agent-0", "agent-1"].iter().enumerate() {
+            let role = *role;
+            let _ = receiver_idx;
+            let test_seed = sidecar["seeds"]["roles"][role]["withinSupportTest"]
+                .as_str()
+                .unwrap();
+            let sender = ald_learners::AgentPolicy::new();
+            let mut rng = ald_hashing::SeededPrng::new(test_seed).derive("emergent-test");
+            let cases = ald_scenario::generate_cases(test_seed, 3, role, 4, &inventory);
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            for (c, case) in cases.iter().zip(probs.iter()) {
+                let cands = candidate_types(&c.candidate_type_codes);
+                let token = sender.sample_token(cands[c.target_index], &mut rng);
+                let delivered = if drop_draw_less_than(rng.next_float(), 1, 8) {
+                    None
+                } else {
+                    Some(token)
+                };
+                let expect = delivered.map(|id| inventory[id].clone());
+                match expect {
+                    None => assert!(case["deliveredToken"].is_null()),
+                    Some(t) => assert_eq!(case["deliveredToken"], serde_json::json!(t)),
+                }
+            }
+        }
+        // Binding: receipt, journal, and sidecar carry the same config hash.
+        let config_hash = sidecar["digests"]["developmentConfigSha256"]
+            .as_str()
+            .unwrap();
+        assert_eq!(
+            receipt.development_config_sha256.as_deref(),
+            Some(config_hash)
+        );
+        assert_eq!(
+            sidecar["resolved"]["learningMode"],
+            serde_json::json!("none")
+        );
+        assert_eq!(
+            sidecar["requested"],
+            serde_json::json!({"learningMode": "none"}),
+            "sidecar requested records only the flags actually passed"
+        );
+        let journal: Vec<serde_json::Value> = std::fs::read_to_string(root.join("journal.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(journal.len(), 2);
+        for line in &journal {
+            assert_eq!(line["developmentConfigSha256"], config_hash);
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dev_learning_mode_receiver_only_sender_uniform() {
+        // N=40 over the fold of 8 gives the receiver plenty of episodes while
+        // the sender must stay bit-frozen.
+        let dir = fresh_temp_dir("recvonly");
+        let (req, root) = dev_test_req(
+            &dir,
+            &small_manifest_text(),
+            "development",
+            0,
+            Some(dev_opts(
+                Some(40),
+                Some(LearningMode::ReceiverOnly),
+                None,
+                None,
+                None,
+            )),
+        );
+        let receipt = run_dyad(&req, &test_inventory()).unwrap();
+        assert!(receipt.primary.is_finite());
+        let slot = only_slot(&root);
+        let fresh = ald_learners::AgentPolicy::new();
+        let inventory = test_inventory();
+        for role in ["agent-0", "agent-1"] {
+            let policy = ald_learners::AgentPolicy::from_bytes(
+                &std::fs::read(slot.join(format!("agent-policy-{role}.json"))).unwrap(),
+            )
+            .unwrap();
+            // Sender exactly uniform: every logit, baseline, and count zero.
+            for ty in 0..ald_learners::NUM_TYPES {
+                assert!(policy.sender_logits(ty).iter().all(|v| *v == 0.0));
+                assert_eq!(policy.sender_baseline(ty), 0.0);
+                assert_eq!(policy.sender_baseline_count(ty), 0);
+                assert_eq!(policy.sender_probs(ty), fresh.sender_probs(ty));
+            }
+            // ... while the receiver learned.
+            assert_ne!(
+                policy.to_bytes(),
+                fresh.to_bytes(),
+                "{role} receiver must move"
+            );
+        }
+        // Sender-uniform at test too: delivered tokens equal the frozen
+        // uniform-sender resimulation exactly.
+        let sidecar = read_json(&slot.join("development-config.json"));
+        for role in ["agent-0", "agent-1"] {
+            let test_seed = sidecar["seeds"]["roles"][role]["withinSupportTest"]
+                .as_str()
+                .unwrap();
+            let mut rng = ald_hashing::SeededPrng::new(test_seed).derive("emergent-test");
+            let cases = ald_scenario::generate_cases(test_seed, 3, role, 4, &inventory);
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            for (c, case) in cases.iter().zip(probs.iter()) {
+                let cands = candidate_types(&c.candidate_type_codes);
+                let token = fresh.sample_token(cands[c.target_index], &mut rng);
+                let delivered = if drop_draw_less_than(rng.next_float(), 1, 8) {
+                    None
+                } else {
+                    Some(token)
+                };
+                match delivered.map(|id| inventory[id].clone()) {
+                    None => assert!(case["deliveredToken"].is_null()),
+                    Some(t) => assert_eq!(case["deliveredToken"], serde_json::json!(t)),
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dev_drop_probability_endpoints_and_rational() {
+        let inventory = test_inventory();
+        // 0/1: nothing is ever dropped, in training or at test.
+        let dir0 = fresh_temp_dir("drop0");
+        let (req0, root0) = dev_test_req(
+            &dir0,
+            &small_manifest_text(),
+            "development",
+            0,
+            Some(dev_opts(
+                None,
+                None,
+                Some(DropProbability {
+                    numerator: 0,
+                    denominator: 1,
+                }),
+                None,
+                None,
+            )),
+        );
+        run_dyad(&req0, &inventory).unwrap();
+        let slot0 = only_slot(&root0);
+        for role in ["agent-0", "agent-1"] {
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(slot0.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            assert!(!probs.is_empty());
+            for case in &probs {
+                assert!(case["deliveredToken"].is_string(), "0/1 must never drop");
+                assert_eq!(case["nativeMissing"], serde_json::json!(false));
+            }
+            // Training side: with no drops the receiver saw every episode.
+            let policy = ald_learners::AgentPolicy::from_bytes(
+                &std::fs::read(slot0.join(format!("agent-policy-{role}.json"))).unwrap(),
+            )
+            .unwrap();
+            assert_ne!(
+                policy.to_bytes(),
+                ald_learners::AgentPolicy::new().to_bytes()
+            );
+        }
+        // 1/1: everything is dropped (endpoints still consume their draw, so
+        // the stream stays aligned) and every native is exact uniform.
+        let dir1 = fresh_temp_dir("drop1");
+        let (req1, root1) = dev_test_req(
+            &dir1,
+            &small_manifest_text(),
+            "development",
+            0,
+            Some(dev_opts(
+                None,
+                None,
+                Some(DropProbability {
+                    numerator: 1,
+                    denominator: 1,
+                }),
+                None,
+                None,
+            )),
+        );
+        run_dyad(&req1, &inventory).unwrap();
+        let slot1 = only_slot(&root1);
+        for role in ["agent-0", "agent-1"] {
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(slot1.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            for case in &probs {
+                assert!(case["deliveredToken"].is_null(), "1/1 must always drop");
+                let native: Vec<f64> = serde_json::from_value(case["native"].clone()).unwrap();
+                assert_eq!(native, vec![0.25; 4]);
+            }
+            // Training side: all dropped, so the receiver never updated (no
+            // logits, no baselines, no counts) while the sender still ran its
+            // update on every one of its 8 episodes (counts advance even when
+            // a zero advantage leaves the logits untouched).
+            let policy = ald_learners::AgentPolicy::from_bytes(
+                &std::fs::read(slot1.join(format!("agent-policy-{role}.json"))).unwrap(),
+            )
+            .unwrap();
+            let fresh_bytes = ald_learners::AgentPolicy::new().to_bytes();
+            let got: serde_json::Value = serde_json::from_slice(&policy.to_bytes()).unwrap();
+            let new: serde_json::Value = serde_json::from_slice(&fresh_bytes).unwrap();
+            assert_eq!(got["receiver_logits"], new["receiver_logits"]);
+            assert_eq!(got["receiver_baseline"], new["receiver_baseline"]);
+            assert_eq!(
+                got["receiver_baseline_counts"],
+                new["receiver_baseline_counts"]
+            );
+            let sender_updates: u64 = (0..ald_learners::NUM_TYPES)
+                .map(|ty| policy.sender_baseline_count(ty))
+                .sum();
+            assert_eq!(
+                sender_updates, 8,
+                "sender updates on every episode even when dropped"
+            );
+        }
+        // 1/3: exact rational in train and test; test deliveries match an
+        // independent resimulation draw-for-draw, and reruns are identical.
+        let run_third = |tag: &str| {
+            let dir = fresh_temp_dir(tag);
+            let (req, root) = dev_test_req(
+                &dir,
+                &small_manifest_text(),
+                "development",
+                0,
+                Some(dev_opts(
+                    None,
+                    None,
+                    Some(DropProbability {
+                        numerator: 1,
+                        denominator: 3,
+                    }),
+                    None,
+                    None,
+                )),
+            );
+            run_dyad(&req, &inventory).unwrap();
+            (dir, only_slot(&root))
+        };
+        let (d3a, s3a) = run_third("drop3a");
+        let (d3b, s3b) = run_third("drop3b");
+        for role in ["agent-0", "agent-1"] {
+            assert_eq!(
+                std::fs::read(s3a.join(format!("agent-policy-{role}.json"))).unwrap(),
+                std::fs::read(s3b.join(format!("agent-policy-{role}.json"))).unwrap(),
+                "rational channel must be deterministic"
+            );
+        }
+        let sidecar = read_json(&s3a.join("development-config.json"));
+        assert_eq!(
+            sidecar["resolved"]["dropProbability"],
+            serde_json::json!({"numerator": 1, "denominator": 3})
+        );
+        // Resimulate the test phase of the 1/3 run from the persisted frozen
+        // policies: exact match proves one channel draw per interaction with
+        // the resolved rational, in train-independent eval streams.
+        for (receiver_idx, role) in ["agent-0", "agent-1"].iter().enumerate() {
+            let role = *role;
+            let policies: Vec<ald_learners::AgentPolicy> = ["agent-0", "agent-1"]
+                .iter()
+                .map(|r| {
+                    ald_learners::AgentPolicy::from_bytes(
+                        &std::fs::read(s3a.join(format!("agent-policy-{r}.json"))).unwrap(),
+                    )
+                    .unwrap()
+                })
+                .collect();
+            let sender = &policies[1 - receiver_idx];
+            let receiver = &policies[receiver_idx];
+            let test_seed = sidecar["seeds"]["roles"][role]["withinSupportTest"]
+                .as_str()
+                .unwrap();
+            let mut rng = ald_hashing::SeededPrng::new(test_seed).derive("emergent-test");
+            let cases = ald_scenario::generate_cases(test_seed, 3, role, 4, &inventory);
+            let probs: Vec<serde_json::Value> = serde_json::from_str(
+                &std::fs::read_to_string(s3a.join(format!("branch-probabilities-{role}.json")))
+                    .unwrap(),
+            )
+            .unwrap();
+            for (c, case) in cases.iter().zip(probs.iter()) {
+                let cands = candidate_types(&c.candidate_type_codes);
+                let token = sender.sample_token(cands[c.target_index], &mut rng);
+                let delivered = if drop_draw_less_than(rng.next_float(), 1, 3) {
+                    None
+                } else {
+                    Some(token)
+                };
+                match delivered.map(|id| inventory[id].clone()) {
+                    None => assert!(case["deliveredToken"].is_null()),
+                    Some(t) => assert_eq!(case["deliveredToken"], serde_json::json!(t)),
+                }
+                let expect_native: Vec<f64> = receiver
+                    .receiver_position_posterior(delivered, &cands)
+                    .iter()
+                    .map(|v| stable_f64(*v))
+                    .collect();
+                let got: Vec<f64> = serde_json::from_value(case["native"].clone()).unwrap();
+                assert_eq!(got, expect_native);
+            }
+        }
+        for d in [dir0, dir1, d3a, d3b] {
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+
+    #[test]
+    fn dev_active_sender_tokens_end_to_end() {
+        let inventory = test_inventory();
+        for k in [8u32, 16] {
+            let dir = fresh_temp_dir("acttok");
+            let (req, root) = dev_test_req(
+                &dir,
+                &small_manifest_text(),
+                "development",
+                0,
+                Some(dev_opts(None, None, None, Some(k), None)),
+            );
+            let receipt = run_dyad(&req, &inventory).unwrap();
+            assert_eq!(receipt.state, "valid");
+            let slot = only_slot(&root);
+            // Support: every delivered test token is inside the active set.
+            for role in ["agent-0", "agent-1"] {
+                let probs: Vec<serde_json::Value> = serde_json::from_str(
+                    &std::fs::read_to_string(
+                        slot.join(format!("branch-probabilities-{role}.json")),
+                    )
+                    .unwrap(),
+                )
+                .unwrap();
+                let mut delivered_any = false;
+                for case in &probs {
+                    if let Some(tok) = case["deliveredToken"].as_str() {
+                        delivered_any = true;
+                        let id: usize = tok.strip_prefix("tok").unwrap().parse().unwrap();
+                        assert!(id < k as usize, "token {tok} escapes the active set");
+                    }
+                }
+                assert!(delivered_any, "expected some delivered tokens");
+                // Normalization + update constraint + 32-token format + K in
+                // metadata.
+                let bytes = std::fs::read(slot.join(format!("agent-policy-{role}.json"))).unwrap();
+                let policy = ald_learners::AgentPolicy::from_bytes(&bytes).unwrap();
+                assert_eq!(policy.active_sender_tokens(), k as usize);
+                for ty in 0..ald_learners::NUM_TYPES {
+                    let p = policy.sender_probs(ty);
+                    assert_eq!(p.len(), 32);
+                    assert!((p[..k as usize].iter().sum::<f64>() - 1.0).abs() < 1e-12);
+                    assert!(p[k as usize..].iter().all(|v| *v == 0.0));
+                    assert!(policy.sender_logits(ty)[k as usize..]
+                        .iter()
+                        .all(|v| *v == 0.0));
+                }
+                let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+                assert_eq!(v["metadata"]["active_sender_tokens"], serde_json::json!(k));
+                assert_eq!(v["sender_logits"].as_array().unwrap().len(), 16);
+                assert_eq!(v["sender_logits"][0].as_array().unwrap().len(), 32);
+            }
+            let sidecar = read_json(&slot.join("development-config.json"));
+            assert_eq!(
+                sidecar["resolved"]["activeSenderTokens"],
+                serde_json::json!(k)
+            );
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
+    fn dev_held_out_types_excluded_and_census() {
+        let inventory = test_inventory();
+        let held = vec![12u32, 13, 14, 15];
+        let dir = fresh_temp_dir("heldout");
+        let (req, root) = dev_test_req(
+            &dir,
+            &small_manifest_text(),
+            "development",
+            0,
+            Some(dev_opts(None, None, None, None, Some(held.clone()))),
+        );
+        run_dyad(&req, &inventory).unwrap();
+        let slot = only_slot(&root);
+        let sidecar = read_json(&slot.join("development-config.json"));
+        assert_eq!(
+            sidecar["resolved"]["heldOutTypes"],
+            serde_json::json!([12, 13, 14, 15])
+        );
+        for role in ["agent-0", "agent-1"] {
+            // No held-out code in any pre-test fold, either direction.
+            let folds = read_json(&slot.join(format!("role-folds-{role}.json")));
+            for split in ["training", "validation_fit", "validation_selection"] {
+                for rec in folds[split].as_array().unwrap() {
+                    for c in rec["candidate_type_codes"].as_array().unwrap() {
+                        let t = c.as_u64().unwrap() as u32;
+                        assert!(!held.contains(&t), "{role}/{split} exposes held-out {t}");
+                    }
+                }
+            }
+            // Test folds cover all 16: they equal the unfiltered regeneration
+            // from the sidecar test seed exactly.
+            let test_seed = sidecar["seeds"]["roles"][role]["withinSupportTest"]
+                .as_str()
+                .unwrap();
+            let regen = ald_scenario::generate_cases(test_seed, 3, role, 4, &inventory);
+            let test = folds["test"].as_array().unwrap();
+            assert_eq!(test.len(), regen.len());
+            for (row, case) in test.iter().zip(regen.iter()) {
+                let codes: Vec<u32> = row["record"]["candidate_type_codes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|c| c.as_u64().unwrap() as u32)
+                    .collect();
+                assert_eq!(&codes, &case.candidate_type_codes.to_vec());
+            }
+            // The sidecar census reproduces from the sidecar seeds: pre-test
+            // splits via the excluding generator, test via the plain one.
+            let seeds = &sidecar["seeds"]["roles"][role];
+            let counts = |seed: &str, off: u64, n: usize, filtered: bool| {
+                let cases = if filtered {
+                    ald_scenario::generate_cases_excluding(seed, off, role, n, &inventory, &held)
+                } else {
+                    ald_scenario::generate_cases(seed, off, role, n, &inventory)
+                };
+                let mut h = [0u64; 16];
+                for c in &cases {
+                    for t in c.candidate_type_codes {
+                        h[t as usize] += 1;
+                    }
+                }
+                h.iter().map(|c| serde_json::json!(c)).collect::<Vec<_>>()
+            };
+            let census = &sidecar["exposureCounts"][role];
+            assert_eq!(
+                census["training"].as_array().unwrap(),
+                &counts(seeds["training"].as_str().unwrap(), 0, 8, true)
+            );
+            assert_eq!(
+                census["validationFit"].as_array().unwrap(),
+                &counts(seeds["validationFit"].as_str().unwrap(), 1, 4, true)
+            );
+            assert_eq!(
+                census["validationSelection"].as_array().unwrap(),
+                &counts(seeds["validationSelection"].as_str().unwrap(), 2, 4, true)
+            );
+            assert_eq!(
+                census["withinSupportTest"].as_array().unwrap(),
+                &counts(seeds["withinSupportTest"].as_str().unwrap(), 3, 4, false)
+            );
+            // Held-out types have zero pre-test exposure in the census.
+            for split in ["training", "validationFit", "validationSelection"] {
+                for t in &held {
+                    assert_eq!(census[split][*t as usize], serde_json::json!(0));
+                }
+            }
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn dev_cohort_gate_and_no_partial_artifacts() {
+        // Every single non-default option is refused outside cohort
+        // development, before any directory, journal, or database exists.
+        let singles = [
+            dev_opts(Some(3), None, None, None, None),
+            dev_opts(None, Some(LearningMode::None), None, None, None),
+            dev_opts(None, Some(LearningMode::ReceiverOnly), None, None, None),
+            dev_opts(
+                None,
+                None,
+                Some(DropProbability {
+                    numerator: 1,
+                    denominator: 3,
+                }),
+                None,
+                None,
+            ),
+            dev_opts(None, None, None, Some(8), None),
+            dev_opts(None, None, None, None, Some(vec![15])),
+        ];
+        for (i, dev) in singles.iter().enumerate() {
+            for cohort in ["A", "B", "staging"] {
+                let dir = fresh_temp_dir("gate");
+                let (req, root) =
+                    dev_test_req(&dir, &small_manifest_text(), cohort, 0, Some(dev.clone()));
+                // Even a GO admission must not admit dev options elsewhere.
+                if cohort == "A" && i == 0 {
+                    std::fs::create_dir_all(&root).unwrap();
+                    std::fs::write(root.join("admission.json"), r#"{"decision":"GO"}"#).unwrap();
+                    let err = run_dyad(&req, &test_inventory()).unwrap_err().to_string();
+                    assert!(err.contains("development"), "unexpected error: {err}");
+                    assert!(!root.join("journal.jsonl").exists());
+                    assert!(!root.join("A").exists());
+                } else {
+                    let err = run_dyad(&req, &test_inventory()).unwrap_err().to_string();
+                    assert!(err.contains("development"), "unexpected error: {err}");
+                    assert!(
+                        !root.exists(),
+                        "rejected run must not create any dir/journal/db"
+                    );
+                }
+                let _ = std::fs::remove_dir_all(&dir);
+            }
+        }
+        // Malformed resolved structs are rejected artifact-free too.
+        let bads = vec![
+            dev_opts(Some(0), None, None, None, None),
+            dev_opts(None, None, None, Some(7), None),
+            dev_opts(
+                None,
+                None,
+                Some(DropProbability {
+                    numerator: 5,
+                    denominator: 4,
+                }),
+                None,
+                None,
+            ),
+            dev_opts(None, None, None, None, Some(vec![1, 1])),
+        ];
+        for dev in &bads {
+            let dir = fresh_temp_dir("baddev");
+            let (req, root) = dev_test_req(
+                &dir,
+                &small_manifest_text(),
+                "development",
+                0,
+                Some(dev.clone()),
+            );
+            assert!(run_dyad(&req, &test_inventory()).is_err());
+            assert!(!root.exists());
+            let _ = std::fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
+    fn dev_explicit_default_identity() {
+        // Bare defaults and explicitly-passed defaults take the identical
+        // legacy path: byte-identical artifacts, journals, and receipts.
+        let manifest = small_manifest_text();
+        let explicit = dev_opts(
+            Some(8),
+            Some(LearningMode::Joint),
+            Some(DropProbability {
+                numerator: 1,
+                denominator: 8,
+            }),
+            Some(32),
+            Some(Vec::new()),
+        );
+        let dir_a = fresh_temp_dir("idef-a");
+        let (req_a, root_a) = dev_test_req(&dir_a, &manifest, "development", 0, None);
+        let r_a = run_dyad(&req_a, &test_inventory()).unwrap();
+        let dir_b = fresh_temp_dir("idef-b");
+        let (req_b, root_b) = dev_test_req(&dir_b, &manifest, "development", 0, Some(explicit));
+        let r_b = run_dyad(&req_b, &test_inventory()).unwrap();
+        assert_eq!(r_a.development_config_sha256, None);
+        assert_eq!(r_b.development_config_sha256, None);
+        let slot_a = only_slot(&root_a);
+        let slot_b = only_slot(&root_b);
+        assert_eq!(
+            slot_a.file_name().unwrap(),
+            std::ffi::OsStr::new("primary-0000")
+        );
+        assert_eq!(
+            slot_b.file_name().unwrap(),
+            std::ffi::OsStr::new("primary-0000"),
+            "explicit defaults take the legacy (unsuffixed) root"
+        );
+        assert!(!slot_a.join("development-config.json").exists());
+        assert!(!slot_b.join("development-config.json").exists());
+        let files_a: Vec<_> = std::fs::read_dir(&slot_a)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        for name in &files_a {
+            // evidence.sqlite embeds allocator/page-layout bytes that are
+            // content-identical but not byte-stable; the receipt carries
+            // measured wall-clock seconds. Everything else must be
+            // byte-identical.
+            if name == std::ffi::OsStr::new("evidence.sqlite") {
+                continue;
+            }
+            if name == std::ffi::OsStr::new("dyad-receipt.json") {
+                let mut ra: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(slot_a.join(name)).unwrap()).unwrap();
+                let mut rb: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(slot_b.join(name)).unwrap()).unwrap();
+                ra.as_object_mut().unwrap().remove("wallSeconds");
+                rb.as_object_mut().unwrap().remove("wallSeconds");
+                assert_eq!(ra, rb, "receipts differ beyond wall-clock");
+                continue;
+            }
+            assert_eq!(
+                std::fs::read(slot_a.join(name)).unwrap(),
+                std::fs::read(slot_b.join(name)).unwrap(),
+                "artifact {name:?} differs between default and explicit-default"
+            );
+        }
+        assert_eq!(
+            std::fs::read(root_a.join("journal.jsonl")).unwrap(),
+            std::fs::read(root_b.join("journal.jsonl")).unwrap()
+        );
+        let mut va = serde_json::to_value(&r_a).unwrap();
+        let mut vb = serde_json::to_value(&r_b).unwrap();
+        va.as_object_mut().unwrap().remove("wallSeconds");
+        vb.as_object_mut().unwrap().remove("wallSeconds");
+        assert_eq!(va, vb);
+        // Both evidence stores verify with identical stream counts.
+        for slot in [&slot_a, &slot_b] {
+            let conn = ald_evidence::open(slot.join("evidence.sqlite").to_str().unwrap()).unwrap();
+            assert_eq!(
+                ald_evidence::verify_stream(&conn, ald_types::EventStream::Turns).unwrap(),
+                8
+            );
+            assert_eq!(
+                ald_evidence::verify_stream(&conn, ald_types::EventStream::Audit).unwrap(),
+                2
+            );
+        }
+        for d in [dir_a, dir_b] {
+            let _ = std::fs::remove_dir_all(&d);
+        }
+    }
+
+    #[test]
+    fn dev_run_roots_separate_per_config_and_refuse_overwrite() {
+        let manifest = small_manifest_text();
+        let dir = fresh_temp_dir("roots");
+        let manifest_path = dir.join("manifest.json");
+        std::fs::write(&manifest_path, &manifest).unwrap();
+        let root = dir.join("evidence");
+        let mk = |n: u64| DyadRequest {
+            manifest_path: manifest_path.to_string_lossy().into_owned(),
+            cohort: "development".to_string(),
+            kind: "primary".to_string(),
+            index: 0,
+            evidence_root: root.to_string_lossy().into_owned(),
+            treatment_batch_version: 2,
+            protocol_version: 2,
+            development: Some(dev_opts(Some(n), None, None, None, None)),
+        };
+        let r3 = run_dyad(&mk(3), &test_inventory()).unwrap();
+        let r5 = run_dyad(&mk(5), &test_inventory()).unwrap();
+        assert_ne!(
+            r3.development_config_sha256, r5.development_config_sha256,
+            "distinct configs bind distinct hashes"
+        );
+        // Separate run roots per config.
+        let mut roots: Vec<String> = std::fs::read_dir(root.join("development"))
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        roots.sort();
+        assert_eq!(roots.len(), 2);
+        assert!(roots[0].starts_with("primary-0000-dev-"));
+        assert!(roots[1].starts_with("primary-0000-dev-"));
+        assert_ne!(roots[0], roots[1]);
+        for name in &roots {
+            let sidecar =
+                read_json(&root.join(format!("development/{name}/development-config.json")));
+            let n = sidecar["counts"]["trainingInteractionsPerDirection"]
+                .as_u64()
+                .unwrap();
+            let receipt = if n == 3 { &r3 } else { &r5 };
+            assert!(n == 3 || n == 5);
+            assert_eq!(
+                sidecar["digests"]["developmentConfigSha256"]
+                    .as_str()
+                    .unwrap(),
+                receipt.development_config_sha256.as_deref().unwrap()
+            );
+            assert!(name.ends_with(&development_config_short_id(
+                receipt.development_config_sha256.as_deref().unwrap()
+            )));
+        }
+        // The shared journal chains all four lines with per-line config tags.
+        let journal: Vec<serde_json::Value> = std::fs::read_to_string(root.join("journal.jsonl"))
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect();
+        assert_eq!(journal.len(), 4);
+        let hashes: std::collections::HashSet<String> = journal
+            .iter()
+            .map(|l| l["developmentConfigSha256"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(hashes.len(), 2);
+        // Rerunning the same config refuses to overwrite and changes nothing.
+        let n3_root = roots
+            .iter()
+            .find(|name| {
+                read_json(&root.join(format!("development/{name}/development-config.json")))
+                    ["counts"]["trainingInteractionsPerDirection"]
+                    == serde_json::json!(3u64)
+            })
+            .unwrap()
+            .clone();
+        let before =
+            std::fs::read(root.join(format!("development/{n3_root}/development-config.json")))
+                .unwrap();
+        let err = run_dyad(&mk(3), &test_inventory()).unwrap_err().to_string();
+        assert!(err.contains("overwrite"), "unexpected error: {err}");
+        let after =
+            std::fs::read(root.join(format!("development/{n3_root}/development-config.json")))
+                .unwrap();
+        assert_eq!(before, after);
+        assert_eq!(
+            std::fs::read_to_string(root.join("journal.jsonl"))
+                .unwrap()
+                .lines()
+                .count(),
+            4,
+            "refused rerun appends no journal lines"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 }
