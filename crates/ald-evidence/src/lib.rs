@@ -4,8 +4,14 @@
 //! every event carries `entryHash =
 //! SHA-256(stream-domain || 0x00 || canonical(unsigned event))` and chains to
 //! the previous hash. Single-writer discipline is the caller's contract.
+//!
+//! Float encoding: appended bodies store f64 values as their IEEE-754 bit
+//! patterns (u64 integers; decode with `f64::from_bits`), because decimal
+//! floats do not survive store -> parse -> rehash bit-exactly for all
+//! doubles. Bodies written before this encoding keep decimal floats and
+//! continue to verify; the two forms never mix within one event.
 
-use ald_hashing::{compute_entry_hash, HashingError};
+use ald_hashing::{compute_entry_hash, float_bits_value, HashingError};
 use ald_types::EventStream;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -80,11 +86,15 @@ fn last_hash(conn: &Connection, stream: &str) -> Result<String, EvidenceError> {
 }
 
 fn next_seq(conn: &Connection, stream: &str) -> Result<u64, EvidenceError> {
-    let mut stmt = conn.prepare("SELECT COALESCE(MAX(sequence), -1) + 1 FROM events WHERE stream = ?1")?;
+    let mut stmt =
+        conn.prepare("SELECT COALESCE(MAX(sequence), -1) + 1 FROM events WHERE stream = ?1")?;
     Ok(stmt.query_row(params![stream], |r| r.get(0))?)
 }
 
 /// Append one unsigned event body to a stream; returns the stored event.
+///
+/// Floats are bit-encoded before hashing and storing (see module docs),
+/// so the stored text re-parses to the exact hashed values.
 pub fn append_event(
     conn: &Connection,
     stream: EventStream,
@@ -97,6 +107,8 @@ pub fn append_event(
         "previousHash".to_string(),
         serde_json::Value::String(prev.clone()),
     );
+    let encoded = float_bits_value(&serde_json::Value::Object(unsigned));
+    let mut unsigned = encoded.as_object().cloned().unwrap_or_default();
     let entry_hash = compute_entry_hash(stream, &unsigned)?;
     unsigned.insert(
         "entryHash".to_string(),
@@ -107,11 +119,20 @@ pub fn append_event(
         "INSERT INTO events(stream, sequence, entry_hash, previous_hash, body) VALUES(?1,?2,?3,?4,?5)",
         params![stream_name, seq as i64, entry_hash, prev, body.to_string()],
     )?;
-    Ok(StoredEvent { sequence: seq, stream: stream_name.to_string(), entry_hash, previous_hash: prev, body })
+    Ok(StoredEvent {
+        sequence: seq,
+        stream: stream_name.to_string(),
+        entry_hash,
+        previous_hash: prev,
+        body,
+    })
 }
 
 /// Read a full stream in sequence order.
-pub fn read_stream(conn: &Connection, stream: EventStream) -> Result<Vec<StoredEvent>, EvidenceError> {
+pub fn read_stream(
+    conn: &Connection,
+    stream: EventStream,
+) -> Result<Vec<StoredEvent>, EvidenceError> {
     let mut stmt = conn.prepare(
         "SELECT sequence, entry_hash, previous_hash, body FROM events WHERE stream = ?1 ORDER BY sequence ASC",
     )?;
@@ -125,7 +146,8 @@ pub fn read_stream(conn: &Connection, stream: EventStream) -> Result<Vec<StoredE
             body: serde_json::from_str(&body_text).unwrap_or(serde_json::Value::Null),
         })
     })?;
-    rows.collect::<Result<Vec<_>, _>>().map_err(EvidenceError::from)
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(EvidenceError::from)
 }
 
 /// Verify a stream's hash chain from genesis.
@@ -134,12 +156,18 @@ pub fn verify_stream(conn: &Connection, stream: EventStream) -> Result<u64, Evid
     let mut prev = ald_types::GENESIS_HASH.to_string();
     for e in &events {
         if e.previous_hash != prev {
-            return Err(EvidenceError::Stream(format!("chain break at seq {}", e.sequence)));
+            return Err(EvidenceError::Stream(format!(
+                "chain break at seq {}",
+                e.sequence
+            )));
         }
         let body = e.body.as_object().cloned().unwrap_or_default();
         let recomputed = compute_entry_hash(stream, &body)?;
         if recomputed != e.entry_hash {
-            return Err(EvidenceError::Stream(format!("entry hash mismatch at seq {}", e.sequence)));
+            return Err(EvidenceError::Stream(format!(
+                "entry hash mismatch at seq {}",
+                e.sequence
+            )));
         }
         prev = e.entry_hash.clone();
     }
@@ -167,7 +195,35 @@ mod tests {
         let mut m = serde_json::Map::new();
         m.insert("i".to_string(), serde_json::json!(1));
         append_event(&conn, EventStream::Channel, m).unwrap();
-        conn.execute("UPDATE events SET body = '{}' WHERE sequence = 0", []).unwrap();
+        conn.execute("UPDATE events SET body = '{}' WHERE sequence = 0", [])
+            .unwrap();
         assert!(verify_stream(&conn, EventStream::Channel).is_err());
+    }
+
+    #[test]
+    fn float_cycle_values_verify() {
+        // Regression: f64 values whose legacy decimal print does not
+        // parse back to the same double (k8.idx215 seq 142/233) must
+        // still produce verifiable evidence. f_a prints legacy-short as
+        // "1.929800299119496e-9" but parses to a neighboring double.
+        let fa: f64 = serde_json::from_str::<serde_json::Value>("1.9298002991194962e-9")
+            .unwrap()
+            .as_f64()
+            .unwrap();
+        assert_eq!(
+            serde_json::Value::from(fa).to_string(),
+            "1.929800299119496e-9",
+            "precondition: legacy printer emits the unstable form"
+        );
+        let fb: f64 = serde_json::from_str::<serde_json::Value>("1.929800299119496e-9")
+            .unwrap()
+            .as_f64()
+            .unwrap();
+        assert_ne!(fa.to_bits(), fb.to_bits(), "precondition: 2-cycle");
+        let conn = open(":memory:").unwrap();
+        let mut m = serde_json::Map::new();
+        m.insert("native".to_string(), serde_json::json!([fa, fb, 0.25]));
+        append_event(&conn, EventStream::Turns, m).unwrap();
+        assert_eq!(verify_stream(&conn, EventStream::Turns).unwrap(), 1);
     }
 }

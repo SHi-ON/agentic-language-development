@@ -183,6 +183,40 @@ pub fn compute_entry_hash(
     hash_canonical(stream.hash_domain(), &body)
 }
 
+/// Encode every f64 in `value` as its IEEE-754 bit pattern (u64),
+/// recursing through arrays and objects. Integers, strings, bools, and
+/// null pass through unchanged.
+///
+/// Rationale: the JSON float printer/parser pair is not bit-stable for
+/// all doubles (k8.idx215: some probabilities print a decimal that
+/// parses back to a neighboring double, oscillating with no fixpoint;
+/// even 18-digit scientific forms misparse by 1 ULP). Evidence bodies
+/// must survive store -> parse -> rehash bit-exactly, so appends hash
+/// and store this encoding instead of decimal floats. Consumers recover
+/// probabilities with `f64::from_bits(bits)`. Canonical printing of the
+/// resulting integers is exact and unchanged.
+#[must_use]
+pub fn float_bits_value(value: &Value) -> Value {
+    match value {
+        Value::Number(n) => {
+            if n.is_i64() || n.is_u64() {
+                value.clone()
+            } else if let Some(f) = n.as_f64() {
+                Value::from(f.to_bits())
+            } else {
+                value.clone()
+            }
+        }
+        Value::Array(items) => Value::Array(items.iter().map(float_bits_value).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), float_bits_value(v)))
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
+}
+
 /// Deterministic SHA-256 counter-mode PRNG (`SeededPrng` stream
 /// layout): key = SHA-256(seed-domain || 0x00 || utf8(seed)),
 /// block = SHA-256(key || uint64BE(counter)).
@@ -198,7 +232,11 @@ impl SeededPrng {
     #[must_use]
     pub fn new(seed: &str) -> Self {
         Self {
-            key: sha256_bytes(&[ald_types::hash_domains::SEED.as_bytes(), &[0u8], seed.as_bytes()]),
+            key: sha256_bytes(&[
+                ald_types::hash_domains::SEED.as_bytes(),
+                &[0u8],
+                seed.as_bytes(),
+            ]),
             counter: 0,
             block: [0u8; 32],
             offset: 32,
@@ -329,12 +367,65 @@ mod tests {
     }
 
     #[test]
+    fn float_bits_encoding_is_exact_and_stable() {
+        // Integers pass through; f64s become their bit patterns.
+        let v: Value =
+            serde_json::from_str(r#"{"i":240,"n":-7,"f":0.25,"a":[1.0,null],"o":{"x":0.1}}"#)
+                .unwrap();
+        let enc = float_bits_value(&v);
+        assert_eq!(enc["i"], serde_json::json!(240));
+        assert_eq!(enc["n"], serde_json::json!(-7));
+        assert_eq!(enc["f"], serde_json::json!(0.25f64.to_bits()));
+        assert_eq!(enc["a"][0], serde_json::json!(1.0f64.to_bits()));
+        assert_eq!(enc["a"][1], Value::Null);
+        assert_eq!(enc["o"]["x"], serde_json::json!(0.1f64.to_bits()));
+        // Encoded text survives store -> parse -> re-encode bit-exactly,
+        // including the k8.idx215 2-cycle doubles and a seeded sweep.
+        let mut bits_cases: Vec<u64> = vec![
+            0.0f64.to_bits(),
+            (-0.0f64).to_bits(),
+            1.0f64.to_bits(),
+            0.25f64.to_bits(),
+            f64::MAX.to_bits(),
+            f64::MIN_POSITIVE.to_bits(),
+        ];
+        for s in [
+            "1.929800299119496e-9",
+            "1.9298002991194962e-9",
+            "6.783021085277678e-9",
+            "6.7830210852776785e-9",
+        ] {
+            bits_cases.push(
+                serde_json::from_str::<Value>(s)
+                    .unwrap()
+                    .as_f64()
+                    .unwrap()
+                    .to_bits(),
+            );
+        }
+        let mut rng = SeededPrng::new("float-bits-sweep-v1");
+        for _ in 0..20_000 {
+            let bits = ((rng.next_u32() as u64) << 32) | (rng.next_u32() as u64);
+            if f64::from_bits(bits).is_finite() {
+                bits_cases.push(bits);
+            }
+        }
+        for bits in &bits_cases {
+            let f = f64::from_bits(*bits);
+            let enc = float_bits_value(&Value::from(f));
+            let text = enc.to_string();
+            let back: Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(back.as_u64().unwrap(), *bits, "bits changed for {text}");
+            assert_eq!(f64::from_bits(back.as_u64().unwrap()).to_bits(), *bits);
+        }
+    }
+
+    #[test]
     fn prng_matches_ts_oracle_d6_seed() {
         // Reference stream for seed "a136f247...df357a": first uint32,
         // first float, next_int(10000).
-        let mut rng = SeededPrng::new(
-            "a136f247e0b12755021e5027a4e7b5f41d3b630e418a609c2d30cfd995df357a",
-        );
+        let mut rng =
+            SeededPrng::new("a136f247e0b12755021e5027a4e7b5f41d3b630e418a609c2d30cfd995df357a");
         assert_eq!(rng.next_u32(), 1574471825);
         assert_eq!(format!("{:.17}", rng.next_float()), "0.28304296965537734");
         assert_eq!(rng.next_int(10000).unwrap(), 8006);
@@ -364,6 +455,9 @@ mod tests {
         h.update(b"ald-e03-v1");
         h.update([0u8]);
         h.update(b"7");
-        assert_eq!(derive_seed_hex(&["ald-e03-v1", "7"]), hex::encode(h.finalize()));
+        assert_eq!(
+            derive_seed_hex(&["ald-e03-v1", "7"]),
+            hex::encode(h.finalize())
+        );
     }
 }
