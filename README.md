@@ -189,6 +189,7 @@ per-dyad primaries, control contrasts, and cohort intervals.
   validators only).
 - `.env.example` — sample runtime environment (mirrors the
   `ald-config` contract).
+- Naming: protocol/seed/schema/binary names are frozen ALA-LV strings; see the [naming glossary](https://github.com/SHi-ON/agentic-language-development-paper/blob/main/docs/glossary.md) in the paper repo (alias table + ESD-2026 version map).
 
 ## Scope
 
