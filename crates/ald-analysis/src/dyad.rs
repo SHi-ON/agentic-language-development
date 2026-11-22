@@ -89,7 +89,7 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
             ("native", &row.native_distribution),
             ("replay", &row.replay_distribution),
         ] {
-            if d.len() != crate::ledger::CANDIDATES || d.iter().any(|v| !v.is_finite()) {
+            if d.len() != ald_types::signaling::CANDIDATES || d.iter().any(|v| !v.is_finite()) {
                 return Err(AnalysisError::Domain(format!(
                     "role {} test case {} has a non-finite or misshapen {name} distribution",
                     folds.role, row.record.case_id

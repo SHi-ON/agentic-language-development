@@ -11,11 +11,9 @@
 //! learn only through per-episode REINFORCE updates in `ald-learners`.
 
 use crate::AnalysisError;
+use ald_types::signaling::{CANDIDATES, TOKENS, TYPES};
 use serde::{Deserialize, Serialize};
 
-pub const CANDIDATES: usize = 4;
-pub const TYPES: usize = 16;
-pub const TOKENS: usize = 32;
 pub const COEFFICIENTS: usize = 565;
 const EPS: f64 = 1e-12;
 

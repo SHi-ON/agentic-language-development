@@ -14,4 +14,3 @@ hex = { workspace = true }
 thiserror = { workspace = true }
 ald-types = { path = "../ald-types" }
 ald-hashing = { path = "../ald-hashing" }
-ald-analysis = { path = "../ald-analysis" }

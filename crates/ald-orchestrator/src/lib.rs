@@ -343,7 +343,7 @@ pub fn parse_held_out_types(s: &str) -> Result<Vec<u32>, OrchestratorError> {
         let t: u32 = trimmed
             .parse()
             .map_err(|_| bad("must be comma-separated type codes below 16"))?;
-        if t >= ald_learners::NUM_TYPES as u32 {
+        if t >= ald_types::signaling::TYPES as u32 {
             return Err(bad("must be comma-separated type codes below 16"));
         }
         if out.contains(&t) {
@@ -351,7 +351,7 @@ pub fn parse_held_out_types(s: &str) -> Result<Vec<u32>, OrchestratorError> {
         }
         out.push(t);
     }
-    if out.len() > ald_learners::NUM_TYPES - ald_scenario::CANDIDATES {
+    if out.len() > ald_types::signaling::TYPES - ald_types::signaling::CANDIDATES {
         return Err(bad("must leave at least 4 permitted types"));
     }
     Ok(out)
@@ -404,14 +404,14 @@ pub fn resolve_development_options(
     {
         let mut seen = std::collections::HashSet::new();
         for t in &held_out {
-            if *t >= ald_learners::NUM_TYPES as u32 || !seen.insert(*t) {
+            if *t >= ald_types::signaling::TYPES as u32 || !seen.insert(*t) {
                 return Err(OrchestratorError::Domain(
                     "development options: held-out types must be distinct codes below 16"
                         .to_string(),
                 ));
             }
         }
-        if held_out.len() > ald_learners::NUM_TYPES - ald_scenario::CANDIDATES {
+        if held_out.len() > ald_types::signaling::TYPES - ald_types::signaling::CANDIDATES {
             return Err(OrchestratorError::Domain(
                 "development options: held-out types must leave at least 4 permitted types"
                     .to_string(),
@@ -2904,7 +2904,7 @@ mod tests {
             )
             .unwrap();
             // Sender exactly uniform: every logit, baseline, and count zero.
-            for ty in 0..ald_learners::NUM_TYPES {
+            for ty in 0..ald_types::signaling::TYPES {
                 assert!(policy.sender_logits(ty).unwrap().iter().all(|v| *v == 0.0));
                 assert_eq!(policy.sender_baseline(ty).unwrap(), 0.0);
                 assert_eq!(policy.sender_baseline_count(ty).unwrap(), 0);
@@ -3041,7 +3041,7 @@ mod tests {
                 got["receiver_baseline_counts"],
                 new["receiver_baseline_counts"]
             );
-            let sender_updates: u64 = (0..ald_learners::NUM_TYPES)
+            let sender_updates: u64 = (0..ald_types::signaling::TYPES)
                 .map(|ty| policy.sender_baseline_count(ty).unwrap())
                 .sum();
             assert_eq!(
@@ -3176,7 +3176,7 @@ mod tests {
                 let bytes = std::fs::read(slot.join(format!("agent-policy-{role}.json"))).unwrap();
                 let policy = ald_learners::AgentPolicy::from_bytes(&bytes).unwrap();
                 assert_eq!(policy.active_sender_tokens(), k as usize);
-                for ty in 0..ald_learners::NUM_TYPES {
+                for ty in 0..ald_types::signaling::TYPES {
                     let p = policy.sender_probs(ty).unwrap();
                     assert_eq!(p.len(), 32);
                     assert!((p[..k as usize].iter().sum::<f64>() - 1.0).abs() < 1e-12);

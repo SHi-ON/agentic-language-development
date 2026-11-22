@@ -10,17 +10,12 @@
 //! persisted artifacts go through [`stable_f64`] so bytes are
 //! byte-identical across runs.
 
+use ald_types::signaling::{TOKENS, TYPES};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-/// Number of sender types / receiver type hypotheses (LV01 single-role).
-pub const NUM_TYPES: usize = 16;
-
 /// REINFORCE step size for [`AgentPolicy::update_sender`]. Matches probe v4.
 pub const SENDER_LEARNING_RATE: f64 = 1.0;
-
-/// Token vocabulary size for [`AgentPolicy`] (probe v4 `NTOK`).
-pub const NUM_TOKENS: usize = 32;
 
 /// REINFORCE step size for [`AgentPolicy::update_receiver`]. Matches probe v4.
 pub const RECEIVER_LEARNING_RATE: f64 = 1.0;
@@ -114,8 +109,8 @@ pub struct AgentPolicyMetadata {
     pub active_sender_tokens: u32,
 }
 
-/// Symmetric emergent agent: sender logits `[NUM_TYPES][NUM_TOKENS]` plus
-/// receiver logits `[NUM_TOKENS][NUM_TYPES]`, mirroring probe v4 exactly.
+/// Symmetric emergent agent: sender logits `[TYPES][TOKENS]` plus
+/// receiver logits `[TOKENS][TYPES]`, mirroring probe v4 exactly.
 ///
 /// Unsupervised co-training alternates two instances as sender/receiver.
 /// The receiver NEVER sees the true type: it samples a candidate position
@@ -132,13 +127,13 @@ pub struct AgentPolicy {
     /// Receiver logits indexed `[token][type_idx]`.
     receiver_logits: Vec<Vec<f64>>,
     /// Running-mean reward baseline per sender type.
-    sender_baseline: [f64; NUM_TYPES],
+    sender_baseline: [f64; TYPES],
     /// Observation counts backing the sender baselines.
-    sender_baseline_counts: [u64; NUM_TYPES],
+    sender_baseline_counts: [u64; TYPES],
     /// Running-mean reward baseline per received token.
-    receiver_baseline: [f64; NUM_TOKENS],
+    receiver_baseline: [f64; TOKENS],
     /// Observation counts backing the receiver baselines.
-    receiver_baseline_counts: [u64; NUM_TOKENS],
+    receiver_baseline_counts: [u64; TOKENS],
     /// Development-only constraint record; `None` means the full 32-token
     /// sender. Skipped on the wire when absent, so default serialization is
     /// unchanged.
@@ -157,12 +152,12 @@ impl AgentPolicy {
     #[must_use]
     pub fn new() -> Self {
         Self {
-            sender_logits: vec![vec![0.0; NUM_TOKENS]; NUM_TYPES],
-            receiver_logits: vec![vec![0.0; NUM_TYPES]; NUM_TOKENS],
-            sender_baseline: [0.0; NUM_TYPES],
-            sender_baseline_counts: [0; NUM_TYPES],
-            receiver_baseline: [0.0; NUM_TOKENS],
-            receiver_baseline_counts: [0; NUM_TOKENS],
+            sender_logits: vec![vec![0.0; TOKENS]; TYPES],
+            receiver_logits: vec![vec![0.0; TYPES]; TOKENS],
+            sender_baseline: [0.0; TYPES],
+            sender_baseline_counts: [0; TYPES],
+            receiver_baseline: [0.0; TOKENS],
+            receiver_baseline_counts: [0; TOKENS],
             metadata: None,
         }
     }
@@ -173,15 +168,15 @@ impl AgentPolicy {
     /// exact `0.0` and logits outside stay exactly `0.0`. The persisted
     /// tables keep the full 32-token shape, and `k` is recorded in metadata.
     /// The CLI/orchestrator restrict `k` to 8/16/32; this constructor accepts
-    /// any `1..=NUM_TOKENS` and rejects anything else without fallback.
+    /// any `1..=TOKENS` and rejects anything else without fallback.
     pub fn with_active_sender_tokens(k: usize) -> Result<Self, LearnerError> {
-        if !(1..=NUM_TOKENS).contains(&k) {
+        if !(1..=TOKENS).contains(&k) {
             return Err(LearnerError::Domain(format!(
-                "active sender tokens must be within 1..={NUM_TOKENS}, got {k}"
+                "active sender tokens must be within 1..={TOKENS}, got {k}"
             )));
         }
         let mut policy = Self::new();
-        if k != NUM_TOKENS {
+        if k != TOKENS {
             policy.metadata = Some(AgentPolicyMetadata {
                 active_sender_tokens: k as u32,
             });
@@ -189,13 +184,13 @@ impl AgentPolicy {
         Ok(policy)
     }
 
-    /// Number of sender tokens this policy samples from (`NUM_TOKENS` unless
+    /// Number of sender tokens this policy samples from (`TOKENS` unless
     /// a development constraint is recorded in metadata).
     #[must_use]
     pub fn active_sender_tokens(&self) -> usize {
         self.metadata
             .as_ref()
-            .map_or(NUM_TOKENS, |m| m.active_sender_tokens as usize)
+            .map_or(TOKENS, |m| m.active_sender_tokens as usize)
     }
 
     /// Softmax token distribution the sender uses for one type (sums to 1).
@@ -207,17 +202,17 @@ impl AgentPolicy {
     ///
     /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
     pub fn sender_probs(&self, type_idx: usize) -> Result<Vec<f64>, LearnerError> {
-        if type_idx >= NUM_TYPES {
+        if type_idx >= TYPES {
             return Err(LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+                "sender type index {type_idx} out of range (TYPES = {TYPES})"
             )));
         }
         let k = self.active_sender_tokens();
-        if k == NUM_TOKENS {
+        if k == TOKENS {
             return Ok(softmax(&self.sender_logits[type_idx]));
         }
         let mut probs = softmax(&self.sender_logits[type_idx][..k]);
-        probs.resize(NUM_TOKENS, 0.0);
+        probs.resize(TOKENS, 0.0);
         Ok(probs)
     }
 
@@ -243,7 +238,7 @@ impl AgentPolicy {
     pub fn sender_baseline(&self, type_idx: usize) -> Result<f64, LearnerError> {
         self.sender_baseline.get(type_idx).copied().ok_or_else(|| {
             LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+                "sender type index {type_idx} out of range (TYPES = {TYPES})"
             ))
         })
     }
@@ -256,7 +251,7 @@ impl AgentPolicy {
     pub fn receiver_baseline(&self, token: usize) -> Result<f64, LearnerError> {
         self.receiver_baseline.get(token).copied().ok_or_else(|| {
             LearnerError::Domain(format!(
-                "receiver token index {token} out of range (NUM_TOKENS = {NUM_TOKENS})"
+                "receiver token index {token} out of range (TOKENS = {TOKENS})"
             ))
         })
     }
@@ -271,19 +266,19 @@ impl AgentPolicy {
     pub fn receiver_type_posterior(
         &self,
         token: Option<usize>,
-    ) -> Result<[f64; NUM_TYPES], LearnerError> {
+    ) -> Result<[f64; TYPES], LearnerError> {
         let Some(tok) = token else {
-            return Ok([1.0 / NUM_TYPES as f64; NUM_TYPES]);
+            return Ok([1.0 / TYPES as f64; TYPES]);
         };
         let row = self.receiver_logits.get(tok).ok_or_else(|| {
             LearnerError::Domain(format!(
-                "receiver token index {tok} out of range (NUM_TOKENS = {NUM_TOKENS})"
+                "receiver token index {tok} out of range (TOKENS = {TOKENS})"
             ))
         })?;
-        // SAFETY: every receiver row has NUM_TYPES entries by construction
+        // SAFETY: every receiver row has TYPES entries by construction
         // (new/with_active_sender_tokens build full rows; from_bytes rejects
         // any other shape), so this conversion cannot fail on a live policy.
-        let out: [f64; NUM_TYPES] = softmax(row)
+        let out: [f64; TYPES] = softmax(row)
             .try_into()
             .map_err(|_| LearnerError::Domain("receiver row has wrong length".to_string()))?;
         Ok(out)
@@ -306,9 +301,9 @@ impl AgentPolicy {
             return Ok([0.25; 4]);
         }
         for (i, &c) in candidates.iter().enumerate() {
-            if c >= NUM_TYPES {
+            if c >= TYPES {
                 return Err(LearnerError::Domain(format!(
-                    "candidate {i} type {c} out of range (NUM_TYPES = {NUM_TYPES})"
+                    "candidate {i} type {c} out of range (TYPES = {TYPES})"
                 )));
             }
         }
@@ -363,14 +358,14 @@ impl AgentPolicy {
         if !reward.is_finite() {
             return Ok(());
         }
-        if type_idx >= NUM_TYPES {
+        if type_idx >= TYPES {
             return Err(LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+                "sender type index {type_idx} out of range (TYPES = {TYPES})"
             )));
         }
-        if token >= NUM_TOKENS {
+        if token >= TOKENS {
             return Err(LearnerError::Domain(format!(
-                "sender token index {token} out of range (NUM_TOKENS = {NUM_TOKENS})"
+                "sender token index {token} out of range (TOKENS = {TOKENS})"
             )));
         }
         let k = self.active_sender_tokens();
@@ -379,7 +374,7 @@ impl AgentPolicy {
                 "sender token {token} outside the active set of {k}"
             )));
         }
-        if k == NUM_TOKENS {
+        if k == TOKENS {
             let row = &mut self.sender_logits[type_idx];
             reinforce_row(
                 row,
@@ -431,9 +426,9 @@ impl AgentPolicy {
         let Some(tok) = token else {
             return Ok(());
         };
-        if tok >= NUM_TOKENS {
+        if tok >= TOKENS {
             return Err(LearnerError::Domain(format!(
-                "receiver token index {tok} out of range (NUM_TOKENS = {NUM_TOKENS})"
+                "receiver token index {tok} out of range (TOKENS = {TOKENS})"
             )));
         }
         if choice >= 4 {
@@ -442,9 +437,9 @@ impl AgentPolicy {
             )));
         }
         let chosen_type = candidates[choice];
-        if chosen_type >= NUM_TYPES {
+        if chosen_type >= TYPES {
             return Err(LearnerError::Domain(format!(
-                "chosen candidate type {chosen_type} out of range (NUM_TYPES = {NUM_TYPES})"
+                "chosen candidate type {chosen_type} out of range (TYPES = {TYPES})"
             )));
         }
         let row = &mut self.receiver_logits[tok];
@@ -479,7 +474,7 @@ impl AgentPolicy {
     pub fn sender_logits(&self, type_idx: usize) -> Result<&[f64], LearnerError> {
         self.sender_logits.get(type_idx).map(Vec::as_slice).ok_or_else(|| {
             LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+                "sender type index {type_idx} out of range (TYPES = {TYPES})"
             ))
         })
     }
@@ -492,7 +487,7 @@ impl AgentPolicy {
     pub fn sender_baseline_count(&self, type_idx: usize) -> Result<u64, LearnerError> {
         self.sender_baseline_counts.get(type_idx).copied().ok_or_else(|| {
             LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+                "sender type index {type_idx} out of range (TYPES = {TYPES})"
             ))
         })
     }
@@ -501,16 +496,16 @@ impl AgentPolicy {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, LearnerError> {
         let policy: Self =
             serde_json::from_slice(bytes).map_err(|e| LearnerError::Domain(e.to_string()))?;
-        let sender_ok = policy.sender_logits.len() == NUM_TYPES
+        let sender_ok = policy.sender_logits.len() == TYPES
             && policy
                 .sender_logits
                 .iter()
-                .all(|row| row.len() == NUM_TOKENS);
-        let receiver_ok = policy.receiver_logits.len() == NUM_TOKENS
+                .all(|row| row.len() == TOKENS);
+        let receiver_ok = policy.receiver_logits.len() == TOKENS
             && policy
                 .receiver_logits
                 .iter()
-                .all(|row| row.len() == NUM_TYPES);
+                .all(|row| row.len() == TYPES);
         let finite = policy
             .sender_logits
             .iter()
@@ -522,7 +517,7 @@ impl AgentPolicy {
         let meta_ok = policy
             .metadata
             .as_ref()
-            .is_none_or(|m| (1..=NUM_TOKENS as u32).contains(&m.active_sender_tokens));
+            .is_none_or(|m| (1..=TOKENS as u32).contains(&m.active_sender_tokens));
         if !sender_ok || !receiver_ok || !finite || !meta_ok {
             return Err(LearnerError::Domain(
                 "AgentPolicy bytes have a bad shape, bad metadata, or non-finite floats"
@@ -548,10 +543,10 @@ mod tests {
     /// One probe-style case: a target type plus 3 distinct distractors,
     /// shuffled. Returns `(candidates, target_position)`.
     fn draw_case(rng: &mut ald_hashing::SeededPrng) -> ([usize; 4], usize) {
-        let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+        let ty = rng.next_int(TYPES as u32).unwrap() as usize;
         let mut others = Vec::new();
         while others.len() < 3 {
-            let c = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+            let c = rng.next_int(TYPES as u32).unwrap() as usize;
             if c != ty && !others.contains(&c) {
                 others.push(c);
             }
@@ -570,7 +565,7 @@ mod tests {
         let mut a = AgentPolicy::new();
         assert_eq!(
             a.receiver_type_posterior(None).unwrap(),
-            [1.0 / NUM_TYPES as f64; NUM_TYPES]
+            [1.0 / TYPES as f64; TYPES]
         );
         assert_eq!(
             a.receiver_position_posterior(None, &[0, 1, 2, 3]).unwrap(),
@@ -601,7 +596,7 @@ mod tests {
         // full no-op (bytes cover logits, baselines, and counts).
         assert_eq!(
             a.receiver_type_posterior(None).unwrap(),
-            [1.0 / NUM_TYPES as f64; NUM_TYPES]
+            [1.0 / TYPES as f64; TYPES]
         );
         assert_eq!(a.receiver_position_posterior(None, &cands).unwrap(), [0.25; 4]);
         let before = a.to_bytes();
@@ -712,10 +707,10 @@ mod tests {
         let advantage = 0.75 - brier;
         let sharp: f64 = agents
             .iter()
-            .flat_map(|a| (0..NUM_TYPES).map(move |ty| a.sender_probs(ty).unwrap()))
+            .flat_map(|a| (0..TYPES).map(move |ty| a.sender_probs(ty).unwrap()))
             .map(|p| p.into_iter().fold(0.0, f64::max))
             .sum::<f64>()
-            / (2 * NUM_TYPES) as f64;
+            / (2 * TYPES) as f64;
         eprintln!("probe-v4 mirror @3000 total: brier={brier:.4} advantage={advantage:.4} sharpness={sharp:.4}");
         assert!(
             sharp > 0.8,
@@ -733,9 +728,9 @@ mod tests {
             let mut a = AgentPolicy::with_active_sender_tokens(k).unwrap();
             assert_eq!(a.active_sender_tokens(), k);
             // Normalization: first-k sums to 1, exact zero outside.
-            for ty in 0..NUM_TYPES {
+            for ty in 0..TYPES {
                 let p = a.sender_probs(ty).unwrap();
-                assert_eq!(p.len(), NUM_TOKENS);
+                assert_eq!(p.len(), TOKENS);
                 assert!((p[..k].iter().sum::<f64>() - 1.0).abs() < 1e-12);
                 assert!(
                     p[k..].iter().all(|v| *v == 0.0),
@@ -745,24 +740,24 @@ mod tests {
             // Support: sampling never leaves the active set.
             let mut rng = ald_hashing::SeededPrng::new("support").derive("loop");
             for _ in 0..2000 {
-                let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+                let ty = rng.next_int(TYPES as u32).unwrap() as usize;
                 let t = a.sample_token(ty, &mut rng).unwrap();
                 assert!(t < k, "sampled token {t} escapes the active set of {k}");
             }
             // Update: REINFORCE moves only the first-k sub-row; the rest
             // stays exactly 0.0 while baselines/counts still advance.
             for i in 0..300 {
-                let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
+                let ty = rng.next_int(TYPES as u32).unwrap() as usize;
                 let t = a.sample_token(ty, &mut rng).unwrap();
                 // Mixed rewards: a constant reward would zero the advantage
                 // and move nothing.
                 a.update_sender(ty, t, f64::from((i % 2) as u8)).unwrap();
             }
-            for ty in 0..NUM_TYPES {
+            for ty in 0..TYPES {
                 assert!(a.sender_logits(ty).unwrap()[k..].iter().all(|v| *v == 0.0));
             }
             assert!(a.sender_probs(3).unwrap()[..k].iter().any(|v| *v != 1.0 / k as f64));
-            let total: u64 = (0..NUM_TYPES).map(|ty| a.sender_baseline_count(ty).unwrap()).sum();
+            let total: u64 = (0..TYPES).map(|ty| a.sender_baseline_count(ty).unwrap()).sum();
             assert_eq!(
                 total, 300,
                 "every sender update must advance exactly one baseline count"
@@ -774,8 +769,8 @@ mod tests {
                 v["metadata"]["active_sender_tokens"],
                 serde_json::json!(k as u32)
             );
-            assert_eq!(v["sender_logits"].as_array().unwrap().len(), NUM_TYPES);
-            assert_eq!(v["sender_logits"][0].as_array().unwrap().len(), NUM_TOKENS);
+            assert_eq!(v["sender_logits"].as_array().unwrap().len(), TYPES);
+            assert_eq!(v["sender_logits"][0].as_array().unwrap().len(), TOKENS);
             let back = AgentPolicy::from_bytes(&bytes).unwrap();
             assert_eq!(back, a);
             assert_eq!(back.to_bytes(), bytes);
@@ -804,41 +799,41 @@ mod tests {
     #[test]
     fn sender_probs_rejects_type_out_of_range() {
         let a = AgentPolicy::new();
-        assert!(a.sender_probs(NUM_TYPES).is_err());
-        assert!(a.sender_baseline(NUM_TYPES).is_err());
-        assert!(a.sender_baseline_count(NUM_TYPES).is_err());
-        assert!(a.sender_logits(NUM_TYPES).is_err());
-        assert!(a.receiver_baseline(NUM_TOKENS).is_err());
-        assert!(a.receiver_type_posterior(Some(NUM_TOKENS)).is_err());
+        assert!(a.sender_probs(TYPES).is_err());
+        assert!(a.sender_baseline(TYPES).is_err());
+        assert!(a.sender_baseline_count(TYPES).is_err());
+        assert!(a.sender_logits(TYPES).is_err());
+        assert!(a.receiver_baseline(TOKENS).is_err());
+        assert!(a.receiver_type_posterior(Some(TOKENS)).is_err());
     }
 
     #[test]
     fn update_sender_rejects_token_outside_active_set() {
         let mut a = AgentPolicy::with_active_sender_tokens(8).unwrap();
         assert!(a.update_sender(0, 8, 1.0).is_err());
-        assert!(a.update_sender(NUM_TYPES, 0, 1.0).is_err());
-        assert!(a.update_sender(0, NUM_TOKENS, 1.0).is_err());
+        assert!(a.update_sender(TYPES, 0, 1.0).is_err());
+        assert!(a.update_sender(0, TOKENS, 1.0).is_err());
         assert!(a.update_sender(0, 0, 1.0).is_ok());
     }
 
     #[test]
     fn receiver_position_posterior_rejects_bad_candidate() {
         let a = AgentPolicy::new();
-        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, NUM_TYPES]).is_err());
-        assert!(a.receiver_position_posterior(Some(NUM_TOKENS), &[0, 1, 2, 3]).is_err());
+        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, TYPES]).is_err());
+        assert!(a.receiver_position_posterior(Some(TOKENS), &[0, 1, 2, 3]).is_err());
         assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, 3]).is_ok());
         let mut rng = ald_hashing::SeededPrng::new("x");
-        assert!(a.sample_token(NUM_TYPES, &mut rng).is_err());
-        assert!(a.sample_position(Some(0), &[0, 1, 2, NUM_TYPES], &mut rng).is_err());
+        assert!(a.sample_token(TYPES, &mut rng).is_err());
+        assert!(a.sample_position(Some(0), &[0, 1, 2, TYPES], &mut rng).is_err());
     }
 
     #[test]
     fn update_receiver_rejects_bad_inputs() {
         let mut a = AgentPolicy::new();
         let cands = [0, 1, 2, 3];
-        assert!(a.update_receiver(Some(NUM_TOKENS), &cands, 0, 1.0).is_err());
+        assert!(a.update_receiver(Some(TOKENS), &cands, 0, 1.0).is_err());
         assert!(a.update_receiver(Some(0), &cands, 4, 1.0).is_err());
-        assert!(a.update_receiver(Some(0), &[0, 1, 2, NUM_TYPES], 3, 1.0).is_err());
+        assert!(a.update_receiver(Some(0), &[0, 1, 2, TYPES], 3, 1.0).is_err());
         assert!(a.update_receiver(Some(0), &cands, 0, 1.0).is_ok());
     }
 }

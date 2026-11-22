@@ -4,6 +4,7 @@
 //! The `ReferentialScenarioEngine` surface plus the LV01 branch plan.
 
 use ald_hashing::SeededPrng;
+use ald_types::signaling::{CANDIDATES, TYPES};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,8 +15,6 @@ pub enum ScenarioError {
 }
 
 pub const LV01_UNTOUCHED_TYPE_CODES: [u32; 4] = [12, 13, 14, 15];
-pub const CANDIDATES: usize = 4;
-pub const TYPES: usize = 16;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Lv01Case {

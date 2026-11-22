@@ -8,6 +8,14 @@ use serde::{Deserialize, Serialize};
 pub const GENESIS_HASH: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
 
+/// Single source of truth for ALA-LV signaling dimensions: 16 sender
+/// types, a 32-token inventory, 4 candidates per case.
+pub mod signaling {
+    pub const TYPES: usize = 16;
+    pub const TOKENS: usize = 32;
+    pub const CANDIDATES: usize = 4;
+}
+
 pub mod hash_domains {
     pub const LEDGER_ENTRY: &str = "dtsf-agent-ledger-entry-v1";
     pub const MERKLE_LEAF: &str = "dtsf-merkle-leaf-v1";

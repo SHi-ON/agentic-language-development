@@ -12,4 +12,5 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
+ald-types = { path = "../ald-types" }
 ald-hashing = { path = "../ald-hashing" }
