@@ -170,3 +170,5 @@ mod tests {
         assert_eq!(AgentRole::Agent0.other(), AgentRole::Agent1);
     }
 }
+
+// TODO(m1c): P0-FORK-07 red-CI enforcement probe - must fail todo-markers, never merge
