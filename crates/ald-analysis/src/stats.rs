@@ -58,6 +58,10 @@ pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
     }
     let mean = total / n as f64;
     if n < 2 {
+        // INVARIANT: NaN variance/sd at n=1 is load-bearing, not a bug.
+        // one_sample_t, cohort_interval, and simultaneous_bounds all branch
+        // on `n < 2 || !(sd > 0.0)` into degenerate/None outputs; NaN sd
+        // must stay on that degenerate path (never "fixed" into an error).
         return Ok(DescriptiveSummary { n, mean, variance: f64::NAN, sd: f64::NAN, min, max });
     }
     if min == max {
@@ -167,7 +171,9 @@ pub fn percentile_interval(replicates: &[f64], level: f64) -> Result<ConfidenceI
     assert_sample(replicates, "replicates")?;
     assert_level(level, "level")?;
     let mut sorted = replicates.to_vec();
-    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    // total_cmp: identical order on the finite inputs assert_sample enforces,
+    // and panic-free by construction if a non-finite value ever slips through.
+    sorted.sort_by(|a, b| a.total_cmp(b));
     let tail = (1.0 - level) / 2.0;
     Ok(ConfidenceInterval {
         lower: quantile_sorted(&sorted, tail)?,
@@ -221,9 +227,17 @@ pub fn holm_bonferroni(p_values: &[f64], alpha: f64) -> Result<Vec<bool>, Analys
     if !(alpha > 0.0 && alpha < 1.0) {
         return Err(AnalysisError::Domain("alpha must be in (0, 1)".to_string()));
     }
+    for (i, &p) in p_values.iter().enumerate() {
+        if !p.is_finite() || !(0.0..=1.0).contains(&p) {
+            return Err(AnalysisError::Domain(format!(
+                "holm_bonferroni: p_values[{i}] must be a finite probability in [0, 1]"
+            )));
+        }
+    }
     let m = p_values.len();
     let mut order: Vec<usize> = (0..m).collect();
-    order.sort_by(|&a, &b| p_values[a].partial_cmp(&p_values[b]).unwrap());
+    // total_cmp: identical order on the validated finite inputs, panic-free.
+    order.sort_by(|&a, &b| p_values[a].total_cmp(&p_values[b]));
     let mut reject = vec![false; m];
     for (rank, &i) in order.iter().enumerate() {
         if p_values[i] <= alpha / (m - rank) as f64 {
@@ -273,5 +287,34 @@ mod tests {
     #[test]
     fn holm_basic() {
         assert_eq!(holm_bonferroni(&[0.01, 0.04, 0.5], 0.05).unwrap(), vec![true, false, false]);
+    }
+
+    #[test]
+    fn holm_rejects_nan_p_value() {
+        let err = holm_bonferroni(&[0.01, f64::NAN], 0.05).unwrap_err().to_string();
+        assert!(err.contains("p_values[1]"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn holm_rejects_out_of_range_p_value() {
+        assert!(holm_bonferroni(&[1.5], 0.05).is_err());
+        assert!(holm_bonferroni(&[-0.1], 0.05).is_err());
+        assert!(holm_bonferroni(&[f64::INFINITY], 0.05).is_err());
+    }
+
+    #[test]
+    fn percentile_interval_rejects_non_finite() {
+        assert!(percentile_interval(&[0.1, f64::INFINITY], 0.95).is_err());
+        assert!(percentile_interval(&[0.1, f64::NAN], 0.95).is_err());
+    }
+
+    #[test]
+    fn summarize_n1_nan_variance_is_degenerate_everywhere() {
+        // Locks the load-bearing n=1 NaN: every consumer must take the
+        // degenerate path rather than propagating NaN into bounds.
+        let s = summarize(&[0.42]).unwrap();
+        assert!(s.variance.is_nan() && s.sd.is_nan());
+        let t = one_sample_t(&[0.42], 0.95).unwrap();
+        assert!(t.lower.is_none() && t.upper.is_none());
     }
 }

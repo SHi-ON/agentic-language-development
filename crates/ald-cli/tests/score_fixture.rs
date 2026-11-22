@@ -165,6 +165,42 @@ fn analyze_refuses_to_overwrite_outputs() {
 }
 
 #[test]
+fn score_rejects_attempted_zero() {
+    let dir = scratch_dir("attempted-zero");
+    let selection = dir.join("selection.json");
+    let out = dir.join("scored.json");
+    run_select("A", selection.to_str().unwrap());
+    let scored = ala()
+        .args([
+            "analyze",
+            "score",
+            "--dyad",
+            &fixture_dyad("A"),
+            "--cohort",
+            "A",
+            "--out",
+            out.to_str().unwrap(),
+            "--selection",
+            selection.to_str().unwrap(),
+            "--bootstrap-seed",
+            "s",
+            "--bootstrap-resamples",
+            "10",
+            "--attempted",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!scored.status.success(), "--attempted 0 must fail");
+    let stderr = String::from_utf8_lossy(&scored.stderr);
+    assert!(
+        stderr.contains("attempted"),
+        "stderr must name attempted, got: {stderr}"
+    );
+    assert!(!out.exists(), "rejected invocation must not write output");
+}
+
+#[test]
 fn analyze_rejects_bare_dyad_paths() {
     // Regression: bare paths after --dyad used to be silently dropped,
     // scoring n=1 with exit 0. Every token must be a known flag or value.

@@ -79,6 +79,8 @@ fn cmd_run(args: &[String]) {
     };
     match ald_orchestrator::run_dyad(&req, &inventory()) {
         Ok(receipt) => {
+            // INVARIANT: serializing the receipt struct cannot fail
+            // (serde_json only errors on maps with non-string keys).
             println!("{}", serde_json::to_string(&receipt).unwrap());
         }
         Err(e) => {
@@ -316,6 +318,7 @@ fn cmd_select(dyads: &[String], cohort: &str, out: &str) {
         }
     }
     let doc = serde_json::json!({"stage": "select", "cohort": cohort, "records": records});
+    // INVARIANT: serializing a String-keyed JSON value cannot fail.
     std::fs::write(out, serde_json::to_string_pretty(&doc).unwrap())
         .unwrap_or_else(|e| fail(&format!("ala analyze select: cannot write {out}: {e}")));
     println!("SELECT OK: {} record(s) -> {out}", records.len());
@@ -438,11 +441,45 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
             .unwrap_or_else(|e| fail(&format!("ala analyze score: {id}: {e}")));
         let fid = ald_analysis::fidelity(&native_all, &replay_all)
             .unwrap_or_else(|e| fail(&format!("ala analyze score: {id}: {e}")));
-        for (k, v) in &brier_contrasts {
-            per_contrast_brier.get_mut(k).unwrap().push(*v);
+        for (name, map) in [
+            ("Brier", &brier_contrasts),
+            ("success", &success_contrasts),
+        ] {
+            for k in map.keys() {
+                if !ald_analysis::CONTRAST_IDS.contains(&k.as_str()) {
+                    fail(&format!(
+                        "ala analyze score: {id}: analysis returned unknown {name} contrast {k}"
+                    ));
+                }
+            }
         }
-        for (k, v) in &success_contrasts {
-            per_contrast_success.get_mut(k).unwrap().push(*v);
+        for cid in ald_analysis::CONTRAST_IDS {
+            let b = brier_contrasts.get(cid).unwrap_or_else(|| {
+                fail(&format!(
+                    "ala analyze score: {id}: analysis returned no Brier contrast for {cid}"
+                ));
+            });
+            per_contrast_brier
+                .get_mut(cid)
+                .unwrap_or_else(|| {
+                    fail(&format!(
+                        "ala analyze score: {id}: analysis returned unknown contrast {cid}"
+                    ));
+                })
+                .push(*b);
+            let s = success_contrasts.get(cid).unwrap_or_else(|| {
+                fail(&format!(
+                    "ala analyze score: {id}: analysis returned no success contrast for {cid}"
+                ));
+            });
+            per_contrast_success
+                .get_mut(cid)
+                .unwrap_or_else(|| {
+                    fail(&format!(
+                        "ala analyze score: {id}: analysis returned unknown contrast {cid}"
+                    ));
+                })
+                .push(*s);
         }
         primaries.push(result.primary);
         dyad_docs.push(serde_json::json!({
@@ -466,25 +503,25 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
         let vals = &per_contrast_brier[cid];
         let b = ald_analysis::simultaneous_bounds(cid, vals)
             .unwrap_or_else(|e| fail(&format!("ala analyze score: bounds: {e}")));
+        // INVARIANT (covers all three to_value calls in this loop):
+        // serializing these plain structs cannot fail (serde_json only
+        // errors on maps with non-string keys; the analysis errors are
+        // already mapped to fail() above).
         bounds.insert(cid.to_string(), serde_json::to_value(&b).unwrap());
-        invalid_brier.insert(
-            cid.to_string(),
-            serde_json::to_value(ald_analysis::invalidity_bounds(
-                vals,
-                attempted,
-                ald_analysis::PRIMARY_ADMISSIBLE,
-            ))
-            .unwrap(),
-        );
-        invalid_success.insert(
-            cid.to_string(),
-            serde_json::to_value(ald_analysis::invalidity_bounds(
-                &per_contrast_success[cid],
-                attempted,
-                ald_analysis::SUCCESS_CONTRAST_ADMISSIBLE,
-            ))
-            .unwrap(),
-        );
+        let ib = ald_analysis::invalidity_bounds(
+            vals,
+            attempted,
+            ald_analysis::PRIMARY_ADMISSIBLE,
+        )
+        .unwrap_or_else(|e| fail(&format!("ala analyze score: invalidity bounds: {e}")));
+        invalid_brier.insert(cid.to_string(), serde_json::to_value(&ib).unwrap());
+        let is = ald_analysis::invalidity_bounds(
+            &per_contrast_success[cid],
+            attempted,
+            ald_analysis::SUCCESS_CONTRAST_ADMISSIBLE,
+        )
+        .unwrap_or_else(|e| fail(&format!("ala analyze score: invalidity bounds: {e}")));
+        invalid_success.insert(cid.to_string(), serde_json::to_value(&is).unwrap());
     }
     let mut doc = serde_json::Map::new();
     doc.insert("stage".to_string(), serde_json::json!("score"));
@@ -499,18 +536,22 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
     doc.insert("n".to_string(), serde_json::json!(primaries.len()));
     doc.insert("attempted".to_string(), serde_json::json!(attempted));
     doc.insert("dyads".to_string(), serde_json::Value::Array(dyad_docs));
+    // INVARIANT: serializing these plain structs cannot fail.
     doc.insert("interval".to_string(), serde_json::to_value(&iv).unwrap());
     doc.insert("bootstrap".to_string(), serde_json::to_value(&bs).unwrap());
     doc.insert(
         "controlBounds".to_string(),
         serde_json::Value::Object(bounds),
     );
+    let primary_bounds =
+        ald_analysis::invalidity_bounds(&primaries, attempted, ald_analysis::PRIMARY_ADMISSIBLE)
+            .unwrap_or_else(|e| {
+                fail(&format!("ala analyze score: primary invalidity bounds: {e}"));
+            });
     doc.insert(
         "invalidityBounds".to_string(),
         serde_json::json!({
-            "primary": ald_analysis::invalidity_bounds(
-                &primaries, attempted, ald_analysis::PRIMARY_ADMISSIBLE
-            ),
+            "primary": primary_bounds,
             "brierContrasts": invalid_brier,
             "successContrasts": invalid_success,
         }),
@@ -518,6 +559,7 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
     let h = hash_canonical("ala-lv-score-v1", &serde_json::Value::Object(doc.clone()))
         .unwrap_or_else(|e| fail(&format!("ala analyze score: hashing failed: {e}")));
     doc.insert("docSha256".to_string(), serde_json::json!(h));
+    // INVARIANT: serializing a String-keyed JSON value cannot fail.
     std::fs::write(out, serde_json::to_string_pretty(&doc).unwrap())
         .unwrap_or_else(|e| fail(&format!("ala analyze score: cannot write {out}: {e}")));
     println!("SCORE OK: n={} -> {out}", primaries.len());
@@ -531,6 +573,7 @@ fn cmd_verify(args: &[String]) {
     });
     match ald_verifier::verify_bundle(&conn) {
         Ok(r) => {
+            // INVARIANT: serializing the verify report struct cannot fail.
             println!("{}", serde_json::to_string_pretty(&r).unwrap());
             if !r.ok {
                 std::process::exit(1);

@@ -231,6 +231,11 @@ pub fn select_ordinary_predictor(
     if training.is_empty() && validation_fit.is_empty() {
         return Err(AnalysisError::EmptySample("ordinary record rows must not be empty".to_string()));
     }
+    if validation_selection.is_empty() {
+        return Err(AnalysisError::EmptySample(
+            "ordinary predictor selection window must not be empty".to_string(),
+        ));
+    }
     let mut ids = std::collections::HashSet::new();
     for r in training.iter().chain(validation_fit).chain(validation_selection) {
         assert_record(r, inventory)?;
@@ -260,7 +265,13 @@ pub fn select_ordinary_predictor(
             _ => &combined,
         };
         let fit = build_fit(id, fit_rows, inventory)?;
-        *score = score_fit(id, &fit, validation_selection, inventory)?;
+        let s = score_fit(id, &fit, validation_selection, inventory)?;
+        if !s.is_finite() {
+            return Err(AnalysisError::Domain(format!(
+                "ordinary predictor {id:?} scored a non-finite Brier on the selection window"
+            )));
+        }
+        *score = s;
     }
     let mut best = PREDICTOR_IDS[0];
     let mut best_score = f64::INFINITY;
@@ -396,5 +407,15 @@ mod tests {
             (0..10).map(|i| row(&format!("s{i}"), 0)).collect();
         let sel = select_ordinary_predictor(&inv(), &[], &fit_rows, &sel_rows).unwrap();
         assert_eq!(sel.selected, PredictorId::ValidationMajority);
+    }
+
+    #[test]
+    fn selection_rejects_empty_selection_window() {
+        let fit_rows: Vec<OrdinaryRecord> =
+            (0..20).map(|i| row(&format!("f{i}"), 0)).collect();
+        let err = select_ordinary_predictor(&inv(), &[], &fit_rows, &[])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("selection window"), "unexpected error: {err}");
     }
 }

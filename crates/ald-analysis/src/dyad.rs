@@ -84,6 +84,18 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
             inventory,
         )?;
         let action = row.record.actual_selected_candidate_index;
+        for (name, d) in [
+            ("ordinary", &dist),
+            ("native", &row.native_distribution),
+            ("replay", &row.replay_distribution),
+        ] {
+            if d.len() != crate::ledger::CANDIDATES || d.iter().any(|v| !v.is_finite()) {
+                return Err(AnalysisError::Domain(format!(
+                    "role {} test case {} has a non-finite or misshapen {name} distribution",
+                    folds.role, row.record.case_id
+                )));
+            }
+        }
         ordinary += brier(&dist, action);
         native += brier(&row.native_distribution, action);
         replay += brier(&row.replay_distribution, action);
@@ -153,6 +165,8 @@ pub fn cohort_interval(
         return Err(AnalysisError::Domain("coverage must be strictly between 0 and 1".to_string()));
     }
     let s = summarize(primaries)?;
+    // INVARIANT: summarize errors on empty input, so s.n > 0 always holds;
+    // the else branch is unreachable dead code kept for structural symmetry.
     let base_se = if s.n > 0 { s.sd / (s.n as f64).sqrt() } else { f64::NAN };
     if s.n < 2 {
         return Ok(CohortInterval {
@@ -208,5 +222,48 @@ mod tests {
         let iv = cohort_interval("A", &[0.1], 0.975).unwrap();
         assert!(iv.lower.is_none());
         assert!(iv.degenerate.is_some());
+    }
+
+    fn record(case: &str) -> OrdinaryRecord {
+        OrdinaryRecord {
+            case_id: case.to_string(),
+            receiver_role: "agent-0".to_string(),
+            delivered_token: None,
+            candidate_type_codes: vec![0, 1, 2, 3],
+            actual_selected_candidate_index: 0,
+        }
+    }
+
+    fn folds_with_test_distributions(native: Vec<f64>, replay: Vec<f64>) -> RoleFolds {
+        let mk = |case: &str| TestRow {
+            record: record(case),
+            native_distribution: native.clone(),
+            replay_distribution: replay.clone(),
+            target_index: 0,
+            native_missing: false,
+            branch_distributions: Default::default(),
+            branch_success: Default::default(),
+        };
+        RoleFolds {
+            role: "agent-0".to_string(),
+            training: vec![record("t0")],
+            validation_fit: vec![record("f0")],
+            validation_selection: vec![record("s0")],
+            test: vec![mk("x0"), mk("x1")],
+        }
+    }
+
+    #[test]
+    fn analyze_role_rejects_non_finite_native_distribution() {
+        let folds =
+            folds_with_test_distributions(vec![0.25, 0.25, f64::NAN, 0.25], vec![0.25; 4]);
+        let err = analyze_role(&folds, &inv()).unwrap_err().to_string();
+        assert!(err.contains("non-finite"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn analyze_role_accepts_finite_distributions() {
+        let folds = folds_with_test_distributions(vec![0.25; 4], vec![1.0, 0.0, 0.0, 0.0]);
+        assert!(analyze_role(&folds, &inv()).is_ok());
     }
 }

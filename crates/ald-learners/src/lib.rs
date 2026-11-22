@@ -203,89 +203,140 @@ impl AgentPolicy {
     /// first `k` logits only and pads exact `0.0` beyond; unconstrained
     /// policies take the legacy full-row path bit-identically.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `type_idx` is out of range.
-    #[must_use]
-    pub fn sender_probs(&self, type_idx: usize) -> Vec<f64> {
+    /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
+    pub fn sender_probs(&self, type_idx: usize) -> Result<Vec<f64>, LearnerError> {
+        if type_idx >= NUM_TYPES {
+            return Err(LearnerError::Domain(format!(
+                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+            )));
+        }
         let k = self.active_sender_tokens();
         if k == NUM_TOKENS {
-            return softmax(&self.sender_logits[type_idx]);
+            return Ok(softmax(&self.sender_logits[type_idx]));
         }
         let mut probs = softmax(&self.sender_logits[type_idx][..k]);
         probs.resize(NUM_TOKENS, 0.0);
-        probs
+        Ok(probs)
     }
 
     /// Sample a token from the type's sender softmax using `rng` (one
     /// `next_float` draw, so the sequence is fully stream-determined).
-    pub fn sample_token(&self, type_idx: usize, rng: &mut ald_hashing::SeededPrng) -> usize {
-        sample_from_probs(&self.sender_probs(type_idx), rng)
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
+    pub fn sample_token(
+        &self,
+        type_idx: usize,
+        rng: &mut ald_hashing::SeededPrng,
+    ) -> Result<usize, LearnerError> {
+        Ok(sample_from_probs(&self.sender_probs(type_idx)?, rng))
     }
 
     /// Running-mean reward baseline for one sender type.
-    #[must_use]
-    pub fn sender_baseline(&self, type_idx: usize) -> f64 {
-        self.sender_baseline[type_idx]
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
+    pub fn sender_baseline(&self, type_idx: usize) -> Result<f64, LearnerError> {
+        self.sender_baseline.get(type_idx).copied().ok_or_else(|| {
+            LearnerError::Domain(format!(
+                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+            ))
+        })
     }
 
     /// Running-mean reward baseline for one received token.
-    #[must_use]
-    pub fn receiver_baseline(&self, token: usize) -> f64 {
-        self.receiver_baseline[token]
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LearnerError::Domain`] when `token` is out of range.
+    pub fn receiver_baseline(&self, token: usize) -> Result<f64, LearnerError> {
+        self.receiver_baseline.get(token).copied().ok_or_else(|| {
+            LearnerError::Domain(format!(
+                "receiver token index {token} out of range (NUM_TOKENS = {NUM_TOKENS})"
+            ))
+        })
     }
 
     /// Receiver type posterior `softmax(receiver_logits[token])`. `None`
     /// (dropped token) yields the exact uniform distribution.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `token` is `Some(t)` with `t` out of range.
-    #[must_use]
-    pub fn receiver_type_posterior(&self, token: Option<usize>) -> [f64; NUM_TYPES] {
+    /// Returns [`LearnerError::Domain`] when `token` is `Some(t)` with `t`
+    /// out of range.
+    pub fn receiver_type_posterior(
+        &self,
+        token: Option<usize>,
+    ) -> Result<[f64; NUM_TYPES], LearnerError> {
         let Some(tok) = token else {
-            return [1.0 / NUM_TYPES as f64; NUM_TYPES];
+            return Ok([1.0 / NUM_TYPES as f64; NUM_TYPES]);
         };
-        softmax(&self.receiver_logits[tok])
+        let row = self.receiver_logits.get(tok).ok_or_else(|| {
+            LearnerError::Domain(format!(
+                "receiver token index {tok} out of range (NUM_TOKENS = {NUM_TOKENS})"
+            ))
+        })?;
+        // SAFETY: every receiver row has NUM_TYPES entries by construction
+        // (new/with_active_sender_tokens build full rows; from_bytes rejects
+        // any other shape), so this conversion cannot fail on a live policy.
+        let out: [f64; NUM_TYPES] = softmax(row)
             .try_into()
-            .expect("receiver rows have NUM_TYPES entries")
+            .map_err(|_| LearnerError::Domain("receiver row has wrong length".to_string()))?;
+        Ok(out)
     }
 
     /// Posterior over the 4 candidate positions of a case: the receiver
     /// type posterior restricted to the candidate types, renormalized.
     /// `None` yields exact `[0.25; 4]`.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `token` or any candidate type is out of range; callers
-    /// pass validated candidate codes (4 distinct types below
-    /// [`NUM_TYPES`]), exactly as in probe v4.
-    #[must_use]
+    /// Returns [`LearnerError::Domain`] when `token` or any candidate type
+    /// is out of range.
     pub fn receiver_position_posterior(
         &self,
         token: Option<usize>,
         candidates: &[usize; 4],
-    ) -> [f64; 4] {
+    ) -> Result<[f64; 4], LearnerError> {
         if token.is_none() {
-            return [0.25; 4];
+            return Ok([0.25; 4]);
         }
-        let pt = self.receiver_type_posterior(token);
+        for (i, &c) in candidates.iter().enumerate() {
+            if c >= NUM_TYPES {
+                return Err(LearnerError::Domain(format!(
+                    "candidate {i} type {c} out of range (NUM_TYPES = {NUM_TYPES})"
+                )));
+            }
+        }
+        let pt = self.receiver_type_posterior(token)?;
         let raw = candidates.map(|c| pt[c]);
         let sum: f64 = raw.iter().sum();
-        raw.map(|x| x / sum)
+        Ok(raw.map(|x| x / sum))
     }
 
     /// Sample a candidate position from
     /// [`AgentPolicy::receiver_position_posterior`] using `rng`. This is the
     /// receiver's action during unsupervised training: the true type is
     /// never consulted.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`LearnerError::Domain`] when `token` or any candidate type
+    /// is out of range.
     pub fn sample_position(
         &self,
         token: Option<usize>,
         candidates: &[usize; 4],
         rng: &mut ald_hashing::SeededPrng,
-    ) -> usize {
-        sample_from_probs(&self.receiver_position_posterior(token, candidates), rng)
+    ) -> Result<usize, LearnerError> {
+        Ok(sample_from_probs(
+            &self.receiver_position_posterior(token, candidates)?,
+            rng,
+        ))
     }
 
     /// Sender REINFORCE update for the sampled `(type_idx, token)` pair with
@@ -298,18 +349,36 @@ impl AgentPolicy {
     /// advance); logits at `k..` are never touched. Unconstrained policies
     /// take the legacy full-row path bit-identically.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `type_idx` or `token` is out of range, or when `token`
-    /// is outside the active set under a constraint.
-    pub fn update_sender(&mut self, type_idx: usize, token: usize, reward: f64) {
+    /// Returns [`LearnerError::Domain`] when `type_idx` or `token` is out
+    /// of range, or when `token` is outside the active set under a
+    /// constraint.
+    pub fn update_sender(
+        &mut self,
+        type_idx: usize,
+        token: usize,
+        reward: f64,
+    ) -> Result<(), LearnerError> {
         if !reward.is_finite() {
-            return;
+            return Ok(());
         }
-        assert!(type_idx < NUM_TYPES, "AgentPolicy sender type out of range");
-        assert!(token < NUM_TOKENS, "AgentPolicy sender token out of range");
+        if type_idx >= NUM_TYPES {
+            return Err(LearnerError::Domain(format!(
+                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+            )));
+        }
+        if token >= NUM_TOKENS {
+            return Err(LearnerError::Domain(format!(
+                "sender token index {token} out of range (NUM_TOKENS = {NUM_TOKENS})"
+            )));
+        }
         let k = self.active_sender_tokens();
-        assert!(token < k, "AgentPolicy sender token outside the active set");
+        if token >= k {
+            return Err(LearnerError::Domain(format!(
+                "sender token {token} outside the active set of {k}"
+            )));
+        }
         if k == NUM_TOKENS {
             let row = &mut self.sender_logits[type_idx];
             reinforce_row(
@@ -331,6 +400,7 @@ impl AgentPolicy {
                 SENDER_LEARNING_RATE,
             );
         }
+        Ok(())
     }
 
     /// Receiver REINFORCE update on the SAMPLED candidate position with the
@@ -343,30 +413,40 @@ impl AgentPolicy {
     /// `None` (dropped token) performs NO receiver update at all: logits,
     /// baseline, and counts are untouched. Non-finite rewards are ignored.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `token` is `Some(t)` with `t` out of range, when
-    /// `choice >= 4`, or when the chosen candidate type is out of range.
+    /// Returns [`LearnerError::Domain`] when `token` is `Some(t)` with `t`
+    /// out of range, when `choice >= 4`, or when the chosen candidate type
+    /// is out of range.
     pub fn update_receiver(
         &mut self,
         token: Option<usize>,
         candidates: &[usize; 4],
         choice: usize,
         reward: f64,
-    ) {
+    ) -> Result<(), LearnerError> {
         if !reward.is_finite() {
-            return;
+            return Ok(());
         }
         let Some(tok) = token else {
-            return;
+            return Ok(());
         };
-        assert!(tok < NUM_TOKENS, "AgentPolicy receiver token out of range");
-        assert!(choice < 4, "AgentPolicy receiver choice out of range");
+        if tok >= NUM_TOKENS {
+            return Err(LearnerError::Domain(format!(
+                "receiver token index {tok} out of range (NUM_TOKENS = {NUM_TOKENS})"
+            )));
+        }
+        if choice >= 4 {
+            return Err(LearnerError::Domain(format!(
+                "receiver choice {choice} out of range (4 candidates)"
+            )));
+        }
         let chosen_type = candidates[choice];
-        assert!(
-            chosen_type < NUM_TYPES,
-            "AgentPolicy chosen candidate type out of range"
-        );
+        if chosen_type >= NUM_TYPES {
+            return Err(LearnerError::Domain(format!(
+                "chosen candidate type {chosen_type} out of range (NUM_TYPES = {NUM_TYPES})"
+            )));
+        }
         let row = &mut self.receiver_logits[tok];
         reinforce_row(
             row,
@@ -376,6 +456,7 @@ impl AgentPolicy {
             reward,
             RECEIVER_LEARNING_RATE,
         );
+        Ok(())
     }
 
     /// Deterministic policy bytes for artifact persistence.
@@ -384,27 +465,36 @@ impl AgentPolicy {
     /// same policy always yields identical bytes.
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
+        // SAFETY: serializing this struct cannot fail — all fields are
+        // natively serializable (Vecs, arrays, Option) and serde_json
+        // renders non-finite floats as null rather than erroring.
         serde_json::to_vec(self).expect("AgentPolicy serialization is infallible")
     }
 
     /// Sender logit row for one type (read-only inspection).
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `type_idx` is out of range.
-    #[must_use]
-    pub fn sender_logits(&self, type_idx: usize) -> &[f64] {
-        &self.sender_logits[type_idx]
+    /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
+    pub fn sender_logits(&self, type_idx: usize) -> Result<&[f64], LearnerError> {
+        self.sender_logits.get(type_idx).map(Vec::as_slice).ok_or_else(|| {
+            LearnerError::Domain(format!(
+                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+            ))
+        })
     }
 
     /// Observation count backing one sender type's baseline.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics when `type_idx` is out of range.
-    #[must_use]
-    pub fn sender_baseline_count(&self, type_idx: usize) -> u64 {
-        self.sender_baseline_counts[type_idx]
+    /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
+    pub fn sender_baseline_count(&self, type_idx: usize) -> Result<u64, LearnerError> {
+        self.sender_baseline_counts.get(type_idx).copied().ok_or_else(|| {
+            LearnerError::Domain(format!(
+                "sender type index {type_idx} out of range (NUM_TYPES = {NUM_TYPES})"
+            ))
+        })
     }
 
     /// Restore a policy persisted with [`AgentPolicy::to_bytes`].
@@ -479,11 +569,11 @@ mod tests {
     fn agent_policy_none_token_is_exact_uniform_and_never_updated() {
         let mut a = AgentPolicy::new();
         assert_eq!(
-            a.receiver_type_posterior(None),
+            a.receiver_type_posterior(None).unwrap(),
             [1.0 / NUM_TYPES as f64; NUM_TYPES]
         );
         assert_eq!(
-            a.receiver_position_posterior(None, &[0, 1, 2, 3]),
+            a.receiver_position_posterior(None, &[0, 1, 2, 3]).unwrap(),
             [0.25; 4]
         );
 
@@ -492,10 +582,10 @@ mod tests {
         // so P(type 5 | tok 3) must end above P(type 1 | tok 3).
         let cands = [5, 1, 2, 9];
         for _ in 0..100 {
-            a.update_receiver(Some(3), &cands, 0, 1.0);
-            a.update_receiver(Some(3), &cands, 1, 0.0);
+            a.update_receiver(Some(3), &cands, 0, 1.0).unwrap();
+            a.update_receiver(Some(3), &cands, 1, 0.0).unwrap();
         }
-        let pt = a.receiver_type_posterior(Some(3));
+        let pt = a.receiver_type_posterior(Some(3)).unwrap();
         assert!((pt.iter().sum::<f64>() - 1.0).abs() < 1e-12);
         assert!(
             pt[5] > pt[1],
@@ -503,25 +593,25 @@ mod tests {
             pt[5],
             pt[1]
         );
-        let pp = a.receiver_position_posterior(Some(3), &cands);
+        let pp = a.receiver_position_posterior(Some(3), &cands).unwrap();
         assert!((pp.iter().sum::<f64>() - 1.0).abs() < 1e-12);
         assert_eq!(argmax(&pp), 0);
 
         // After training, None is STILL exact uniform, and a None update is a
         // full no-op (bytes cover logits, baselines, and counts).
         assert_eq!(
-            a.receiver_type_posterior(None),
+            a.receiver_type_posterior(None).unwrap(),
             [1.0 / NUM_TYPES as f64; NUM_TYPES]
         );
-        assert_eq!(a.receiver_position_posterior(None, &cands), [0.25; 4]);
+        assert_eq!(a.receiver_position_posterior(None, &cands).unwrap(), [0.25; 4]);
         let before = a.to_bytes();
-        a.update_receiver(None, &cands, 0, 1.0);
-        a.update_receiver(None, &cands, 2, 0.0);
+        a.update_receiver(None, &cands, 0, 1.0).unwrap();
+        a.update_receiver(None, &cands, 2, 0.0).unwrap();
         assert_eq!(a.to_bytes(), before, "None must never update the receiver");
 
         // Non-finite rewards are ignored on both sides.
-        a.update_sender(0, 0, f64::NAN);
-        a.update_receiver(Some(3), &cands, 0, f64::INFINITY);
+        a.update_sender(0, 0, f64::NAN).unwrap();
+        a.update_receiver(Some(3), &cands, 0, f64::INFINITY).unwrap();
         assert_eq!(a.to_bytes(), before);
     }
 
@@ -538,16 +628,16 @@ mod tests {
                 let [a0, a1] = &mut agents;
                 let (sender, receiver): (&mut AgentPolicy, &mut AgentPolicy) =
                     if ep % 2 == 0 { (a0, a1) } else { (a1, a0) };
-                let k = sender.sample_token(ty, &mut rng);
+                let k = sender.sample_token(ty, &mut rng).unwrap();
                 let tok = if rng.next_float() < 1.0 / 8.0 {
                     None
                 } else {
                     Some(k)
                 };
-                let choice = receiver.sample_position(tok, &cands, &mut rng);
+                let choice = receiver.sample_position(tok, &cands, &mut rng).unwrap();
                 let reward = if choice == pos { 1.0 } else { 0.0 };
-                sender.update_sender(ty, k, reward);
-                receiver.update_receiver(tok, &cands, choice, reward);
+                sender.update_sender(ty, k, reward).unwrap();
+                receiver.update_receiver(tok, &cands, choice, reward).unwrap();
                 trace.push((k, choice));
             }
             (trace, agents[0].to_bytes(), agents[1].to_bytes())
@@ -584,16 +674,16 @@ mod tests {
             let [a0, a1] = &mut agents;
             let (sender, receiver): (&mut AgentPolicy, &mut AgentPolicy) =
                 if ep % 2 == 0 { (a0, a1) } else { (a1, a0) };
-            let k = sender.sample_token(ty, &mut rng);
+            let k = sender.sample_token(ty, &mut rng).unwrap();
             let tok = if rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
                 Some(k)
             };
-            let choice = receiver.sample_position(tok, &cands, &mut rng);
+            let choice = receiver.sample_position(tok, &cands, &mut rng).unwrap();
             let reward = if choice == pos { 1.0 } else { 0.0 };
-            sender.update_sender(ty, k, reward);
-            receiver.update_receiver(tok, &cands, choice, reward);
+            sender.update_sender(ty, k, reward).unwrap();
+            receiver.update_receiver(tok, &cands, choice, reward).unwrap();
         }
         // Deterministic scoring pass (probe eval): token still sampled and
         // dropped w.p. 1/8; Brier of the receiver position posterior.
@@ -604,13 +694,13 @@ mod tests {
             let ty = cands[pos];
             let sender = &agents[i % 2];
             let receiver = &agents[1 - (i % 2)];
-            let k = sender.sample_token(ty, &mut rng);
+            let k = sender.sample_token(ty, &mut rng).unwrap();
             let tok = if rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
                 Some(k)
             };
-            let post = receiver.receiver_position_posterior(tok, &cands);
+            let post = receiver.receiver_position_posterior(tok, &cands).unwrap();
             brier += post
                 .iter()
                 .enumerate()
@@ -622,7 +712,7 @@ mod tests {
         let advantage = 0.75 - brier;
         let sharp: f64 = agents
             .iter()
-            .flat_map(|a| (0..NUM_TYPES).map(move |ty| a.sender_probs(ty)))
+            .flat_map(|a| (0..NUM_TYPES).map(move |ty| a.sender_probs(ty).unwrap()))
             .map(|p| p.into_iter().fold(0.0, f64::max))
             .sum::<f64>()
             / (2 * NUM_TYPES) as f64;
@@ -644,7 +734,7 @@ mod tests {
             assert_eq!(a.active_sender_tokens(), k);
             // Normalization: first-k sums to 1, exact zero outside.
             for ty in 0..NUM_TYPES {
-                let p = a.sender_probs(ty);
+                let p = a.sender_probs(ty).unwrap();
                 assert_eq!(p.len(), NUM_TOKENS);
                 assert!((p[..k].iter().sum::<f64>() - 1.0).abs() < 1e-12);
                 assert!(
@@ -656,23 +746,23 @@ mod tests {
             let mut rng = ald_hashing::SeededPrng::new("support").derive("loop");
             for _ in 0..2000 {
                 let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
-                let t = a.sample_token(ty, &mut rng);
+                let t = a.sample_token(ty, &mut rng).unwrap();
                 assert!(t < k, "sampled token {t} escapes the active set of {k}");
             }
             // Update: REINFORCE moves only the first-k sub-row; the rest
             // stays exactly 0.0 while baselines/counts still advance.
             for i in 0..300 {
                 let ty = rng.next_int(NUM_TYPES as u32).unwrap() as usize;
-                let t = a.sample_token(ty, &mut rng);
+                let t = a.sample_token(ty, &mut rng).unwrap();
                 // Mixed rewards: a constant reward would zero the advantage
                 // and move nothing.
-                a.update_sender(ty, t, f64::from((i % 2) as u8));
+                a.update_sender(ty, t, f64::from((i % 2) as u8)).unwrap();
             }
             for ty in 0..NUM_TYPES {
-                assert!(a.sender_logits(ty)[k..].iter().all(|v| *v == 0.0));
+                assert!(a.sender_logits(ty).unwrap()[k..].iter().all(|v| *v == 0.0));
             }
-            assert!(a.sender_probs(3)[..k].iter().any(|v| *v != 1.0 / k as f64));
-            let total: u64 = (0..NUM_TYPES).map(|ty| a.sender_baseline_count(ty)).sum();
+            assert!(a.sender_probs(3).unwrap()[..k].iter().any(|v| *v != 1.0 / k as f64));
+            let total: u64 = (0..NUM_TYPES).map(|ty| a.sender_baseline_count(ty).unwrap()).sum();
             assert_eq!(
                 total, 300,
                 "every sender update must advance exactly one baseline count"
@@ -709,5 +799,46 @@ mod tests {
         assert!(AgentPolicy::from_bytes(&serde_json::to_vec(&bad).unwrap()).is_err());
         bad["metadata"] = serde_json::json!({"active_sender_tokens": 99});
         assert!(AgentPolicy::from_bytes(&serde_json::to_vec(&bad).unwrap()).is_err());
+    }
+
+    #[test]
+    fn sender_probs_rejects_type_out_of_range() {
+        let a = AgentPolicy::new();
+        assert!(a.sender_probs(NUM_TYPES).is_err());
+        assert!(a.sender_baseline(NUM_TYPES).is_err());
+        assert!(a.sender_baseline_count(NUM_TYPES).is_err());
+        assert!(a.sender_logits(NUM_TYPES).is_err());
+        assert!(a.receiver_baseline(NUM_TOKENS).is_err());
+        assert!(a.receiver_type_posterior(Some(NUM_TOKENS)).is_err());
+    }
+
+    #[test]
+    fn update_sender_rejects_token_outside_active_set() {
+        let mut a = AgentPolicy::with_active_sender_tokens(8).unwrap();
+        assert!(a.update_sender(0, 8, 1.0).is_err());
+        assert!(a.update_sender(NUM_TYPES, 0, 1.0).is_err());
+        assert!(a.update_sender(0, NUM_TOKENS, 1.0).is_err());
+        assert!(a.update_sender(0, 0, 1.0).is_ok());
+    }
+
+    #[test]
+    fn receiver_position_posterior_rejects_bad_candidate() {
+        let a = AgentPolicy::new();
+        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, NUM_TYPES]).is_err());
+        assert!(a.receiver_position_posterior(Some(NUM_TOKENS), &[0, 1, 2, 3]).is_err());
+        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, 3]).is_ok());
+        let mut rng = ald_hashing::SeededPrng::new("x");
+        assert!(a.sample_token(NUM_TYPES, &mut rng).is_err());
+        assert!(a.sample_position(Some(0), &[0, 1, 2, NUM_TYPES], &mut rng).is_err());
+    }
+
+    #[test]
+    fn update_receiver_rejects_bad_inputs() {
+        let mut a = AgentPolicy::new();
+        let cands = [0, 1, 2, 3];
+        assert!(a.update_receiver(Some(NUM_TOKENS), &cands, 0, 1.0).is_err());
+        assert!(a.update_receiver(Some(0), &cands, 4, 1.0).is_err());
+        assert!(a.update_receiver(Some(0), &[0, 1, 2, NUM_TYPES], 3, 1.0).is_err());
+        assert!(a.update_receiver(Some(0), &cands, 0, 1.0).is_ok());
     }
 }

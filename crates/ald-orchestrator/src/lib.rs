@@ -19,6 +19,15 @@ pub enum OrchestratorError {
     Evidence(#[from] ald_evidence::EvidenceError),
     #[error("analysis: {0}")]
     Analysis(#[from] ald_analysis::AnalysisError),
+    #[error("learner: {0}")]
+    Learner(#[from] ald_learners::LearnerError),
+}
+
+/// Pretty JSON for persisted artifacts. Serialization of these shapes is
+/// infallible in practice, but the error is typed rather than unwrapped so
+/// no artifact write can panic.
+fn to_pretty<T: serde::Serialize>(v: &T) -> Result<String, OrchestratorError> {
+    serde_json::to_string_pretty(v).map_err(|e| OrchestratorError::Domain(e.to_string()))
 }
 
 // ---------------------------------------------------------------------------
@@ -1027,7 +1036,7 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         serde_json::to_value(&receipt).map_err(|e| OrchestratorError::Domain(e.to_string()))?;
     std::fs::write(
         format!("{slot_dir}/dyad-receipt.json"),
-        serde_json::to_string_pretty(&body).unwrap(),
+        to_pretty(&body)?,
     )
     .map_err(|e| OrchestratorError::Io(e.to_string()))?;
 
@@ -1188,14 +1197,14 @@ fn run_dyad_inner(
             let cands = candidate_types(&rec.candidate_type_codes);
             let target_type = cands[rec.actual_selected_candidate_index];
             let rng = &mut train_rngs[receiver_idx];
-            let token = agents[sender_idx].sample_token(target_type, rng);
+            let token = agents[sender_idx].sample_token(target_type, rng)?;
             let channel_draw = rng.next_float();
             let delivered = if channel_dropped(channel_draw) {
                 None
             } else {
                 Some(token)
             };
-            let choice = agents[receiver_idx].sample_position(delivered, &cands, rng);
+            let choice = agents[receiver_idx].sample_position(delivered, &cands, rng)?;
             let reward = if choice == rec.actual_selected_candidate_index {
                 1.0
             } else {
@@ -1203,12 +1212,12 @@ fn run_dyad_inner(
             };
             match resolved.learning_mode {
                 LearningMode::Joint => {
-                    agents[sender_idx].update_sender(target_type, token, reward);
-                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
+                    agents[sender_idx].update_sender(target_type, token, reward)?;
+                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward)?;
                 }
                 LearningMode::None => {}
                 LearningMode::ReceiverOnly => {
-                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward);
+                    agents[receiver_idx].update_receiver(delivered, &cands, choice, reward)?;
                 }
             }
         }
@@ -1252,7 +1261,7 @@ fn run_dyad_inner(
             // placeholder token is discarded.
             let cands = candidate_types(&c.candidate_type_codes);
             let target_type = cands[c.target_index];
-            let token = sender.sample_token(target_type, &mut test_rng);
+            let token = sender.sample_token(target_type, &mut test_rng)?;
             let channel_draw = test_rng.next_float();
             let delivered = if channel_dropped(channel_draw) {
                 None
@@ -1261,7 +1270,7 @@ fn run_dyad_inner(
             };
             let delivered_token = delivered.map(|id| inventory[id].clone());
             let native: Vec<f64> = receiver
-                .receiver_position_posterior(delivered, &cands)
+                .receiver_position_posterior(delivered, &cands)?
                 .iter()
                 .map(|v| stable_f64(*v))
                 .collect();
@@ -1295,10 +1304,12 @@ fn run_dyad_inner(
                         c.case_id
                     )));
                 }
+                // total_cmp: identical argmax on the finite distributions
+                // valid_distribution enforces above, and panic-free.
                 let ok = d
                     .iter()
                     .enumerate()
-                    .max_by(|a, b| a.1.partial_cmp(b.1).unwrap())
+                    .max_by(|a, b| a.1.total_cmp(b.1))
                     .map(|(i, _)| i)
                     == Some(c.target_index);
                 branch_distributions.insert(b.to_string(), d.clone());
@@ -1366,7 +1377,7 @@ fn run_dyad_inner(
         }
         std::fs::write(
             format!("{slot_dir}/branch-probabilities-{role}.json"),
-            serde_json::to_string_pretty(&probs).unwrap(),
+            to_pretty(&probs)?,
         )
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
         let folds = RoleFolds {
@@ -1383,7 +1394,7 @@ fn run_dyad_inner(
         // per-branch probabilities, in the committed fixture schema.
         std::fs::write(
             format!("{slot_dir}/role-folds-{role}.json"),
-            serde_json::to_string_pretty(&persistable_role_folds(&folds)).unwrap(),
+            to_pretty(&persistable_role_folds(&folds))?,
         )
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
         roles.push(folds);
@@ -1405,7 +1416,7 @@ fn run_dyad_inner(
     .map_err(|e| OrchestratorError::Io(e.to_string()))?;
     std::fs::write(
         format!("{slot_dir}/dyad-result.json"),
-        serde_json::to_string_pretty(&result).unwrap(),
+        to_pretty(&result)?,
     )
     .map_err(|e| OrchestratorError::Io(e.to_string()))?;
 
@@ -1488,7 +1499,7 @@ fn run_dyad_inner(
         });
         std::fs::write(
             format!("{slot_dir}/development-config.json"),
-            serde_json::to_string_pretty(&sidecar).unwrap(),
+            to_pretty(&sidecar)?,
         )
         .map_err(|e| OrchestratorError::Io(e.to_string()))?;
     }
@@ -1757,7 +1768,7 @@ mod tests {
             let cands = candidate_types(&first_test.candidate_type_codes);
             let target_type = cands[first_test.target_index];
             let mut rng = ald_hashing::SeededPrng::new(&test_seed).derive("emergent-test");
-            let token = sender.sample_token(target_type, &mut rng);
+            let token = sender.sample_token(target_type, &mut rng).unwrap();
             let delivered = if rng.next_float() < 1.0 / 8.0 {
                 None
             } else {
@@ -1765,7 +1776,7 @@ mod tests {
             };
             let expect_token = delivered.map(|id| inventory[id].clone());
             let expect_native: Vec<f64> = receiver
-                .receiver_position_posterior(delivered, &cands)
+                .receiver_position_posterior(delivered, &cands).unwrap()
                 .iter()
                 .map(|v| stable_f64(*v))
                 .collect();
@@ -2613,7 +2624,7 @@ mod tests {
             .unwrap();
             for (c, case) in cases.iter().zip(probs.iter()) {
                 let cands = candidate_types(&c.candidate_type_codes);
-                let token = sender.sample_token(cands[c.target_index], &mut rng);
+                let token = sender.sample_token(cands[c.target_index], &mut rng).unwrap();
                 let delivered = if drop_draw_less_than(rng.next_float(), 1, 8) {
                     None
                 } else {
@@ -2685,10 +2696,10 @@ mod tests {
             .unwrap();
             // Sender exactly uniform: every logit, baseline, and count zero.
             for ty in 0..ald_learners::NUM_TYPES {
-                assert!(policy.sender_logits(ty).iter().all(|v| *v == 0.0));
-                assert_eq!(policy.sender_baseline(ty), 0.0);
-                assert_eq!(policy.sender_baseline_count(ty), 0);
-                assert_eq!(policy.sender_probs(ty), fresh.sender_probs(ty));
+                assert!(policy.sender_logits(ty).unwrap().iter().all(|v| *v == 0.0));
+                assert_eq!(policy.sender_baseline(ty).unwrap(), 0.0);
+                assert_eq!(policy.sender_baseline_count(ty).unwrap(), 0);
+                assert_eq!(policy.sender_probs(ty).unwrap(), fresh.sender_probs(ty).unwrap());
             }
             // ... while the receiver learned.
             assert_ne!(
@@ -2713,7 +2724,7 @@ mod tests {
             .unwrap();
             for (c, case) in cases.iter().zip(probs.iter()) {
                 let cands = candidate_types(&c.candidate_type_codes);
-                let token = fresh.sample_token(cands[c.target_index], &mut rng);
+                let token = fresh.sample_token(cands[c.target_index], &mut rng).unwrap();
                 let delivered = if drop_draw_less_than(rng.next_float(), 1, 8) {
                     None
                 } else {
@@ -2822,7 +2833,7 @@ mod tests {
                 new["receiver_baseline_counts"]
             );
             let sender_updates: u64 = (0..ald_learners::NUM_TYPES)
-                .map(|ty| policy.sender_baseline_count(ty))
+                .map(|ty| policy.sender_baseline_count(ty).unwrap())
                 .sum();
             assert_eq!(
                 sender_updates, 8,
@@ -2894,7 +2905,7 @@ mod tests {
             .unwrap();
             for (c, case) in cases.iter().zip(probs.iter()) {
                 let cands = candidate_types(&c.candidate_type_codes);
-                let token = sender.sample_token(cands[c.target_index], &mut rng);
+                let token = sender.sample_token(cands[c.target_index], &mut rng).unwrap();
                 let delivered = if drop_draw_less_than(rng.next_float(), 1, 3) {
                     None
                 } else {
@@ -2905,7 +2916,7 @@ mod tests {
                     Some(t) => assert_eq!(case["deliveredToken"], serde_json::json!(t)),
                 }
                 let expect_native: Vec<f64> = receiver
-                    .receiver_position_posterior(delivered, &cands)
+                    .receiver_position_posterior(delivered, &cands).unwrap()
                     .iter()
                     .map(|v| stable_f64(*v))
                     .collect();
@@ -2957,11 +2968,11 @@ mod tests {
                 let policy = ald_learners::AgentPolicy::from_bytes(&bytes).unwrap();
                 assert_eq!(policy.active_sender_tokens(), k as usize);
                 for ty in 0..ald_learners::NUM_TYPES {
-                    let p = policy.sender_probs(ty);
+                    let p = policy.sender_probs(ty).unwrap();
                     assert_eq!(p.len(), 32);
                     assert!((p[..k as usize].iter().sum::<f64>() - 1.0).abs() < 1e-12);
                     assert!(p[k as usize..].iter().all(|v| *v == 0.0));
-                    assert!(policy.sender_logits(ty)[k as usize..]
+                    assert!(policy.sender_logits(ty).unwrap()[k as usize..]
                         .iter()
                         .all(|v| *v == 0.0));
                 }

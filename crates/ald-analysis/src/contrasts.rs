@@ -101,13 +101,16 @@ pub fn success_control_contrasts(
             )));
         }
         for control in CONTROL_BRANCHES {
-            let total: f64 = role_cases
-                .iter()
-                .map(|c| {
-                    f64::from(c.normal_success)
-                        - f64::from(*c.control_success.get(control).unwrap_or(&false))
-                })
-                .sum();
+            let mut total = 0.0;
+            for c in &role_cases {
+                let ctrl = c.control_success.get(control).ok_or_else(|| {
+                    AnalysisError::Domain(format!(
+                        "case {} lacks {control} success outcome",
+                        c.case_id
+                    ))
+                })?;
+                total += f64::from(c.normal_success) - f64::from(*ctrl);
+            }
             *out.entry(contrast_id(control)).or_insert(0.0) += total / role_cases.len() as f64 / 2.0;
         }
     }
@@ -131,6 +134,11 @@ pub fn simultaneous_bounds(
     contrast: &str,
     per_dyad: &[f64],
 ) -> Result<ControlBound, AnalysisError> {
+    if !CONTRAST_IDS.contains(&contrast) {
+        return Err(AnalysisError::Domain(format!(
+            "unknown contrast {contrast:?}: expected one of {CONTRAST_IDS:?}"
+        )));
+    }
     let s = summarize(per_dyad)?;
     let alpha = FAMILY_ALPHA / FAMILY_SIZE as f64;
     let base = ControlBound {
@@ -138,6 +146,9 @@ pub fn simultaneous_bounds(
         n: s.n,
         mean: s.mean,
         sd: s.sd,
+        // INVARIANT: summarize errors on empty input, so s.n > 0 always
+        // holds here; the else branch is unreachable dead code kept for
+        // structural symmetry with the degenerate early-return below.
         se: if s.n > 0 { s.sd / (s.n as f64).sqrt() } else { f64::NAN },
         critical_value: f64::NAN,
         lower_bound: f64::NAN,
@@ -217,12 +228,29 @@ pub fn invalidity_bounds(
     valid_values: &[f64],
     attempted_n: usize,
     admissible: (f64, f64),
-) -> InvalidityBounds {
+) -> Result<InvalidityBounds, AnalysisError> {
+    if attempted_n == 0 {
+        return Err(AnalysisError::Domain(
+            "invalidity_bounds: attempted_n must be positive".to_string(),
+        ));
+    }
     let valid_n = valid_values.len();
-    let missing = attempted_n.saturating_sub(valid_n);
+    if valid_n > attempted_n {
+        return Err(AnalysisError::Domain(format!(
+            "invalidity_bounds: {valid_n} valid values exceed {attempted_n} attempted"
+        )));
+    }
+    for (i, &v) in valid_values.iter().enumerate() {
+        if !v.is_finite() {
+            return Err(AnalysisError::Domain(format!(
+                "invalidity_bounds: valid_values[{i}] must be finite"
+            )));
+        }
+    }
+    let missing = attempted_n - valid_n;
     let total: f64 = valid_values.iter().sum();
     let valid_mean = if valid_n > 0 { total / valid_n as f64 } else { 0.0 };
-    InvalidityBounds {
+    Ok(InvalidityBounds {
         valid_n,
         attempted_n,
         missing_or_invalid_n: missing,
@@ -231,7 +259,7 @@ pub fn invalidity_bounds(
         admissible_max: admissible.1,
         lower: (total + missing as f64 * admissible.0) / attempted_n as f64,
         upper: (total + missing as f64 * admissible.1) / attempted_n as f64,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -283,5 +311,44 @@ mod tests {
         ];
         let c = success_control_contrasts("d", &cases).unwrap();
         assert_eq!(c["normal-minus-disabled"], 1.0);
+    }
+
+    #[test]
+    fn simultaneous_bounds_rejects_unknown_contrast() {
+        let err = simultaneous_bounds("not-a-contrast", &[0.1, 0.2])
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("unknown contrast"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn simultaneous_bounds_accepts_all_contrast_ids() {
+        for cid in CONTRAST_IDS {
+            assert!(simultaneous_bounds(cid, &[0.1, 0.2, 0.15]).is_ok(), "{cid}");
+        }
+    }
+
+    #[test]
+    fn success_contrasts_reject_missing_control() {
+        let mut c = case("a1", "agent-0", true, true);
+        c.control_success.remove("disabled");
+        let cases = vec![c, case("b1", "agent-1", true, true)];
+        let err = success_control_contrasts("d", &cases).unwrap_err().to_string();
+        assert!(err.contains("disabled"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn invalidity_bounds_rejects_zero_attempted() {
+        assert!(invalidity_bounds(&[0.1], 0, PRIMARY_ADMISSIBLE).is_err());
+    }
+
+    #[test]
+    fn invalidity_bounds_rejects_attempted_below_valid() {
+        assert!(invalidity_bounds(&[0.1, 0.2], 1, PRIMARY_ADMISSIBLE).is_err());
+    }
+
+    #[test]
+    fn invalidity_bounds_rejects_non_finite_value() {
+        assert!(invalidity_bounds(&[0.1, f64::NAN], 2, PRIMARY_ADMISSIBLE).is_err());
     }
 }
