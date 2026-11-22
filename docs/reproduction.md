@@ -7,10 +7,26 @@ requirements (see each script's header).
 
 ## Build and test
 
+All campaign binaries were built with one documented target directory:
+the checkout's `env/cargo-target` (never the default `target/`).
+Export it for every build so local artifacts land where the campaign
+records say they do:
+
 ```sh
+export CARGO_TARGET_DIR="$PWD/env/cargo-target"
 cargo build --workspace
 cargo test --workspace
 ```
+
+Release reproduction (checked 2026-11-22, rustc 1.99.1): at commit
+`ab2c2a7`, `cargo build --release -p ald-cli` reproduces the executed
+ablation binary digest
+`4963c506c9ce9cb2122f00e0b6b286685f84aa21bc106f1ebff56747731a03b0`
+exactly. The k8.idx215 exception pin
+`f29377f18be0f25c9653078c42c9e405ccdc1150d1088b7e455d23ef013e3737`
+(@`9e07fcd`) is digest-only: it rebuilds as `262bf4bc…` under the
+current toolchain (compiler-version dependence; see the paper
+repository `SEEDS.md` section 3 for the full note).
 
 The emergence claim is pinned by
 `agent_policies_co_train_unsupervised_like_probe_v4` in
