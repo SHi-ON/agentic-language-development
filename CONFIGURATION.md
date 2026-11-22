@@ -138,3 +138,12 @@ locked `thiserror 2.0.21` declares `rust-version = "1.77"`, and
 floor above it. Verify with `cargo +1.87.0 check --workspace --all-targets`
 and reproduce the `docs/reproduction.md` byte-identical dyad diff on the
 pinned toolchain.
+
+Per-path toolchain requirements:
+
+| Path | Toolchain |
+|---|---|
+| `cargo build`/`test`, `ala` run/analyze/verify/manifest/journal | Rust (pinned toolchain, see `rust-toolchain.toml`) |
+| `scripts/validate-*.py` | Python ≥3.13 via `uv sync --locked` (numpy/scipy only) |
+| `scripts/regen_score_fixtures.py` | Any Python 3 (stdlib only) |
+| `scripts/*.sh` | bash + curl/git; `ala-archive-dyad.sh` needs GNU tar + sha256sum or fallbacks; `ala-watchdog.sh` is Linux-only (`/proc`, procps `ps`) |

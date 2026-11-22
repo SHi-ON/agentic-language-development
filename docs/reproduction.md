@@ -1,7 +1,9 @@
 # Reproduction guide
 
-Everything runs locally with a Rust toolchain. No network, external
-service, or second language runtime is involved.
+The dyad run/analyze/verify path runs locally with a Rust toolchain.
+No network, external service, or second language runtime is involved
+in that path; operator tooling under `scripts/` has its own
+requirements (see each script's header).
 
 ## Build and test
 

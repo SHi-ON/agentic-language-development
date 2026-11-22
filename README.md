@@ -3,9 +3,12 @@
 A pure-Rust workspace that implements exactly one method: the
 **Emergent Signaling Dyad**. Two symmetric agents with no built-in
 shared vocabulary learn to communicate in a synthetic referential
-game, trained only by whether they succeed together. There is no
-other learner, trainer, or runtime in this repository, and no other
-language toolchain is required to build, test, or run it.
+game, trained only by whether they succeed together. The dyad core
+(build, test, `ala` run/analyze/verify) needs only the Rust toolchain;
+operator scripts under `scripts/` additionally need bash, Python 3.13 +
+`uv` (numpy/scipy validators), and — per script header — GNU tar and
+coreutils or Linux `/proc` (see script headers and `CONFIGURATION.md`
+Toolchain).
 
 ## The method
 
