@@ -1,0 +1,53 @@
+name: cargo
+on:
+  push:
+    branches: [main, v3-rust-core]
+  pull_request:
+    branches: [main, v3-rust-core]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt, clippy
+      - run: cargo build --workspace --all-targets
+      - run: cargo test --workspace
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.1
+          components: clippy
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.87.0
+      - run: cargo check --workspace --all-targets
+  todo-markers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: '! grep -rn "TODO\|FIXME\|XXX\|HACK" crates --include="*.rs"'
