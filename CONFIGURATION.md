@@ -132,6 +132,19 @@ compiler). Build with `cargo build --workspace`, test with
 `cargo test --workspace`. The workspace lints with Clippy pedantic
 at `warn` (`Cargo.toml`, `[workspace.lints.clippy]`).
 
+Target directory (single value, P1-REPRO-10): local and campaign
+builds use `CARGO_TARGET_DIR="$PWD/env/cargo-target"`, the checkout's
+`env/cargo-target` (never the default `target/`). CI runners are
+ephemeral and keep the cargo default. `env/` is git-ignored (see
+`.gitignore`) but its location is part of the documented layout:
+fresh clones export the same variable and land artifacts where the
+campaign records say they are. The executed
+campaign binaries that once lived only in this cache are archived
+outside the checkout (release `4963c506…` bytes plus the `f29377f1…`
+digest record; paper `SEEDS.md` §3 and `results/esd/inputs-manifest.json`
+`binaryProvenanceNote`, fork tags `esd-v5-fb76186`/`esd-ablation-ab2c2a7`),
+so retiring the cache loses no executed binary.
+
 MSRV: `rust-version = "1.87"` on every crate. Floor justification:
 locked `thiserror 2.0.21` declares `rust-version = "1.77"`, and
 `u64::is_multiple_of` (used in `ald-merkle`, stabilized in 1.87) sets the

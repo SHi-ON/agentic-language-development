@@ -70,7 +70,13 @@ start.
 
 ## Build and test
 
+Local builds use one documented target directory, the checkout's
+`env/cargo-target` (never the default `target/`): every executed
+campaign binary was built there, and the directory is git-ignored but
+documented so fresh clones reproduce the layout.
+
 ```sh
+export CARGO_TARGET_DIR="$PWD/env/cargo-target"
 cargo build --workspace
 cargo test --workspace
 ```
