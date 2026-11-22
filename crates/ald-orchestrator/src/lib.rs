@@ -607,6 +607,104 @@ fn check_admission(evidence_root: &str, cohort: &str) -> Result<(), Orchestrator
 
 pub const JOURNAL_DOMAIN: &str = "ala-journal-entry-v1";
 
+/// Chain fields assigned by the journal itself; callers must not supply
+/// them (a caller-supplied `seq`/`previousHash`/`entryHash` would fork
+/// verification).
+const JOURNAL_CHAIN_FIELDS: [&str; 3] = ["seq", "previousHash", "entryHash"];
+
+/// Verify every line of an existing journal and return the next `seq` plus
+/// the head `entryHash` to link. A missing journal is the empty chain
+/// (`(0, GENESIS_HASH)`). Any violation — non-JSON line, missing chain
+/// field, `seq` gap/replay, broken `previousHash` link, or `entryHash`
+/// mismatch — fails BEFORE any write, so a corrupt chain is never extended.
+///
+/// Note: `kind`/`state` values are NOT restricted here. `run_dyad` writes
+/// `attempted`/`terminal` entries; operator tooling (e.g. the watchdog)
+/// appends `aborted`/`note` states through the same chain.
+pub fn verify_journal_chain(journal_path: &str) -> Result<(u64, String), OrchestratorError> {
+    let mut expected_seq = 0u64;
+    let mut prev = ald_types::GENESIS_HASH.to_string();
+    if !std::path::Path::new(journal_path).exists() {
+        return Ok((expected_seq, prev));
+    }
+    let text = std::fs::read_to_string(journal_path)
+        .map_err(|e| OrchestratorError::Io(format!("journal unreadable: {e}")))?;
+    for (idx, line) in text.lines().enumerate() {
+        let lineno = idx + 1;
+        let v: serde_json::Value = serde_json::from_str(line).map_err(|e| {
+            OrchestratorError::Domain(format!("ALA journal line {lineno}: corrupt entry: {e}"))
+        })?;
+        let obj = v.as_object().ok_or_else(|| {
+            OrchestratorError::Domain(format!("ALA journal line {lineno}: entry is not an object"))
+        })?;
+        let seq = obj
+            .get("seq")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or_else(|| {
+                OrchestratorError::Domain(format!(
+                    "ALA journal line {lineno}: entry without seq"
+                ))
+            })?;
+        if seq != expected_seq {
+            return Err(OrchestratorError::Domain(format!(
+                "ALA journal line {lineno}: seq {seq} breaks the chain (expected {expected_seq})"
+            )));
+        }
+        let previous = obj
+            .get("previousHash")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                OrchestratorError::Domain(format!(
+                    "ALA journal line {lineno}: entry without previousHash"
+                ))
+            })?;
+        if previous != prev {
+            return Err(OrchestratorError::Domain(format!(
+                "ALA journal line {lineno}: previousHash does not link the prior entryHash"
+            )));
+        }
+        let entry = obj
+            .get("entryHash")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| {
+                OrchestratorError::Domain(format!(
+                    "ALA journal line {lineno}: entry without entryHash"
+                ))
+            })?;
+        let mut body = obj.clone();
+        body.remove("entryHash");
+        let canonical = ald_hashing::canonical_json(&serde_json::Value::Object(body))
+            .map_err(|e| OrchestratorError::Domain(format!("ALA journal line {lineno}: {e}")))?;
+        let recomputed = ald_hashing::domain_hash(JOURNAL_DOMAIN, &[canonical.as_bytes()]);
+        if recomputed != entry {
+            return Err(OrchestratorError::Domain(format!(
+                "ALA journal line {lineno}: entryHash mismatch (tampered entry)"
+            )));
+        }
+        prev = entry.to_string();
+        expected_seq += 1;
+    }
+    Ok((expected_seq, prev))
+}
+
+/// Append one caller-supplied body to a journal through the same verified
+/// chain [`journal_append`] uses. Chain fields (`seq`, `previousHash`,
+/// `entryHash`) are assigned here; a body that already carries them is
+/// rejected so callers cannot fork verification.
+pub fn journal_append_entry(
+    journal_path: &str,
+    body: serde_json::Map<String, serde_json::Value>,
+) -> Result<String, OrchestratorError> {
+    for f in JOURNAL_CHAIN_FIELDS {
+        if body.contains_key(f) {
+            return Err(OrchestratorError::Domain(format!(
+                "ALA journal: body must not carry chain field {f:?} (assigned on append)"
+            )));
+        }
+    }
+    journal_append(journal_path, body)
+}
+
 /// Append one hash-chained line to the root journal
 /// (`<evidence_root>/journal.jsonl`). Lines carry no timestamps so identical
 /// runs hash identically; the chain links every dyad attempt in one root.
@@ -615,33 +713,12 @@ fn journal_append(
     mut body: serde_json::Map<String, serde_json::Value>,
 ) -> Result<String, OrchestratorError> {
     use std::io::Write as _;
-    let mut seq = 0u64;
-    let mut prev = ald_types::GENESIS_HASH.to_string();
-    if std::path::Path::new(journal_path).exists() {
-        let text = std::fs::read_to_string(journal_path)
-            .map_err(|e| OrchestratorError::Io(format!("journal unreadable: {e}")))?;
-        for line in text.lines() {
-            let v: serde_json::Value = serde_json::from_str(line).map_err(|e| {
-                OrchestratorError::Domain(format!("ALA journal: corrupt line: {e}"))
-            })?;
-            let entry = v
-                .get("entryHash")
-                .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| {
-                    OrchestratorError::Domain("ALA journal: line without entryHash".to_string())
-                })?;
-            let s = v
-                .get("seq")
-                .and_then(serde_json::Value::as_u64)
-                .ok_or_else(|| {
-                    OrchestratorError::Domain("ALA journal: line without seq".to_string())
-                })?;
-            prev = entry.to_string();
-            seq = s + 1;
-        }
-    } else if let Some(parent) = std::path::Path::new(journal_path).parent() {
-        if !parent.as_os_str().is_empty() {
-            std::fs::create_dir_all(parent).map_err(|e| OrchestratorError::Io(e.to_string()))?;
+    let (seq, prev) = verify_journal_chain(journal_path)?;
+    if !std::path::Path::new(journal_path).exists() {
+        if let Some(parent) = std::path::Path::new(journal_path).parent() {
+            if !parent.as_os_str().is_empty() {
+                std::fs::create_dir_all(parent).map_err(|e| OrchestratorError::Io(e.to_string()))?;
+            }
         }
     }
     body.insert("seq".to_string(), serde_json::Value::from(seq));
@@ -1604,6 +1681,138 @@ mod tests {
                 )
             })
             .collect()
+    }
+
+    fn journal_body(kind: &str) -> serde_json::Map<String, serde_json::Value> {
+        let mut m = serde_json::Map::new();
+        m.insert("kind".to_string(), serde_json::json!(kind));
+        m
+    }
+
+    #[test]
+    fn journal_round_trip_stays_chained() {
+        let dir = fresh_temp_dir("journal-ok");
+        let path = dir.join("journal.jsonl");
+        let p = path.to_str().unwrap();
+        let h0 = journal_append_entry(p, journal_body("attempted")).unwrap();
+        let h1 = journal_append_entry(p, journal_body("terminal")).unwrap();
+        let h2 = journal_append_entry(p, journal_body("terminal")).unwrap();
+        let (next, head) = verify_journal_chain(p).unwrap();
+        assert_eq!((next, head.as_str()), (3, h2.as_str()));
+        let lines: Vec<String> = std::fs::read_to_string(&path)
+            .unwrap()
+            .lines()
+            .map(str::to_string)
+            .collect();
+        assert_eq!(lines.len(), 3);
+        let v0: serde_json::Value = serde_json::from_str(&lines[0]).unwrap();
+        assert_eq!(v0["seq"], 0);
+        assert_eq!(v0["previousHash"], ald_types::GENESIS_HASH);
+        assert_eq!(v0["entryHash"], h0);
+        let v1: serde_json::Value = serde_json::from_str(&lines[1]).unwrap();
+        assert_eq!((v1["seq"].as_u64().unwrap(), v1["previousHash"].as_str().unwrap()), (1, h0.as_str()));
+        assert_eq!(v1["entryHash"], h1);
+    }
+
+    #[test]
+    fn journal_append_rejects_tampered_entry_hash() {
+        let dir = fresh_temp_dir("journal-tamper");
+        let path = dir.join("journal.jsonl");
+        let p = path.to_str().unwrap();
+        journal_append_entry(p, journal_body("attempted")).unwrap();
+        journal_append_entry(p, journal_body("terminal")).unwrap();
+        let before = std::fs::read_to_string(&path).unwrap();
+        // Flip one hex char of the second line's entryHash.
+        let mut lines: Vec<String> = before.lines().map(str::to_string).collect();
+        let mut v1: serde_json::Value = serde_json::from_str(&lines[1]).unwrap();
+        let orig = v1["entryHash"].as_str().unwrap().to_string();
+        let mut tampered = orig.clone();
+        let flip_at = tampered.len() - 1;
+        tampered.replace_range(flip_at.., if orig.ends_with('0') { "1" } else { "0" });
+        assert_ne!(tampered, orig);
+        v1["entryHash"] = serde_json::json!(tampered);
+        lines[1] = serde_json::to_string(&v1).unwrap();
+        std::fs::write(&path, lines.join("\n") + "\n").unwrap();
+        let err = journal_append_entry(p, journal_body("terminal"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("entryHash"), "unexpected error: {err}");
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            lines.join("\n") + "\n",
+            "failed append must not write"
+        );
+    }
+
+    #[test]
+    fn journal_append_rejects_broken_previous_hash_link() {
+        let dir = fresh_temp_dir("journal-link");
+        let path = dir.join("journal.jsonl");
+        let p = path.to_str().unwrap();
+        journal_append_entry(p, journal_body("attempted")).unwrap();
+        journal_append_entry(p, journal_body("terminal")).unwrap();
+        let before = std::fs::read_to_string(&path).unwrap();
+        let mut lines: Vec<String> = before.lines().map(str::to_string).collect();
+        let mut v1: serde_json::Value = serde_json::from_str(&lines[1]).unwrap();
+        v1["previousHash"] = serde_json::json!("sha256:00");
+        lines[1] = serde_json::to_string(&v1).unwrap();
+        std::fs::write(&path, lines.join("\n") + "\n").unwrap();
+        let err = journal_append_entry(p, journal_body("terminal"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("previousHash"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn journal_append_rejects_seq_gap_and_replay() {
+        for (tag, seqs) in [("gap", [0u64, 2]), ("replay", [0, 0])] {
+            let dir = fresh_temp_dir(&format!("journal-seq-{tag}"));
+            let path = dir.join("journal.jsonl");
+            let p = path.to_str().unwrap();
+            journal_append_entry(p, journal_body("attempted")).unwrap();
+            journal_append_entry(p, journal_body("terminal")).unwrap();
+            let before = std::fs::read_to_string(&path).unwrap();
+            let mut lines: Vec<String> = before.lines().map(str::to_string).collect();
+            for (line, want) in lines.iter_mut().zip(seqs) {
+                let mut v: serde_json::Value = serde_json::from_str(line).unwrap();
+                v["seq"] = serde_json::json!(want);
+                *line = serde_json::to_string(&v).unwrap();
+            }
+            std::fs::write(&path, lines.join("\n") + "\n").unwrap();
+            let err = journal_append_entry(p, journal_body("terminal"))
+                .unwrap_err()
+                .to_string();
+            assert!(err.contains("seq"), "unexpected error for {tag}: {err}");
+        }
+    }
+
+    #[test]
+    fn journal_append_rejects_non_json_line() {
+        let dir = fresh_temp_dir("journal-garbage");
+        let path = dir.join("journal.jsonl");
+        let p = path.to_str().unwrap();
+        journal_append_entry(p, journal_body("attempted")).unwrap();
+        std::fs::write(&path, "not json\n").unwrap();
+        let err = journal_append_entry(p, journal_body("terminal"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("line 1"), "unexpected error: {err}");
+    }
+
+    #[test]
+    fn journal_append_entry_rejects_caller_chain_fields() {
+        let dir = fresh_temp_dir("journal-chainfields");
+        let path = dir.join("journal.jsonl");
+        let p = path.to_str().unwrap();
+        for f in ["seq", "previousHash", "entryHash"] {
+            let mut m = journal_body("terminal");
+            m.insert(f.to_string(), serde_json::json!(0));
+            assert!(
+                journal_append_entry(p, m).is_err(),
+                "caller chain field {f} must be rejected"
+            );
+        }
+        assert!(!path.exists(), "rejected append must not create the file");
     }
 
     #[test]

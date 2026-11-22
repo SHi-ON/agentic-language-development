@@ -306,6 +306,95 @@ fn manifest_accepts_v1_and_v2() {
 }
 
 #[test]
+fn journal_rejects_non_json_line() {
+    let dir = scratch_dir("journal-nonjson");
+    let journal = dir.join("journal.jsonl");
+    let out = ala()
+        .args([
+            "journal",
+            "--journal",
+            journal.to_str().unwrap(),
+            "--line",
+            "not json",
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        !journal.exists(),
+        "rejected journal append must not create the file"
+    );
+}
+
+#[test]
+fn journal_rejects_caller_chain_fields() {
+    let dir = scratch_dir("journal-chainfields");
+    let journal = dir.join("journal.jsonl");
+    let out = ala()
+        .args([
+            "journal",
+            "--journal",
+            journal.to_str().unwrap(),
+            "--line",
+            r#"{"kind":"terminal","seq":0,"previousHash":"x","entryHash":"y"}"#,
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(!journal.exists());
+}
+
+#[test]
+fn journal_chains_two_appends() {
+    let dir = scratch_dir("journal-chain");
+    let journal = dir.join("journal.jsonl");
+    let j = journal.to_str().unwrap();
+    for line in [r#"{"kind":"attempted"}"#, r#"{"kind":"terminal","state":"valid"}"#] {
+        let out = ala()
+            .args(["journal", "--journal", j, "--line", line])
+            .output()
+            .unwrap();
+        assert!(out.status.success());
+        let hash = String::from_utf8_lossy(&out.stdout);
+        assert!(hash.trim_start().starts_with("sha256:"), "got: {hash}");
+    }
+    let text = std::fs::read_to_string(&journal).unwrap();
+    let lines: Vec<&str> = text.lines().collect();
+    assert_eq!(lines.len(), 2);
+    let v0: serde_json::Value = serde_json::from_str(lines[0]).unwrap();
+    let v1: serde_json::Value = serde_json::from_str(lines[1]).unwrap();
+    assert_eq!(v0["seq"], 0);
+    assert_eq!(v1["seq"], 1);
+    assert_eq!(v1["previousHash"], v0["entryHash"]);
+}
+
+#[test]
+fn journal_io_error_exits_nonzero_without_panic() {
+    // --journal under a path whose parent is a FILE: creation fails.
+    let dir = scratch_dir("journal-io");
+    let blocker = dir.join("blocker");
+    std::fs::write(&blocker, "x").unwrap();
+    let journal = blocker.join("journal.jsonl");
+    let out = ala()
+        .args([
+            "journal",
+            "--journal",
+            journal.to_str().unwrap(),
+            "--line",
+            r#"{"kind":"terminal"}"#,
+        ])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("ala journal"), "got: {stderr}");
+    assert!(
+        !stderr.contains("panicked"),
+        "must not panic, got: {stderr}"
+    );
+}
+
+#[test]
 fn manifest_succeeds_from_any_working_directory() {
     // The embedded-manifest fallback: no protocols/ dir under CWD, yet the
     // shipped bytes still validate.

@@ -660,14 +660,31 @@ fn cmd_manifest(args: &[String]) {
 }
 
 fn cmd_journal(args: &[String]) {
-    // Append one JSON line to a journal file.
+    // Append one hash-chained entry to a journal file. The --line body is a
+    // JSON object WITHOUT chain fields; seq/previousHash/entryHash are
+    // assigned by the verified append, so output is verifiable by the same
+    // canonical/hash rules run_dyad uses.
     let path = arg(args, "--journal").unwrap_or_else(|| usage());
     let line = arg(args, "--line").unwrap_or_else(|| usage());
-    use std::io::Write as _;
-    let mut f = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&path)
-        .unwrap();
-    writeln!(f, "{line}").unwrap();
+    let body: serde_json::Value = serde_json::from_str(&line).unwrap_or_else(|e| {
+        eprintln!("ala journal: --line must be a JSON object: {e}");
+        std::process::exit(2);
+    });
+    let map = body.as_object().unwrap_or_else(|| {
+        eprintln!("ala journal: --line must be a JSON object, not an array or scalar");
+        std::process::exit(2);
+    });
+    for f in ["seq", "previousHash", "entryHash"] {
+        if map.contains_key(f) {
+            eprintln!("ala journal: --line must not carry chain field {f:?} (assigned on append)");
+            std::process::exit(2);
+        }
+    }
+    match ald_orchestrator::journal_append_entry(&path, map.clone()) {
+        Ok(hash) => println!("{hash}"),
+        Err(e) => {
+            eprintln!("ala journal: cannot append to {path}: {e}");
+            std::process::exit(1);
+        }
+    }
 }
