@@ -21,10 +21,32 @@ fn arg(args: &[String], name: &str) -> Option<String> {
     args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
 }
 
-fn arg_u32(args: &[String], name: &str, default: u32) -> u32 {
-    arg(args, name)
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(default)
+/// Fail closed on malformed numbers: exit 2 naming the flag and the
+/// offending value (same UX as `parse_development_options`).
+fn bad_number(what: &str, name: &str, value: &str, expected: &str) -> ! {
+    eprintln!("ala {what}: invalid value {value:?} for {name}: expected {expected}");
+    usage();
+}
+
+fn arg_u32_strict(args: &[String], what: &str, name: &str, default: u32) -> u32 {
+    match arg(args, name) {
+        None => default,
+        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "u32")),
+    }
+}
+
+fn arg_usize_strict(args: &[String], what: &str, name: &str, default: usize) -> usize {
+    match arg(args, name) {
+        None => default,
+        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "usize")),
+    }
+}
+
+fn arg_f64_strict(args: &[String], what: &str, name: &str, default: f64) -> f64 {
+    match arg(args, name) {
+        None => default,
+        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "f64")),
+    }
 }
 
 fn main() {
@@ -65,16 +87,25 @@ fn cmd_run(args: &[String]) {
     reject_stray_args(args, "run", RUN_FLAGS);
     reject_duplicate_flags(args, "run", RUN_FLAGS);
     let development = parse_development_options(args);
+    let index: u32 = match arg(args, "--index") {
+        None => usage(),
+        Some(v) => v.parse().unwrap_or_else(|_| bad_number("run", "--index", &v, "u32")),
+    };
+    let protocol_version = arg_u32_strict(args, "run", "--protocol-version", 2);
+    if protocol_version != 1 && protocol_version != 2 {
+        eprintln!(
+            "ala run: invalid value {protocol_version} for --protocol-version: expected 1 or 2"
+        );
+        usage();
+    }
     let req = ald_orchestrator::DyadRequest {
         manifest_path: arg(args, "--manifest").unwrap_or_else(|| usage()),
         cohort: arg(args, "--cohort").unwrap_or_else(|| usage()),
         kind: arg(args, "--kind").unwrap_or_else(|| usage()),
-        index: arg(args, "--index")
-            .and_then(|v| v.parse().ok())
-            .unwrap_or_else(|| usage()),
+        index,
         evidence_root: arg(args, "--evidence-root").unwrap_or_else(|| usage()),
-        treatment_batch_version: arg_u32(args, "--treatment-batch-version", 2),
-        protocol_version: arg_u32(args, "--protocol-version", 2),
+        treatment_batch_version: arg_u32_strict(args, "run", "--treatment-batch-version", 2),
+        protocol_version,
         development,
     };
     match ald_orchestrator::run_dyad(&req, &inventory()) {
@@ -330,18 +361,14 @@ fn cmd_select(dyads: &[String], cohort: &str, out: &str) {
 /// selection is re-verified role by role: scoring refuses to proceed when the
 /// recomputed winner disagrees with the locked record.
 fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
+    // Parse numbers BEFORE the overwrite guard so a malformed flag reports
+    // exit 2 even when the out-path already exists.
+    let coverage = arg_f64_strict(args, "analyze score", "--coverage", 0.975);
+    let resamples = arg_usize_strict(args, "analyze score", "--bootstrap-resamples", 10_000);
+    let attempted = arg_usize_strict(args, "analyze score", "--attempted", dyads.len());
     refuse_overwrite(out, "score");
     let selection_path = arg(args, "--selection").unwrap_or_else(|| usage());
-    let coverage: f64 = arg(args, "--coverage")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(0.975);
     let seed = arg(args, "--bootstrap-seed").unwrap_or_else(|| usage());
-    let resamples: usize = arg(args, "--bootstrap-resamples")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(10_000);
-    let attempted: usize = arg(args, "--attempted")
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(dyads.len());
 
     let selection = read_json(&selection_path, "selection");
     if selection.get("stage").and_then(|v| v.as_str()) != Some("select") {
@@ -587,9 +614,7 @@ fn cmd_verify(args: &[String]) {
 }
 
 fn cmd_manifest(args: &[String]) {
-    let v: u32 = arg(args, "--protocol-version")
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(2);
+    let v = arg_u32_strict(args, "manifest", "--protocol-version", 2);
     let doc = serde_json::json!({
         "protocolVersion": v,
         "manifest": format!("protocols/ala-lv-execution-manifest.v{v}.json"),
