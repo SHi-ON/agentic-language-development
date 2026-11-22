@@ -391,7 +391,7 @@ mod tests {
         assert!((quantile_sorted(&[0.0, 1.0, 2.0, 3.0, 4.0], 0.975).unwrap() - 3.9).abs() < 1e-15);
         let sample = [0.24, 0.26, 0.25, 0.23, 0.27];
         assert!((mean(&sample).unwrap() - 0.25).abs() < 1e-15);
-        assert!((summarize(&sample).unwrap().sd - 0.015811388300841896).abs() < 1e-12);
+        assert!((summarize(&sample).unwrap().sd - 0.015_811_388_300_841_896).abs() < 1e-12);
     }
 
     #[test]
