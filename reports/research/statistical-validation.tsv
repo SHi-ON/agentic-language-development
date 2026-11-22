@@ -1,7 +1,7 @@
 category	case	metric	value	mc_n	lower95	upper95
 reference	normal	qnorm-0.975	1.959963984540054		''	''
 reference	student-t	qt-0.975-df10	2.228138851986274		''	''
-reference	student-t	pt-2.228138851964-df10	0.974999999999056		''	''
+reference	student-t	pt-2.228138851964-df10	0.9749999999990558		''	''
 reference	one-sample-t	t	14.142135623730953		''	''
 reference	one-sample-t	p-greater	7.256408530659879e-05		''	''
 reference	tost	p-lower	0.0010553229225456378		''	''
@@ -19,14 +19,14 @@ reference	quantile-type7	q-0.975	3.9000000000000004		''	''
 reference	special	lbeta-2-3	-2.4849066497880004		''	''
 reference	welch	t	2.563822812618041		''	''
 reference	welch	df	6.952647247102418		''	''
-reference	welch	p-greater	0.018778996265993025		''	''
+reference	welch	p-greater	0.018778996265993032		''	''
 reference	entropy-2-3-5	plugin-bits	1.4854752972273344		''	''
 reference	entropy-2-3-5	miller-madow-bits	1.6297448013162308		''	''
 reference	mutual-information-perfect-binary	plugin-bits	1.0		''	''
 reference	mutual-information-perfect-binary	miller-madow-bits	1.036067376022224		''	''
-reference	beta-binomial-overdispersed	mu	0.5000003177968569		''	''
-reference	beta-binomial-overdispersed	precision	2.548702957680872		''	''
-reference	beta-binomial-overdispersed	log-likelihood	-11.933931650962595		''	''
+reference	beta-binomial-overdispersed	mu	0.5000002711623276		''	''
+reference	beta-binomial-overdispersed	precision	2.5487030608380574		''	''
+reference	beta-binomial-overdispersed	log-likelihood	-11.933931650962109		''	''
 coverage	wilson-binomial-p0.25-n200	contains-true-mean	0.9609666666666666	30000	0.9587154031137746	0.9630998930362105
 coverage	seed-t-beta-binomial-n25-sd0.05	contains-true-mean	0.9489333333333333	30000	0.9463843498167446	0.9513673609756481
 coverage	percentile-bootstrap-beta-binomial-n25-sd0.05-b999	contains-true-mean	0.926	2000	0.9136928772514722	0.9366737984649004
@@ -55,7 +55,7 @@ full-e03	n300-latent-sd0.20	old-high-tail-cap-pass	0.0	10000	0.0	0.0003839983706
 full-e03	n300-latent-sd0.20	old-complete-rule-power	0.0	10000	0.0	0.00038399837067659573
 invalid-runs	n75-reserve8-q0.02	all-six-conditions-avoid-reserve-exhaustion	0.9998827572327832		''	''
 invalid-runs	n75-reserve8-q0.05	all-six-conditions-avoid-reserve-exhaustion	0.9277239763222163		''	''
-invalid-runs	n75-reserve8-q0.10	all-six-conditions-avoid-reserve-exhaustion	0.08712156447464287		''	''
+invalid-runs	n75-reserve8-q0.10	all-six-conditions-avoid-reserve-exhaustion	0.08712156447464225		''	''
 confirmatory-family	n75-d0.30	all-nine-holm-power	0.10996666666666667	30000	0.10647633228421446	0.11355687472634479
 confirmatory-family	n75-d0.40	all-nine-holm-power	0.6751666666666667	30000	0.6698451735447924	0.6804433058295783
 confirmatory-family	n75-d0.50	all-nine-holm-power	0.9630333333333333	30000	0.9608382882353915	0.9651098120480305

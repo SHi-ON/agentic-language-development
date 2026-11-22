@@ -16,4 +16,7 @@ coverage/
 /artifacts/
 .vitest/
 worksheets/**/__pycache__/
+# P0-PRES-02 minimal safety: ignore cargo-target cache + rust target (full rewrite deferred)
+/env/
+/target/
 

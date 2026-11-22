@@ -1,0 +1,17 @@
+[package]
+name = "ald-hashing"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+rust-version.workspace = true
+
+[dependencies]
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+hex = { workspace = true }
+thiserror = { workspace = true }
+ald-types = { path = "../ald-types" }
+
+[lints]
+workspace = true

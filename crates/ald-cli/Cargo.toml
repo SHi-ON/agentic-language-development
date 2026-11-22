@@ -1,0 +1,23 @@
+[package]
+name = "ald-cli"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+rust-version.workspace = true
+
+[[bin]]
+name = "ala"
+path = "src/main.rs"
+
+[dependencies]
+serde_json = { workspace = true }
+ald-hashing = { path = "../ald-hashing" }
+ald-analysis = { path = "../ald-analysis" }
+ald-orchestrator = { path = "../ald-orchestrator" }
+ald-evidence = { path = "../ald-evidence" }
+ald-verifier = { path = "../ald-verifier" }
+ald-config = { path = "../ald-config" }
+
+[lints]
+workspace = true

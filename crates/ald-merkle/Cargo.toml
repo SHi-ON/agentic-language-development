@@ -1,0 +1,17 @@
+[package]
+name = "ald-merkle"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+rust-version.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+ald-types = { path = "../ald-types" }
+ald-hashing = { path = "../ald-hashing" }
+
+[lints]
+workspace = true

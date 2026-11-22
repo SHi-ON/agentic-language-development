@@ -1,0 +1,488 @@
+//! Canonical JSON (RFC 8785 JCS), SHA-256 domain hashing, and the
+//! deterministic `SeededPrng` (SHA-256 counter mode).
+//!
+//! JCS is implemented directly (sorted keys, minimal escaping) so the
+//! crate has no non-audited canonicalization dependency.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
+
+use ald_types::SIGNATURE_FIELDS;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum HashingError {
+    #[error("Value cannot be represented as canonical JSON: {0}")]
+    Unrepresentable(String),
+}
+
+pub const HASH_PREFIX: &str = "sha256:";
+
+/// Serialize to RFC 8785 canonical JSON. Rejects values JSON cannot
+/// represent (undefined/NaN/Infinity have no Rust equivalents; reject
+/// non-finite f64, and require objects/arrays only).
+///
+/// # Errors
+///
+/// Returns an error when the value holds a non-finite number.
+pub fn canonical_json(value: &Value) -> Result<String, HashingError> {
+    assert_canonical_value(value, "")?;
+    let mut out = String::new();
+    write_canonical(value, &mut out);
+    Ok(out)
+}
+
+fn assert_canonical_value(value: &Value, path: &str) -> Result<(), HashingError> {
+    match value {
+        Value::Null | Value::Bool(_) | Value::String(_) => Ok(()),
+        Value::Number(n) => {
+            if n.as_f64().is_some_and(|f| !f.is_finite()) {
+                return Err(HashingError::Unrepresentable(format!(
+                    "non-finite number at {}",
+                    if path.is_empty() { "<root>" } else { path }
+                )));
+            }
+            Ok(())
+        }
+        Value::Array(items) => {
+            for (i, item) in items.iter().enumerate() {
+                assert_canonical_value(item, &format!("{path}[{i}]"))?;
+            }
+            Ok(())
+        }
+        Value::Object(map) => {
+            for (k, v) in map {
+                let child = if path.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{path}.{k}")
+                };
+                assert_canonical_value(v, &child)?;
+            }
+            Ok(())
+        }
+    }
+}
+
+fn write_canonical(value: &Value, out: &mut String) {
+    use std::fmt::Write as _;
+    match value {
+        Value::Null => out.push_str("null"),
+        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Number(n) => out.push_str(&n.to_string()),
+        Value::String(s) => {
+            out.push('"');
+            for c in s.chars() {
+                match c {
+                    '"' => out.push_str("\\\""),
+                    '\\' => out.push_str("\\\\"),
+                    '\u{08}' => out.push_str("\\b"),
+                    '\u{09}' => out.push_str("\\t"),
+                    '\u{0A}' => out.push_str("\\n"),
+                    '\u{0C}' => out.push_str("\\f"),
+                    '\u{0D}' => out.push_str("\\r"),
+                    c if (c as u32) < 0x20 => {
+                        let _ = write!(out, "\\u{:04x}", c as u32);
+                    }
+                    c => out.push(c),
+                }
+            }
+            out.push('"');
+        }
+        Value::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_canonical(item, out);
+            }
+            out.push(']');
+        }
+        Value::Object(map) => {
+            let mut keys: Vec<&String> = map.keys().collect();
+            keys.sort();
+            out.push('{');
+            for (i, k) in keys.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                let mut key = String::new();
+                write_canonical(&Value::String((*k).clone()), &mut key);
+                out.push_str(&key);
+                out.push(':');
+                write_canonical(&map[*k], out);
+            }
+            out.push('}');
+        }
+    }
+}
+
+#[must_use]
+pub fn sha256_bytes(parts: &[&[u8]]) -> [u8; 32] {
+    let mut h = Sha256::new();
+    for part in parts {
+        h.update(part);
+    }
+    h.finalize().into()
+}
+
+#[must_use]
+pub fn encode_hash(digest: &[u8; 32]) -> String {
+    format!("{HASH_PREFIX}{}", hex::encode(digest))
+}
+
+#[must_use]
+pub fn is_sha256_hash(value: &str) -> bool {
+    value.len() == 7 + 64
+        && value.starts_with(HASH_PREFIX)
+        && value[7..].chars().all(|c| c.is_ascii_hexdigit())
+}
+
+/// # Errors
+///
+/// Returns an error when the text is not `sha256:<64 hex>`.
+pub fn decode_hash(hash: &str) -> Result<[u8; 32], HashingError> {
+    if !is_sha256_hash(hash) {
+        return Err(HashingError::Unrepresentable(format!(
+            "invalid hash encoding: {}",
+            hash.chars().take(80).collect::<String>()
+        )));
+    }
+    let mut out = [0u8; 32];
+    hex::decode_to_slice(&hash[7..], &mut out)
+        .map_err(|e| HashingError::Unrepresentable(e.to_string()))?;
+    Ok(out)
+}
+
+#[must_use]
+pub fn uint64_be(value: u64) -> [u8; 8] {
+    value.to_be_bytes()
+}
+
+/// `SHA-256(domain || 0x00 || payload...)` as `sha256:<hex>`.
+#[must_use]
+pub fn domain_hash(domain: &str, payload: &[&[u8]]) -> String {
+    let mut parts: Vec<&[u8]> = vec![domain.as_bytes(), &[0u8]];
+    parts.extend_from_slice(payload);
+    encode_hash(&sha256_bytes(&parts))
+}
+
+/// Domain-separated hash of the canonical form of `value`.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be represented as canonical JSON.
+pub fn hash_canonical(domain: &str, value: &Value) -> Result<String, HashingError> {
+    Ok(domain_hash(domain, &[canonical_json(value)?.as_bytes()]))
+}
+
+#[must_use]
+pub fn omit_signature_fields(
+    event: &serde_json::Map<String, Value>,
+) -> serde_json::Map<String, Value> {
+    event
+        .iter()
+        .filter(|(k, _)| !SIGNATURE_FIELDS.contains(&k.as_str()))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+/// Recompute an entry hash: canonicalize minus signature fields under the
+/// stream domain.
+///
+/// # Errors
+///
+/// Returns an error when the event cannot be represented as canonical JSON.
+pub fn compute_entry_hash(
+    stream: ald_types::EventStream,
+    event: &serde_json::Map<String, Value>,
+) -> Result<String, HashingError> {
+    let body = Value::Object(omit_signature_fields(event));
+    hash_canonical(stream.hash_domain(), &body)
+}
+
+/// Encode every f64 in `value` as its IEEE-754 bit pattern (u64),
+/// recursing through arrays and objects. Integers, strings, bools, and
+/// null pass through unchanged.
+///
+/// Rationale: the JSON float printer/parser pair is not bit-stable for
+/// all doubles (k8.idx215: some probabilities print a decimal that
+/// parses back to a neighboring double, oscillating with no fixpoint;
+/// even 18-digit scientific forms misparse by 1 ULP). Evidence bodies
+/// must survive store -> parse -> rehash bit-exactly, so appends hash
+/// and store this encoding instead of decimal floats. Consumers recover
+/// probabilities with `f64::from_bits(bits)`. Canonical printing of the
+/// resulting integers is exact and unchanged.
+#[must_use]
+pub fn float_bits_value(value: &Value) -> Value {
+    match value {
+        Value::Number(n) => {
+            if n.is_i64() || n.is_u64() {
+                value.clone()
+            } else if let Some(f) = n.as_f64() {
+                Value::from(f.to_bits())
+            } else {
+                value.clone()
+            }
+        }
+        Value::Array(items) => Value::Array(items.iter().map(float_bits_value).collect()),
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(k, v)| (k.clone(), float_bits_value(v)))
+                .collect(),
+        ),
+        _ => value.clone(),
+    }
+}
+
+/// Deterministic SHA-256 counter-mode PRNG (`SeededPrng` stream
+/// layout): key = SHA-256(seed-domain || 0x00 || utf8(seed)),
+/// block = SHA-256(key || uint64BE(counter)).
+pub struct SeededPrng {
+    key: [u8; 32],
+    counter: u64,
+    block: [u8; 32],
+    offset: usize,
+    fresh: bool,
+}
+
+impl SeededPrng {
+    #[must_use]
+    pub fn new(seed: &str) -> Self {
+        Self {
+            key: sha256_bytes(&[
+                ald_types::hash_domains::SEED.as_bytes(),
+                &[0u8],
+                seed.as_bytes(),
+            ]),
+            counter: 0,
+            block: [0u8; 32],
+            offset: 32,
+            fresh: true,
+        }
+    }
+
+    /// Independent child stream; same label always yields the same stream.
+    /// Construction: `SeededPrng::new(hex(key) + "/" + label)`.
+    #[must_use]
+    pub fn derive(&self, label: &str) -> Self {
+        Self::new(&format!("{}/{}", hex::encode(self.key), label))
+    }
+
+    fn refill(&mut self) {
+        self.block = sha256_bytes(&[&self.key, &uint64_be(self.counter)]);
+        self.counter += 1;
+        self.offset = 0;
+        self.fresh = false;
+    }
+
+    pub fn next_u32(&mut self) -> u32 {
+        if self.offset + 4 > 32 {
+            self.refill();
+        }
+        let mut b = [0u8; 4];
+        b.copy_from_slice(&self.block[self.offset..self.offset + 4]);
+        self.offset += 4;
+        u32::from_be_bytes(b)
+    }
+
+    /// Uniform float in [0, 1) with 53 bits of precision.
+    pub fn next_float(&mut self) -> f64 {
+        let high = f64::from(self.next_u32() >> 5);
+        let low = f64::from(self.next_u32() >> 6);
+        (high * 67_108_864.0 + low) / 9_007_199_254_740_992.0
+    }
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `max_exclusive` is zero.
+    pub fn next_int(&mut self, max_exclusive: u32) -> Result<u32, HashingError> {
+        if max_exclusive == 0 {
+            return Err(HashingError::Unrepresentable(
+                "maxExclusive must be a positive integer".to_string(),
+            ));
+        }
+        let range = 4_294_967_296u64;
+        let limit = range - (range % u64::from(max_exclusive));
+        loop {
+            let v = u64::from(self.next_u32());
+            if v < limit {
+                // v < limit <= 2^32, so the remainder fits u32 exactly.
+                return Ok((v % u64::from(max_exclusive)) as u32);
+            }
+        }
+    }
+}
+
+/// RESEARCH.md Appendix D: lowercase hex SHA-256 of parts joined by 0x00.
+#[must_use]
+pub fn derive_seed_hex(parts: &[&str]) -> String {
+    let mut h = Sha256::new();
+    for (i, part) in parts.iter().enumerate() {
+        if i > 0 {
+            h.update([0u8]);
+        }
+        h.update(part.as_bytes());
+    }
+    hex::encode(h.finalize())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn canonical_sorts_keys() {
+        assert_eq!(
+            canonical_json(&json!({"b": 1, "a": [2, 1]})).unwrap(),
+            r#"{"a":[2,1],"b":1}"#
+        );
+    }
+
+    #[test]
+    fn non_finite_unrepresentable_by_construction() {
+        // serde_json::Number guarantees finiteness: from_f64 returns None
+        // for NaN/±Infinity, so such values can never reach canonical_json.
+        // The is_finite guard in assert_canonical_value is defense-in-depth
+        // for values built through other paths.
+        assert!(serde_json::Number::from_f64(f64::INFINITY).is_none());
+        assert!(serde_json::Number::from_f64(f64::NAN).is_none());
+        let v = Value::from(f64::MAX);
+        assert!(canonical_json(&v).is_ok());
+    }
+
+    #[test]
+    fn prng_matches_ts_layout() {
+        // key = SHA-256("dtsf-seed-v1" || 0x00 || "x"); first block must equal
+        // SHA-256(key || uint64BE(0)).
+        let mut rng = SeededPrng::new("x");
+        let _ = rng.next_u32();
+        let key = sha256_bytes(&[b"dtsf-seed-v1".as_slice(), &[0u8], b"x".as_slice()]);
+        let expect = sha256_bytes(&[&key, &0u64.to_be_bytes()]);
+        assert_eq!(rng.block, expect);
+        assert_eq!(rng.counter, 1);
+    }
+
+    #[test]
+    fn next_int_rejects_zero() {
+        assert!(SeededPrng::new("s").next_int(0).is_err());
+    }
+
+    #[test]
+    fn prng_matches_ts_oracle_seed_x() {
+        // Reference oracle values for seed "x": three uint32s, then
+        // next_float, then next_int(700).
+        let mut rng = SeededPrng::new("x");
+        assert_eq!(rng.next_u32(), 3_255_788_481);
+        assert_eq!(rng.next_u32(), 3_306_436_351);
+        assert_eq!(rng.next_u32(), 1_446_772_966);
+        assert_eq!(format!("{:.17}", rng.next_float()), "0.42330249837794243");
+        assert_eq!(rng.next_int(700).unwrap(), 495);
+    }
+
+    #[test]
+    fn canonical_matches_ts_oracle() {
+        // Canonical form of {b:1,a:[2,1]} is '{"a":[2,1],"b":1}'.
+        let v: Value = serde_json::from_str(r#"{"b":1,"a":[2,1]}"#).unwrap();
+        assert_eq!(canonical_json(&v).unwrap(), r#"{"a":[2,1],"b":1}"#);
+    }
+
+    #[test]
+    fn float_bits_encoding_is_exact_and_stable() {
+        // Integers pass through; f64s become their bit patterns.
+        let v: Value =
+            serde_json::from_str(r#"{"i":240,"n":-7,"f":0.25,"a":[1.0,null],"o":{"x":0.1}}"#)
+                .unwrap();
+        let enc = float_bits_value(&v);
+        assert_eq!(enc["i"], serde_json::json!(240));
+        assert_eq!(enc["n"], serde_json::json!(-7));
+        assert_eq!(enc["f"], serde_json::json!(0.25f64.to_bits()));
+        assert_eq!(enc["a"][0], serde_json::json!(1.0f64.to_bits()));
+        assert_eq!(enc["a"][1], Value::Null);
+        assert_eq!(enc["o"]["x"], serde_json::json!(0.1f64.to_bits()));
+        // Encoded text survives store -> parse -> re-encode bit-exactly,
+        // including the k8.idx215 2-cycle doubles and a seeded sweep.
+        let mut bits_cases: Vec<u64> = vec![
+            0.0f64.to_bits(),
+            (-0.0f64).to_bits(),
+            1.0f64.to_bits(),
+            0.25f64.to_bits(),
+            f64::MAX.to_bits(),
+            f64::MIN_POSITIVE.to_bits(),
+        ];
+        for s in [
+            "1.929800299119496e-9",
+            "1.9298002991194962e-9",
+            "6.783021085277678e-9",
+            "6.7830210852776785e-9",
+        ] {
+            bits_cases.push(
+                serde_json::from_str::<Value>(s)
+                    .unwrap()
+                    .as_f64()
+                    .unwrap()
+                    .to_bits(),
+            );
+        }
+        let mut rng = SeededPrng::new("float-bits-sweep-v1");
+        for _ in 0..20_000 {
+            let bits = (u64::from(rng.next_u32()) << 32) | u64::from(rng.next_u32());
+            if f64::from_bits(bits).is_finite() {
+                bits_cases.push(bits);
+            }
+        }
+        for bits in &bits_cases {
+            let f = f64::from_bits(*bits);
+            let enc = float_bits_value(&Value::from(f));
+            let text = enc.to_string();
+            let back: Value = serde_json::from_str(&text).unwrap();
+            assert_eq!(back.as_u64().unwrap(), *bits, "bits changed for {text}");
+            assert_eq!(f64::from_bits(back.as_u64().unwrap()).to_bits(), *bits);
+        }
+    }
+
+    #[test]
+    fn prng_matches_ts_oracle_d6_seed() {
+        // Reference stream for seed "a136f247...df357a": first uint32,
+        // first float, next_int(10000).
+        let mut rng =
+            SeededPrng::new("a136f247e0b12755021e5027a4e7b5f41d3b630e418a609c2d30cfd995df357a");
+        assert_eq!(rng.next_u32(), 1_574_471_825);
+        assert_eq!(format!("{:.17}", rng.next_float()), "0.28304296965537734");
+        assert_eq!(rng.next_int(10000).unwrap(), 8006);
+    }
+
+    #[test]
+    fn ala_seed_matches_ts_oracle() {
+        // Reference seed derivation
+        // (A/primary/0300/scenario/agent-0-receiver, v2 root).
+        assert_eq!(
+            derive_seed_hex(&[
+                "ala-ledger-value-v2",
+                "ALA-LV",
+                "A",
+                "primary",
+                "0300",
+                "scenario",
+                "agent-0-receiver"
+            ]),
+            "7fff5297553ff5a3b209a57a73b784984e9c4d1231d1999362220566d7fe8cbc"
+        );
+    }
+
+    #[test]
+    fn derive_seed_hex_joins_with_nul() {
+        let mut h = Sha256::new();
+        h.update(b"ald-e03-v1");
+        h.update([0u8]);
+        h.update(b"7");
+        assert_eq!(
+            derive_seed_hex(&["ald-e03-v1", "7"]),
+            hex::encode(h.finalize())
+        );
+    }
+}

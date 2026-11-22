@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fleet host setup for the corrected ALA-LV campaign (B1, reused in C0).
+# Fleet host setup for the Rust dyad campaign.
 #
 # Idempotent: re-running converges (matching toolchain versions are kept,
 # checkouts are fetched and moved to the pinned refs, install/check rerun).
@@ -12,12 +12,10 @@
 #     --workdir ~/ald [--skip-check]
 #
 # No host gets write access to another host's evidence root (nothing here
-# mounts or shares evidence). The paper checkout is read-only input for
-# the A7 driver; this script never modifies it beyond checkout.
+# mounts or shares evidence). The paper checkout is retained read-only as
+# A7 driver input but is no longer installed or tested here; this script
+# never modifies it beyond checkout.
 set -euo pipefail
-
-NODE_VERSION="24.22.0"
-PNPM_VERSION="12.9.1"
 
 ALIAS=""; FORK=""; REF=""; PAPER=""; PAPER_REF=""; WORKDIR=""; SKIP_CHECK="no"
 while [ $# -gt 0 ]; do
@@ -37,44 +35,20 @@ for var in ALIAS FORK REF PAPER PAPER_REF WORKDIR; do
 done
 
 echo "=== [${ALIAS}] egress ==="
-curl -sfI --max-time 20 https://nodejs.org/dist/ -o /dev/null
-curl -sf --max-time 20 https://registry.npmjs.org/pnpm -o /dev/null
-echo "egress to nodejs.org and the npm registry: OK"
+curl -sfI --max-time 20 https://sh.rustup.rs -o /dev/null
+curl -sfI --max-time 20 https://static.crates.io -o /dev/null
+echo "egress to sh.rustup.rs and static.crates.io: OK"
 
-export PATH="$HOME/.local/bin:$PATH"
-mkdir -p "$HOME/.local/bin" "$HOME/.cache/ald-node"
+export PATH="$HOME/.cargo/bin:$PATH"
 
-case "$(uname -m)" in
-  x86_64) NODE_ARCH="x64" ;;
-  aarch64) NODE_ARCH="arm64" ;;
-  *) echo "unsupported architecture: $(uname -m)" >&2; exit 11 ;;
-esac
-echo "=== [${ALIAS}] node ${NODE_VERSION} (${NODE_ARCH}) ==="
-if [ "$(node --version 2>/dev/null || true)" = "v${NODE_VERSION}" ]; then
-  echo "node v${NODE_VERSION} already present: $(command -v node)"
+echo "=== [${ALIAS}] rustup ==="
+if command -v rustup >/dev/null 2>&1; then
+  echo "rustup already present: $(command -v rustup)"
 else
-  TARBALL="$HOME/.cache/ald-node/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
-  if [ ! -f "$TARBALL" ]; then
-    curl -sfL --max-time 300 -o "$TARBALL" "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz"
-  fi
-  rm -rf "$HOME"/.local/node-v"${NODE_VERSION}"-linux-*
-  tar -xJf "$TARBALL" -C "$HOME/.local"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/node" "$HOME/.local/bin/node"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npm" "$HOME/.local/bin/npm"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npx" "$HOME/.local/bin/npx"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/corepack" "$HOME/.local/bin/corepack"
-  echo "installed: $(node --version) at $(command -v node)"
+  curl --proto '=https' --tlsv1.2 -sSf --max-time 300 https://sh.rustup.rs -o /tmp/rustup-init.sh
+  sh /tmp/rustup-init.sh -y --default-toolchain none --profile minimal
+  echo "installed: $(command -v rustup)"
 fi
-[ "$(node --version)" = "v${NODE_VERSION}" ]
-
-echo "=== [${ALIAS}] pnpm ${PNPM_VERSION} ==="
-if [ "$(pnpm --version 2>/dev/null || true)" = "${PNPM_VERSION}" ]; then
-  echo "pnpm ${PNPM_VERSION} already present: $(command -v pnpm)"
-else
-  npm install -g --prefix "$HOME/.local" "pnpm@${PNPM_VERSION}"
-  echo "installed: pnpm $(pnpm --version) at $(command -v pnpm)"
-fi
-[ "$(pnpm --version)" = "${PNPM_VERSION}" ]
 
 checkout() {
   local url="$1" ref="$2" dir="$3" name="$4"
@@ -97,22 +71,32 @@ checkout() {
 checkout "$FORK" "$REF" "${WORKDIR}/fork" "fork"
 checkout "$PAPER" "$PAPER_REF" "${WORKDIR}/paper" "paper"
 
+RUST_TOOLCHAIN="$(grep -E '^channel[[:space:]]*=' "${WORKDIR}/fork/rust-toolchain.toml" | sed -E 's/^channel[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')"
+if [ -z "$RUST_TOOLCHAIN" ]; then echo "no channel in fork rust-toolchain.toml" >&2; exit 11; fi
+echo "=== [${ALIAS}] rust ${RUST_TOOLCHAIN} (pinned by fork rust-toolchain.toml) ==="
+rustup toolchain install "$RUST_TOOLCHAIN" --profile minimal
+rustup default "$RUST_TOOLCHAIN"
+[ "$(rustc --version | cut -d' ' -f2)" = "${RUST_TOOLCHAIN}" ]
+
 echo "=== [${ALIAS}] install ==="
-pnpm --dir "${WORKDIR}/fork" install --frozen-lockfile
+(cd "${WORKDIR}/fork" && cargo fetch --locked)
 
 if [ "$SKIP_CHECK" = "yes" ]; then
   echo "=== [${ALIAS}] check SKIPPED ==="
   CHECK_RESULT="SKIPPED"
 else
   echo "=== [${ALIAS}] check ==="
-  pnpm --dir "${WORKDIR}/fork" run check
+  (cd "${WORKDIR}/fork" && cargo fmt --all -- --check \
+    && cargo clippy --workspace --all-targets --locked -- -D warnings \
+    && cargo test --workspace --locked)
   CHECK_RESULT="PASSED"
 fi
 
 echo "=== [${ALIAS}] RECORD ==="
 echo "alias: ${ALIAS} ($(uname -m))"
-echo "node: $(node --version) ($(command -v node))"
-echo "pnpm: $(pnpm --version) ($(command -v pnpm))"
+echo "rustc: $(rustc --version)"
+echo "cargo: $(cargo --version)"
+echo "rustup: $(rustup toolchain list | tr '\n' ' ')"
 echo "python: $(python3 --version)"
 echo "fork: ${FORK} @ $(git -C "${WORKDIR}/fork" rev-parse HEAD)"
 echo "paper: ${PAPER} @ $(git -C "${WORKDIR}/paper" rev-parse HEAD)"

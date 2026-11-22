@@ -3,8 +3,10 @@
 
 Pure-Python port of the retired validate-statistics R script using only numpy/scipy (plus the
 standard library), so its distribution functions, random generators, and interval
-implementations are independent of the TypeScript analysis package. It produces
-design evidence, never study data.
+implementations are independent of the Rust `ald-analysis` implementation. It produces
+design evidence, never study data. Reference rows are cross-checked against
+`ald-analysis` in scripts/tests/test_statistics_vs_rust.py (normative anchor:
+Rust values plus stated tolerances, not the R receipt).
 
 CLI contract (mirrors the retired R script):
     python validate-statistics.py [outputPath]
@@ -12,12 +14,17 @@ CLI contract (mirrors the retired R script):
     - writes a TSV with header: category case metric value mc_n lower95 upper95
       (tab-separated, NA rendered as "", parent directories created as needed)
     - prints "Wrote <path> (<n> validation rows) ..." to stdout
+    - the default receipt is committed; regenerate with
+      `uv run --locked scripts/validate-statistics.py` (~30s) and re-run the
+      comparison test below
 
 RNG note: R uses set.seed(20260911) with Mersenne-Twister; this port uses
-numpy.random.default_rng(20260911) (PCG64). All Monte Carlo rows are therefore
-seed/stream-sensitive and will differ numerically from the R receipt while
-estimating the same quantities. Reference (analytic) rows should agree with R
-to ~1e-12 except the beta-binomial optimizer fit (~1e-3, different optimizer).
+numpy.random.default_rng(20260911) (PCG64), while Rust bootstraps draw from
+`SeededPrng` (SHA-256 counter mode). All Monte Carlo rows are therefore
+seed/stream-sensitive and agree with any other implementation only in
+distribution, never bit-wise. Reference (analytic) rows agree with Rust to
+~1e-12 except the beta-binomial optimizer fit (~1e-3, different optimizer)
+and Wilson endpoints quoted at 1e-4.
 """
 
 import os
@@ -39,7 +46,11 @@ def add_row(category, case, metric, value, mc_n=None, lower95=None, upper95=None
 
 
 def mc_interval(successes, n, confidence=0.95):
-    """Wilson score interval for a binomial proportion (== R mc_interval)."""
+    """Wilson score interval for a binomial proportion.
+
+    Ported from R mc_interval; normatively checked against Rust
+    `ald-analysis::stats::wilson_interval` (1e-4 on quoted endpoints).
+    """
     z = stats.norm.ppf(1 - (1 - confidence) / 2)
     p = successes / n
     denominator = 1 + z**2 / n
@@ -62,7 +73,11 @@ def add_mc(category, case, metric, successes, n):
 
 
 def quantile_type7(x, probs):
-    """R quantile(x, probs, type=7): h=(n-1)p+1 linear interpolation."""
+    """R quantile(x, probs, type=7): h=(n-1)p+1 linear interpolation.
+
+    Normatively checked against Rust `ald-analysis::stats::quantile_sorted`
+    (1e-15).
+    """
     xs = np.sort(np.asarray(x, dtype=float))
     n = xs.size
     parr = np.atleast_1d(np.asarray(probs, dtype=float))
@@ -81,7 +96,11 @@ def quantile_type7(x, probs):
 
 
 def holm_adjust(p):
-    """R p.adjust(p, method='holm') for a 1-D array."""
+    """R p.adjust(p, method='holm') for a 1-D array (adjusted p-values).
+
+    Rust `ald-analysis::stats::holm_bonferroni` returns rejection flags
+    instead; the comparison test checks verdict agreement at alpha=0.05.
+    """
     p = np.asarray(p, dtype=float)
     n = p.size
     order = np.argsort(p, kind="mergesort")
@@ -101,7 +120,11 @@ def all_holm_rejected(p_matrix, alpha=0.05):
 
 
 def row_sd(x):
-    """Sample SD per row (n-1 denominator, == R row_sd)."""
+    """Sample SD per row (n-1 denominator, == R row_sd).
+
+    Normatively checked against Rust `ald-analysis::stats::summarize`
+    (1e-15; summation order may differ by ulps).
+    """
     return np.std(np.asarray(x, dtype=float), axis=1, ddof=1)
 
 

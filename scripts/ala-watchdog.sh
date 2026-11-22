@@ -4,11 +4,23 @@
 # GiB from the frozen amendment), and journals `aborted` with measured
 # cost on breach. Findings go to stderr (captured in the dyad log).
 #
+# Linux-only: requires /proc, procps `ps --ppid`, and getconf CLK_TCK.
+# Not macOS/BSD-portable (fails fast below when /proc is absent).
+#
 # Usage:
 #   ala-watchdog.sh --cohort A --kind primary --index 0 \
 #     --evidence-root <dir> --amendment <amendment.v2.json> \
-#     --journal-append <ala-journal-append.ts> [--poll-seconds 60] \
+#     --manifest-sha256 <hex> [--ala <ala-binary>] [--poll-seconds 60] \
 #     -- <runner command...>
+#
+# --amendment points at operator-supplied JSON shaped like:
+#   {"newAllowance": {"perDyadCpuHoursMax": <num>, "perDyadWallMinutesMax": <num>,
+#                     "perDyadRetainedGiBMax": <num>, "campaignCpuHoursMax": <num|null>}}
+#   (no in-repo example exists; the campaign supplies this file).
+# --manifest-sha256 is the dyad manifest's sha256 (from the run inputs or
+#   receipt); the watchdog cannot re-derive it. Journaled bodies carry
+#   kind=terminal with state aborted|note through `ala journal`, whose
+#   hash-chained entries verify like run_dyad's own journal lines.
 #
 # Exit codes: runner's code when it exits within guard; 3 on guard
 # breach (process terminated, `aborted` journalled); 4 when the run
@@ -19,7 +31,10 @@
 # explicitly so breach journaling always runs.
 set -uo pipefail
 
-COHORT=""; KIND=""; INDEX=""; EVIDENCE_ROOT=""; AMENDMENT=""; JOURNAL_APPEND=""; POLL=60
+if [ ! -d "/proc/$$" ]; then echo "watchdog: Linux /proc required" >&2; exit 11; fi
+if ! ps --ppid $$ >/dev/null 2>&1; then echo "watchdog: procps ps --ppid required" >&2; exit 11; fi
+
+COHORT=""; KIND=""; INDEX=""; EVIDENCE_ROOT=""; AMENDMENT=""; MANIFEST_SHA256=""; ALA="ala"; POLL=60
 while [ $# -gt 0 ]; do
   case "$1" in
     --cohort) COHORT="$2"; shift 2 ;;
@@ -27,13 +42,14 @@ while [ $# -gt 0 ]; do
     --index) INDEX="$2"; shift 2 ;;
     --evidence-root) EVIDENCE_ROOT="$2"; shift 2 ;;
     --amendment) AMENDMENT="$2"; shift 2 ;;
-    --journal-append) JOURNAL_APPEND="$2"; shift 2 ;;
+    --manifest-sha256) MANIFEST_SHA256="$2"; shift 2 ;;
+    --ala) ALA="$2"; shift 2 ;;
     --poll-seconds) POLL="$2"; shift 2 ;;
     --) shift; break ;;
     *) echo "watchdog: unknown argument: $1" >&2; exit 11 ;;
   esac
 done
-for var in COHORT KIND INDEX EVIDENCE_ROOT AMENDMENT JOURNAL_APPEND; do
+for var in COHORT KIND INDEX EVIDENCE_ROOT AMENDMENT MANIFEST_SHA256; do
   if [ -z "${!var}" ]; then echo "watchdog: missing --$(echo "$var" | tr 'A-Z_' 'a-z-')" >&2; exit 11; fi
 done
 if [ $# -eq 0 ]; then echo "watchdog: missing runner command after --" >&2; exit 11; fi
@@ -94,9 +110,30 @@ dyad_gib() {
 }
 
 journal() {
-  npx tsx "$JOURNAL_APPEND" --evidence-root "$EVIDENCE_ROOT" --cohort "$COHORT" \
-    --kind "$KIND" --index "$INDEX" --state "$1" --reason "$2" --wall-milliseconds "$3" >&2 || \
-    log "JOURNAL APPEND FAILED (state=$1)"
+  # args: state reason wall_ms cpu_hours gib (cpu/gib may be empty)
+  local state="$1" reason="$2" wall_ms="$3" cpu="$4" gib="$5" body
+  body="$(STATE="$state" REASON="$reason" WALL_MS="$wall_ms" CPU="$cpu" GIB="$gib" \
+    COHORT="$COHORT" KIND="$KIND" INDEX="$INDEX" MSHA="$MANIFEST_SHA256" python3 - <<'EOF'
+import json, os
+body = {
+    "cohort": os.environ["COHORT"],
+    "slotKind": os.environ["KIND"],
+    "slotIndex": "%04d" % int(os.environ["INDEX"]),
+    "manifestSha256": os.environ["MSHA"],
+    "kind": "terminal",
+    "state": os.environ["STATE"],
+    "reason": os.environ["REASON"],
+    "wallMilliseconds": int(os.environ["WALL_MS"]),
+}
+if os.environ["CPU"]:
+    body["cpuHours"] = float(os.environ["CPU"])
+if os.environ["GIB"]:
+    body["retainedGiB"] = float(os.environ["GIB"])
+print(json.dumps(body))
+EOF
+  )" || { log "JOURNAL BODY FAILED (state=$state)"; return 0; }
+  "$ALA" journal --journal "$EVIDENCE_ROOT/journal.jsonl" --line "$body" >&2 || \
+    log "JOURNAL APPEND FAILED (state=$state)"
 }
 
 log "start caps cpu=${CPU_MAX}h wall=${WALL_MAX}m gib=${GIB_MAX} poll=${POLL}s"
@@ -126,7 +163,7 @@ if [ -n "$BREACH" ]; then
     for pid in $(tree_pids "$CHILD"); do kill -KILL "$pid" 2>/dev/null || true; done
   fi
   wait "$CHILD" 2>/dev/null || true
-  journal aborted "watchdog: per-dyad guard breached ($BREACH)" "$WALL_MS"
+  journal aborted "watchdog: per-dyad guard breached ($BREACH)" "$WALL_MS" "$CPU_H" "$GIB"
   log "dyad aborted and journalled"
   exit 3
 fi
@@ -143,7 +180,7 @@ if python3 -c "exit(0 if float('$WALL_M') > float('$WALL_MAX') else 1)" || \
   # wall and disk are measured here. A breach past completion is a
   # campaign anomaly: the terminal receipt already exists, so the
   # watchdog journals a `note` finding instead of rewriting history.
-  journal note "watchdog: dyad completed past its guard (wall_m=$WALL_M gib=$GIB)" "$WALL_MS"
+  journal note "watchdog: dyad completed past its guard (wall_m=$WALL_M gib=$GIB)" "$WALL_MS" "" "$GIB"
   log "GUARD FINDING at completion (exit $CODE kept)"
   exit 4
 fi
