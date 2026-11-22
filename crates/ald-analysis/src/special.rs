@@ -263,6 +263,16 @@ mod tests {
     }
 
     #[test]
+    fn crosscheck_values_for_python_port() {
+        // Locked for scripts/tests/test_statistics_vs_rust.py (scipy agrees
+        // to these tolerances; Acklam/bisection are approximate by design;
+        // Acklam errs ~1.6e-9 here, hence 1e-8).
+        assert!((normal_quantile(0.975).unwrap() - 1.959963984540054).abs() < 1e-8);
+        assert!((student_t_quantile(0.975, 10).unwrap() - 2.228138851986274).abs() < 1e-9);
+        assert!((student_t_cdf(2.228138851964, 10.0).unwrap() - 0.9749999999990558).abs() < 1e-9);
+    }
+
+    #[test]
     fn t_quantile_df19_975() {
         // Reference: qt(0.975, 19) = 2.093024.
         assert!((student_t_quantile(0.975, 19).unwrap() - 2.093_024).abs() < 1e-4);

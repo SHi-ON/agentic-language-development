@@ -385,6 +385,16 @@ mod tests {
     }
 
     #[test]
+    fn crosscheck_values_for_python_port() {
+        // Locked for scripts/tests/test_statistics_vs_rust.py.
+        assert!((quantile_sorted(&[0.0, 1.0, 2.0, 3.0, 4.0], 0.025).unwrap() - 0.1).abs() < 1e-15);
+        assert!((quantile_sorted(&[0.0, 1.0, 2.0, 3.0, 4.0], 0.975).unwrap() - 3.9).abs() < 1e-15);
+        let sample = [0.24, 0.26, 0.25, 0.23, 0.27];
+        assert!((mean(&sample).unwrap() - 0.25).abs() < 1e-15);
+        assert!((summarize(&sample).unwrap().sd - 0.015811388300841896).abs() < 1e-12);
+    }
+
+    #[test]
     fn holm_rejects_nan_p_value() {
         let err = holm_bonferroni(&[0.01, f64::NAN], 0.05)
             .unwrap_err()
