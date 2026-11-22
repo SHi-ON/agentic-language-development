@@ -132,6 +132,57 @@ mod tests {
     }
 
     #[test]
+    fn tampered_chain_fails_verify() {
+        let conn = ald_evidence::open(":memory:").unwrap();
+        for i in 0..2 {
+            let mut m = serde_json::Map::new();
+            m.insert("i".to_string(), serde_json::json!(i));
+            ald_evidence::append_event(&conn, ald_types::EventStream::Channel, m).unwrap();
+        }
+        conn.execute("UPDATE events SET body = '{}' WHERE sequence = 1", [])
+            .unwrap();
+        assert!(verify_bundle(&conn).is_err());
+    }
+
+    #[test]
+    fn entry_hash_mismatch_fails_verify() {
+        let conn = ald_evidence::open(":memory:").unwrap();
+        let mut m = serde_json::Map::new();
+        m.insert("i".to_string(), serde_json::json!(0));
+        ald_evidence::append_event(&conn, ald_types::EventStream::Channel, m).unwrap();
+        conn.execute(
+            "UPDATE events SET entry_hash = 'sha256:00' WHERE sequence = 0",
+            [],
+        )
+        .unwrap();
+        assert!(verify_bundle(&conn).is_err());
+    }
+
+    #[test]
+    fn inclusion_proof_negative() {
+        let entry = "sha256:".to_string() + &"ab".repeat(32);
+        let leaf = ald_merkle::leaf_hash(0, &entry).unwrap();
+        let sib = ald_merkle::leaf_hash(1, &entry).unwrap();
+        let root = ald_merkle::node_hash(&leaf, &sib).unwrap();
+        let good = ald_merkle::InclusionProof {
+            leaf: leaf.clone(),
+            siblings: vec![sib.clone()],
+            root: root.clone(),
+        };
+        assert!(ald_merkle::verify_inclusion(&good, 0).unwrap());
+        let mut bad_sib = sib.clone();
+        bad_sib.replace_range(10..11, if &sib[10..11] == "0" { "1" } else { "0" });
+        let bad = ald_merkle::InclusionProof {
+            leaf,
+            siblings: vec![bad_sib],
+            root,
+        };
+        // Either outcome is fail-closed: Err on malformed input, Ok(false)
+        // on a well-formed but non-matching proof.
+        assert!(!ald_merkle::verify_inclusion(&bad, 0).unwrap_or(false));
+    }
+
+    #[test]
     fn mutated_checkpoint_fails() {
         let conn = ald_evidence::open(":memory:").unwrap();
         let m = test_manifest();
