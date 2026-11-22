@@ -4,7 +4,7 @@
 //! leaf = SHA-256(merkle-leaf-domain || 0x00 || uint64BE(seq) || entryHashBytes)
 //! node = SHA-256(merkle-node-domain || 0x01 || leftBytes || rightBytes).
 
-use ald_hashing::{decode_hash, domain_hash, encode_hash, sha256_bytes, HashingError};
+use ald_hashing::{decode_hash, domain_hash, encode_hash, HashingError};
 use ald_types::hash_domains;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -19,7 +19,6 @@ pub enum MerkleError {
     Proof,
 }
 
-#[must_use]
 pub fn leaf_hash(sequence: u64, entry_hash: &str) -> Result<String, MerkleError> {
     let entry = decode_hash(entry_hash)?;
     let seq = sequence.to_be_bytes();
@@ -32,7 +31,6 @@ pub fn leaf_hash(sequence: u64, entry_hash: &str) -> Result<String, MerkleError>
     Ok(encode_hash(&h.finalize().into()))
 }
 
-#[must_use]
 pub fn node_hash(left: &str, right: &str) -> Result<String, MerkleError> {
     let l = decode_hash(left)?;
     let r = decode_hash(right)?;
@@ -60,7 +58,11 @@ pub const fn node_domain() -> &'static str {
 pub fn carrier_mark(carrier_mode: &str, artifact_canonical: &str) -> String {
     domain_hash(
         hash_domains::CARRIER_MARK,
-        &[carrier_mode.as_bytes(), &[0u8], artifact_canonical.as_bytes()],
+        &[
+            carrier_mode.as_bytes(),
+            &[0u8],
+            artifact_canonical.as_bytes(),
+        ],
     )
 }
 
@@ -75,7 +77,11 @@ pub fn verify_inclusion(proof: &InclusionProof, mut index: u64) -> Result<bool, 
     let mut acc = decode_hash(&proof.leaf).map_err(MerkleError::Hash)?;
     for sib in &proof.siblings {
         let s = decode_hash(sib).map_err(MerkleError::Hash)?;
-        let (l, r) = if index % 2 == 0 { (acc, s) } else { (s, acc) };
+        let (l, r) = if index.is_multiple_of(2) {
+            (acc, s)
+        } else {
+            (s, acc)
+        };
         let mut h = sha2::Sha256::new();
         use sha2::Digest as _;
         h.update(hash_domains::MERKLE_NODE.as_bytes());

@@ -34,11 +34,9 @@ pub struct CheckpointManifest {
     pub checkpoint_hash: String,
 }
 
-pub fn checkpoint_hash(
-    unsigned: &UnsignedCheckpointManifest,
-) -> Result<String, HashingError> {
-    let value = serde_json::to_value(unsigned)
-        .map_err(|e| HashingError::Unrepresentable(e.to_string()))?;
+pub fn checkpoint_hash(unsigned: &UnsignedCheckpointManifest) -> Result<String, HashingError> {
+    let value =
+        serde_json::to_value(unsigned).map_err(|e| HashingError::Unrepresentable(e.to_string()))?;
     hash_canonical(ald_types::hash_domains::CHECKPOINT, &value)
 }
 

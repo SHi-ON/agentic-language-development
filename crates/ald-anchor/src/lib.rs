@@ -27,7 +27,9 @@ pub struct AnchorReceipt {
 
 pub fn publish_simulated(checkpoint_hash: &str, height: u64) -> Result<AnchorReceipt, AnchorError> {
     if !ald_hashing::is_sha256_hash(checkpoint_hash) {
-        return Err(AnchorError::Domain("checkpoint hash must be sha256:<hex>".to_string()));
+        return Err(AnchorError::Domain(
+            "checkpoint hash must be sha256:<hex>".to_string(),
+        ));
     }
     Ok(AnchorReceipt {
         checkpoint_hash: checkpoint_hash.to_string(),
@@ -41,7 +43,10 @@ pub fn publish_simulated(checkpoint_hash: &str, height: u64) -> Result<AnchorRec
 }
 
 pub fn verify_receipt(receipt: &AnchorReceipt) -> Result<bool, AnchorError> {
-    Ok(publish_simulated(&receipt.checkpoint_hash, receipt.height)?.anchor_hash == receipt.anchor_hash)
+    Ok(
+        publish_simulated(&receipt.checkpoint_hash, receipt.height)?.anchor_hash
+            == receipt.anchor_hash,
+    )
 }
 
 #[cfg(test)]

@@ -6,7 +6,7 @@
 //! primary, instead of a 0/1 turn-success difference.
 
 use crate::ledger::brier;
-use crate::{summarize, student_t_quantile, AnalysisError};
+use crate::{student_t_quantile, summarize, AnalysisError};
 use serde::{Deserialize, Serialize};
 
 pub const CONTROL_BRANCHES: [&str; 4] = ["disabled", "constant", "random", "shuffled"];
@@ -43,7 +43,9 @@ pub fn brier_control_contrasts(
     cases: &[BranchCase],
 ) -> Result<std::collections::HashMap<String, f64>, AnalysisError> {
     if cases.is_empty() {
-        return Err(AnalysisError::Domain(format!("dyad {dyad} has no branch-outcome cases")));
+        return Err(AnalysisError::Domain(format!(
+            "dyad {dyad} has no branch-outcome cases"
+        )));
     }
     let mut seen = std::collections::HashSet::new();
     for c in cases {
@@ -66,7 +68,10 @@ pub fn brier_control_contrasts(
                 .iter()
                 .map(|c| {
                     let ctrl = c.control_distributions.get(control).ok_or_else(|| {
-                        AnalysisError::Domain(format!("case {} lacks {control} distribution", c.case_id))
+                        AnalysisError::Domain(format!(
+                            "case {} lacks {control} distribution",
+                            c.case_id
+                        ))
                     })?;
                     Ok::<f64, AnalysisError>(
                         brier(ctrl, c.action) - brier(&c.normal_distribution, c.action),
@@ -90,7 +95,9 @@ pub fn success_control_contrasts(
     cases: &[BranchCase],
 ) -> Result<std::collections::HashMap<String, f64>, AnalysisError> {
     if cases.is_empty() {
-        return Err(AnalysisError::Domain(format!("dyad {dyad} has no branch-outcome cases")));
+        return Err(AnalysisError::Domain(format!(
+            "dyad {dyad} has no branch-outcome cases"
+        )));
     }
     let mut out = std::collections::HashMap::new();
     for role in ["agent-0", "agent-1"] {
@@ -111,7 +118,8 @@ pub fn success_control_contrasts(
                 })?;
                 total += f64::from(c.normal_success) - f64::from(*ctrl);
             }
-            *out.entry(contrast_id(control)).or_insert(0.0) += total / role_cases.len() as f64 / 2.0;
+            *out.entry(contrast_id(control)).or_insert(0.0) +=
+                total / role_cases.len() as f64 / 2.0;
         }
     }
     Ok(out)
@@ -149,12 +157,18 @@ pub fn simultaneous_bounds(
         // INVARIANT: summarize errors on empty input, so s.n > 0 always
         // holds here; the else branch is unreachable dead code kept for
         // structural symmetry with the degenerate early-return below.
-        se: if s.n > 0 { s.sd / (s.n as f64).sqrt() } else { f64::NAN },
+        se: if s.n > 0 {
+            s.sd / (s.n as f64).sqrt()
+        } else {
+            f64::NAN
+        },
         critical_value: f64::NAN,
         lower_bound: f64::NAN,
         degenerate: None,
     };
-    if s.n < 2 || !(s.sd > 0.0) {
+    // NaN-safe degenerate guard (never `<=`: NaN sd must stay on the
+    // degenerate path). No unwrap: panic-free by construction.
+    if s.n < 2 || s.sd.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return Ok(ControlBound {
             degenerate: Some("degenerate: no variance estimate".to_string()),
             ..base
@@ -249,7 +263,11 @@ pub fn invalidity_bounds(
     }
     let missing = attempted_n - valid_n;
     let total: f64 = valid_values.iter().sum();
-    let valid_mean = if valid_n > 0 { total / valid_n as f64 } else { 0.0 };
+    let valid_mean = if valid_n > 0 {
+        total / valid_n as f64
+    } else {
+        0.0
+    };
     Ok(InvalidityBounds {
         valid_n,
         attempted_n,
@@ -272,7 +290,11 @@ mod tests {
         for b in CONTROL_BRANCHES {
             cd.insert(
                 b.to_string(),
-                if ctrl_ok { vec![0.0, 1.0, 0.0, 0.0] } else { vec![0.25; 4] },
+                if ctrl_ok {
+                    vec![0.0, 1.0, 0.0, 0.0]
+                } else {
+                    vec![0.25; 4]
+                },
             );
             cs.insert(b.to_string(), ctrl_ok);
         }
@@ -333,7 +355,9 @@ mod tests {
         let mut c = case("a1", "agent-0", true, true);
         c.control_success.remove("disabled");
         let cases = vec![c, case("b1", "agent-1", true, true)];
-        let err = success_control_contrasts("d", &cases).unwrap_err().to_string();
+        let err = success_control_contrasts("d", &cases)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("disabled"), "unexpected error: {err}");
     }
 

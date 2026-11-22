@@ -24,7 +24,9 @@ pub struct DescriptiveSummary {
 
 fn assert_sample(values: &[f64], name: &str) -> Result<(), AnalysisError> {
     if values.is_empty() {
-        return Err(AnalysisError::EmptySample(format!("{name} must not be empty")));
+        return Err(AnalysisError::EmptySample(format!(
+            "{name} must not be empty"
+        )));
     }
     if values.iter().any(|v| !v.is_finite()) {
         return Err(AnalysisError::Domain(format!("{name} must be finite")));
@@ -62,14 +64,35 @@ pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
         // one_sample_t, cohort_interval, and simultaneous_bounds all branch
         // on `n < 2 || !(sd > 0.0)` into degenerate/None outputs; NaN sd
         // must stay on that degenerate path (never "fixed" into an error).
-        return Ok(DescriptiveSummary { n, mean, variance: f64::NAN, sd: f64::NAN, min, max });
+        return Ok(DescriptiveSummary {
+            n,
+            mean,
+            variance: f64::NAN,
+            sd: f64::NAN,
+            min,
+            max,
+        });
     }
     if min == max {
-        return Ok(DescriptiveSummary { n, mean: min, variance: 0.0, sd: 0.0, min, max });
+        return Ok(DescriptiveSummary {
+            n,
+            mean: min,
+            variance: 0.0,
+            sd: 0.0,
+            min,
+            max,
+        });
     }
     let ss: f64 = values.iter().map(|v| (v - mean).powi(2)).sum();
     let variance = ss / (n - 1) as f64;
-    Ok(DescriptiveSummary { n, mean, variance, sd: variance.sqrt(), min, max })
+    Ok(DescriptiveSummary {
+        n,
+        mean,
+        variance,
+        sd: variance.sqrt(),
+        min,
+        max,
+    })
 }
 
 pub fn mean(values: &[f64]) -> Result<f64, AnalysisError> {
@@ -79,8 +102,10 @@ pub fn mean(values: &[f64]) -> Result<f64, AnalysisError> {
 /// Type-7 empirical quantile over an ascending slice.
 pub fn quantile_sorted(sorted: &[f64], probability: f64) -> Result<f64, AnalysisError> {
     assert_sample(sorted, "sorted")?;
-    if !(probability >= 0.0 && probability <= 1.0) {
-        return Err(AnalysisError::Domain("probability must be in [0, 1]".to_string()));
+    if !(0.0..=1.0).contains(&probability) {
+        return Err(AnalysisError::Domain(
+            "probability must be in [0, 1]".to_string(),
+        ));
     }
     let pos = (sorted.len() - 1) as f64 * probability;
     let lo = pos.floor() as usize;
@@ -103,12 +128,20 @@ pub struct WilsonInterval {
 }
 
 /// Wilson score interval, bounds clamped to [0, 1].
-pub fn wilson_interval(successes: u64, n: u64, confidence: f64) -> Result<WilsonInterval, AnalysisError> {
+pub fn wilson_interval(
+    successes: u64,
+    n: u64,
+    confidence: f64,
+) -> Result<WilsonInterval, AnalysisError> {
     if n == 0 {
-        return Err(AnalysisError::EmptySample("n must be greater than zero".to_string()));
+        return Err(AnalysisError::EmptySample(
+            "n must be greater than zero".to_string(),
+        ));
     }
     if successes > n {
-        return Err(AnalysisError::Domain("successes must not exceed n".to_string()));
+        return Err(AnalysisError::Domain(
+            "successes must not exceed n".to_string(),
+        ));
     }
     assert_level(confidence, "confidence")?;
     let p = successes as f64 / n as f64;
@@ -148,10 +181,14 @@ pub fn bootstrap_mean_replicates(
 ) -> Result<Vec<f64>, AnalysisError> {
     assert_sample(values, "values")?;
     if seed.is_empty() {
-        return Err(AnalysisError::Domain("seed must be a non-empty string".to_string()));
+        return Err(AnalysisError::Domain(
+            "seed must be a non-empty string".to_string(),
+        ));
     }
     if iterations == 0 {
-        return Err(AnalysisError::Domain("iterations must be positive".to_string()));
+        return Err(AnalysisError::Domain(
+            "iterations must be positive".to_string(),
+        ));
     }
     let mut prng = SeededPrng::new(seed);
     let n = values.len() as u32;
@@ -159,7 +196,9 @@ pub fn bootstrap_mean_replicates(
     for _ in 0..iterations {
         let mut total = 0.0;
         for _ in 0..values.len() {
-            let idx = prng.next_int(n).map_err(|e| AnalysisError::Domain(e.to_string()))? as usize;
+            let idx = prng
+                .next_int(n)
+                .map_err(|e| AnalysisError::Domain(e.to_string()))? as usize;
             total += values[idx];
         }
         out.push(total / values.len() as f64);
@@ -167,7 +206,10 @@ pub fn bootstrap_mean_replicates(
     Ok(out)
 }
 
-pub fn percentile_interval(replicates: &[f64], level: f64) -> Result<ConfidenceInterval, AnalysisError> {
+pub fn percentile_interval(
+    replicates: &[f64],
+    level: f64,
+) -> Result<ConfidenceInterval, AnalysisError> {
     assert_sample(replicates, "replicates")?;
     assert_level(level, "level")?;
     let mut sorted = replicates.to_vec();
@@ -214,12 +256,25 @@ pub struct OneSampleT {
 pub fn one_sample_t(values: &[f64], coverage: f64) -> Result<OneSampleT, AnalysisError> {
     assert_level(coverage, "coverage")?;
     let s = summarize(values)?;
-    if s.n < 2 || !(s.sd > 0.0) {
-        return Ok(OneSampleT { n: s.n, mean: s.mean, lower: None, upper: None });
+    // NaN-safe degenerate guard (never `<=`: NaN sd must stay on the
+    // degenerate path, and `partial_cmp` keeps that while silencing the
+    // negated-comparison lint). No unwrap: panic-free by construction.
+    if s.n < 2 || s.sd.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
+        return Ok(OneSampleT {
+            n: s.n,
+            mean: s.mean,
+            lower: None,
+            upper: None,
+        });
     }
     let crit = crate::special::student_t_quantile(1.0 - (1.0 - coverage) / 2.0, (s.n - 1) as u32)?;
     let half = crit * s.sd / (s.n as f64).sqrt();
-    Ok(OneSampleT { n: s.n, mean: s.mean, lower: Some(s.mean - half), upper: Some(s.mean + half) })
+    Ok(OneSampleT {
+        n: s.n,
+        mean: s.mean,
+        lower: Some(s.mean - half),
+        upper: Some(s.mean + half),
+    })
 }
 
 /// Holm-Bonferroni step-down: returns rejection flags in input order.
@@ -286,12 +341,17 @@ mod tests {
 
     #[test]
     fn holm_basic() {
-        assert_eq!(holm_bonferroni(&[0.01, 0.04, 0.5], 0.05).unwrap(), vec![true, false, false]);
+        assert_eq!(
+            holm_bonferroni(&[0.01, 0.04, 0.5], 0.05).unwrap(),
+            vec![true, false, false]
+        );
     }
 
     #[test]
     fn holm_rejects_nan_p_value() {
-        let err = holm_bonferroni(&[0.01, f64::NAN], 0.05).unwrap_err().to_string();
+        let err = holm_bonferroni(&[0.01, f64::NAN], 0.05)
+            .unwrap_err()
+            .to_string();
         assert!(err.contains("p_values[1]"), "unexpected error: {err}");
     }
 

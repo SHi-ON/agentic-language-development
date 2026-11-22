@@ -24,9 +24,16 @@ pub struct Delivery {
 
 /// Route a case to its receiver; control branches carry the same token as
 /// normal (substitution happens at scoring, never at delivery).
-pub fn route(case_id: &str, role: &str, token: Option<&str>, branch: &str) -> Result<Delivery, GatewayError> {
+pub fn route(
+    case_id: &str,
+    role: &str,
+    token: Option<&str>,
+    branch: &str,
+) -> Result<Delivery, GatewayError> {
     if role != "agent-0" && role != "agent-1" {
-        return Err(GatewayError::Domain(format!("unknown receiver role {role}")));
+        return Err(GatewayError::Domain(format!(
+            "unknown receiver role {role}"
+        )));
     }
     if !["normal", "disabled", "constant", "random", "shuffled"].contains(&branch) {
         return Err(GatewayError::Domain(format!("unknown branch {branch}")));

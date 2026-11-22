@@ -160,10 +160,7 @@ mod tests {
             EventStream::Agent0Ledger.hash_domain(),
             "dtsf-agent-ledger-entry-v1"
         );
-        assert_eq!(
-            EventStream::Channel.hash_domain(),
-            "dtsf-channel-event-v1"
-        );
+        assert_eq!(EventStream::Channel.hash_domain(), "dtsf-channel-event-v1");
         assert_eq!(EventStream::Turns.hash_domain(), "dtsf-turn-record-v1");
     }
 

@@ -641,9 +641,7 @@ pub fn verify_journal_chain(journal_path: &str) -> Result<(u64, String), Orchest
             .get("seq")
             .and_then(serde_json::Value::as_u64)
             .ok_or_else(|| {
-                OrchestratorError::Domain(format!(
-                    "ALA journal line {lineno}: entry without seq"
-                ))
+                OrchestratorError::Domain(format!("ALA journal line {lineno}: entry without seq"))
             })?;
         if seq != expected_seq {
             return Err(OrchestratorError::Domain(format!(
@@ -717,7 +715,8 @@ fn journal_append(
     if !std::path::Path::new(journal_path).exists() {
         if let Some(parent) = std::path::Path::new(journal_path).parent() {
             if !parent.as_os_str().is_empty() {
-                std::fs::create_dir_all(parent).map_err(|e| OrchestratorError::Io(e.to_string()))?;
+                std::fs::create_dir_all(parent)
+                    .map_err(|e| OrchestratorError::Io(e.to_string()))?;
             }
         }
     }
@@ -1111,11 +1110,8 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
     };
     let body =
         serde_json::to_value(&receipt).map_err(|e| OrchestratorError::Domain(e.to_string()))?;
-    std::fs::write(
-        format!("{slot_dir}/dyad-receipt.json"),
-        to_pretty(&body)?,
-    )
-    .map_err(|e| OrchestratorError::Io(e.to_string()))?;
+    std::fs::write(format!("{slot_dir}/dyad-receipt.json"), to_pretty(&body)?)
+        .map_err(|e| OrchestratorError::Io(e.to_string()))?;
 
     Ok(receipt)
 }
@@ -1491,11 +1487,8 @@ fn run_dyad_inner(
         result.primary.to_string(),
     )
     .map_err(|e| OrchestratorError::Io(e.to_string()))?;
-    std::fs::write(
-        format!("{slot_dir}/dyad-result.json"),
-        to_pretty(&result)?,
-    )
-    .map_err(|e| OrchestratorError::Io(e.to_string()))?;
+    std::fs::write(format!("{slot_dir}/dyad-result.json"), to_pretty(&result)?)
+        .map_err(|e| OrchestratorError::Io(e.to_string()))?;
 
     // Non-default runs record the full development configuration alongside
     // the dyad artifacts: requested + resolved options, digests, the seeds
@@ -1710,7 +1703,13 @@ mod tests {
         assert_eq!(v0["previousHash"], ald_types::GENESIS_HASH);
         assert_eq!(v0["entryHash"], h0);
         let v1: serde_json::Value = serde_json::from_str(&lines[1]).unwrap();
-        assert_eq!((v1["seq"].as_u64().unwrap(), v1["previousHash"].as_str().unwrap()), (1, h0.as_str()));
+        assert_eq!(
+            (
+                v1["seq"].as_u64().unwrap(),
+                v1["previousHash"].as_str().unwrap()
+            ),
+            (1, h0.as_str())
+        );
         assert_eq!(v1["entryHash"], h1);
     }
 
@@ -1985,7 +1984,8 @@ mod tests {
             };
             let expect_token = delivered.map(|id| inventory[id].clone());
             let expect_native: Vec<f64> = receiver
-                .receiver_position_posterior(delivered, &cands).unwrap()
+                .receiver_position_posterior(delivered, &cands)
+                .unwrap()
                 .iter()
                 .map(|v| stable_f64(*v))
                 .collect();
@@ -2833,7 +2833,9 @@ mod tests {
             .unwrap();
             for (c, case) in cases.iter().zip(probs.iter()) {
                 let cands = candidate_types(&c.candidate_type_codes);
-                let token = sender.sample_token(cands[c.target_index], &mut rng).unwrap();
+                let token = sender
+                    .sample_token(cands[c.target_index], &mut rng)
+                    .unwrap();
                 let delivered = if drop_draw_less_than(rng.next_float(), 1, 8) {
                     None
                 } else {
@@ -2908,7 +2910,10 @@ mod tests {
                 assert!(policy.sender_logits(ty).unwrap().iter().all(|v| *v == 0.0));
                 assert_eq!(policy.sender_baseline(ty).unwrap(), 0.0);
                 assert_eq!(policy.sender_baseline_count(ty).unwrap(), 0);
-                assert_eq!(policy.sender_probs(ty).unwrap(), fresh.sender_probs(ty).unwrap());
+                assert_eq!(
+                    policy.sender_probs(ty).unwrap(),
+                    fresh.sender_probs(ty).unwrap()
+                );
             }
             // ... while the receiver learned.
             assert_ne!(
@@ -3114,7 +3119,9 @@ mod tests {
             .unwrap();
             for (c, case) in cases.iter().zip(probs.iter()) {
                 let cands = candidate_types(&c.candidate_type_codes);
-                let token = sender.sample_token(cands[c.target_index], &mut rng).unwrap();
+                let token = sender
+                    .sample_token(cands[c.target_index], &mut rng)
+                    .unwrap();
                 let delivered = if drop_draw_less_than(rng.next_float(), 1, 3) {
                     None
                 } else {
@@ -3125,7 +3132,8 @@ mod tests {
                     Some(t) => assert_eq!(case["deliveredToken"], serde_json::json!(t)),
                 }
                 let expect_native: Vec<f64> = receiver
-                    .receiver_position_posterior(delivered, &cands).unwrap()
+                    .receiver_position_posterior(delivered, &cands)
+                    .unwrap()
                     .iter()
                     .map(|v| stable_f64(*v))
                     .collect();

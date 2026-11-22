@@ -8,19 +8,20 @@ use crate::AnalysisError;
 pub fn log_gamma(x: f64) -> f64 {
     // Lanczos approximation, g=7, n=9.
     const C: [f64; 9] = [
-        0.99999999999980993,
+        0.999_999_999_999_809_9,
         676.5203681218851,
         -1259.1392167224028,
-        771.32342877765313,
-        -176.61502916214059,
+        771.323_428_777_653_1,
+        -176.615_029_162_140_6,
         12.507343278686905,
         -0.13857109526572012,
-        9.9843695780195716e-6,
+        9.984_369_578_019_572e-6,
         1.5056327351493116e-7,
     ];
     if x < 0.5 {
         // Reflection formula.
-        return (std::f64::consts::PI / ((std::f64::consts::PI * x).sin())).ln() - log_gamma(1.0 - x);
+        return (std::f64::consts::PI / ((std::f64::consts::PI * x).sin())).ln()
+            - log_gamma(1.0 - x);
     }
     let x = x - 1.0;
     let mut a = C[0];
@@ -33,11 +34,13 @@ pub fn log_gamma(x: f64) -> f64 {
 
 /// Regularized incomplete beta I_x(a, b) via continued fraction.
 pub fn regularized_incomplete_beta(x: f64, a: f64, b: f64) -> Result<f64, AnalysisError> {
-    if !(x >= 0.0 && x <= 1.0) {
+    if !(0.0..=1.0).contains(&x) {
         return Err(AnalysisError::Domain("x must be in [0, 1]".to_string()));
     }
     if a <= 0.0 || b <= 0.0 {
-        return Err(AnalysisError::Domain("a and b must be positive".to_string()));
+        return Err(AnalysisError::Domain(
+            "a and b must be positive".to_string(),
+        ));
     }
     if x == 0.0 {
         return Ok(0.0);
@@ -49,8 +52,7 @@ pub fn regularized_incomplete_beta(x: f64, a: f64, b: f64) -> Result<f64, Analys
     if x < (a + 1.0) / (a + b + 2.0) {
         Ok((a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() * beta_cf(x, a, b) / a)
     } else {
-        Ok(1.0
-            - (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() * beta_cf(1.0 - x, b, a) / b)
+        Ok(1.0 - (a * x.ln() + b * (1.0 - x).ln() - lbeta).exp() * beta_cf(1.0 - x, b, a) / b)
     }
 }
 
@@ -109,7 +111,11 @@ fn erf(z: f64) -> f64 {
             + 0.254829592)
             * t
             * (-z * z).exp();
-    if z >= 0.0 { y } else { -y }
+    if z >= 0.0 {
+        y
+    } else {
+        -y
+    }
 }
 
 #[must_use]
@@ -126,7 +132,7 @@ pub fn normal_quantile(p: f64) -> Result<f64, AnalysisError> {
         -3.969683028665376e+01,
         2.209460984245205e+02,
         -2.759285104469687e+02,
-        1.383577518672690e+02,
+        1.383_577_518_672_69e2,
         -3.066479806614716e+01,
         2.506628277459239e+00,
     ];

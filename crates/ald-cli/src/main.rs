@@ -30,21 +30,27 @@ fn bad_number(what: &str, name: &str, value: &str, expected: &str) -> ! {
 fn arg_u32_strict(args: &[String], what: &str, name: &str, default: u32) -> u32 {
     match arg(args, name) {
         None => default,
-        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "u32")),
+        Some(v) => v
+            .parse()
+            .unwrap_or_else(|_| bad_number(what, name, &v, "u32")),
     }
 }
 
 fn arg_usize_strict(args: &[String], what: &str, name: &str, default: usize) -> usize {
     match arg(args, name) {
         None => default,
-        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "usize")),
+        Some(v) => v
+            .parse()
+            .unwrap_or_else(|_| bad_number(what, name, &v, "usize")),
     }
 }
 
 fn arg_f64_strict(args: &[String], what: &str, name: &str, default: f64) -> f64 {
     match arg(args, name) {
         None => default,
-        Some(v) => v.parse().unwrap_or_else(|_| bad_number(what, name, &v, "f64")),
+        Some(v) => v
+            .parse()
+            .unwrap_or_else(|_| bad_number(what, name, &v, "f64")),
     }
 }
 
@@ -88,7 +94,9 @@ fn cmd_run(args: &[String]) {
     let development = parse_development_options(args);
     let index: u32 = match arg(args, "--index") {
         None => usage(),
-        Some(v) => v.parse().unwrap_or_else(|_| bad_number("run", "--index", &v, "u32")),
+        Some(v) => v
+            .parse()
+            .unwrap_or_else(|_| bad_number("run", "--index", &v, "u32")),
     };
     let protocol_version = arg_u32_strict(args, "run", "--protocol-version", 2);
     if protocol_version != 1 && protocol_version != 2 {
@@ -467,10 +475,7 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
             .unwrap_or_else(|e| fail(&format!("ala analyze score: {id}: {e}")));
         let fid = ald_analysis::fidelity(&native_all, &replay_all)
             .unwrap_or_else(|e| fail(&format!("ala analyze score: {id}: {e}")));
-        for (name, map) in [
-            ("Brier", &brier_contrasts),
-            ("success", &success_contrasts),
-        ] {
+        for (name, map) in [("Brier", &brier_contrasts), ("success", &success_contrasts)] {
             for k in map.keys() {
                 if !ald_analysis::CONTRAST_IDS.contains(&k.as_str()) {
                     fail(&format!(
@@ -534,12 +539,8 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
         // errors on maps with non-string keys; the analysis errors are
         // already mapped to fail() above).
         bounds.insert(cid.to_string(), serde_json::to_value(&b).unwrap());
-        let ib = ald_analysis::invalidity_bounds(
-            vals,
-            attempted,
-            ald_analysis::PRIMARY_ADMISSIBLE,
-        )
-        .unwrap_or_else(|e| fail(&format!("ala analyze score: invalidity bounds: {e}")));
+        let ib = ald_analysis::invalidity_bounds(vals, attempted, ald_analysis::PRIMARY_ADMISSIBLE)
+            .unwrap_or_else(|e| fail(&format!("ala analyze score: invalidity bounds: {e}")));
         invalid_brier.insert(cid.to_string(), serde_json::to_value(&ib).unwrap());
         let is = ald_analysis::invalidity_bounds(
             &per_contrast_success[cid],
@@ -572,7 +573,9 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
     let primary_bounds =
         ald_analysis::invalidity_bounds(&primaries, attempted, ald_analysis::PRIMARY_ADMISSIBLE)
             .unwrap_or_else(|e| {
-                fail(&format!("ala analyze score: primary invalidity bounds: {e}"));
+                fail(&format!(
+                    "ala analyze score: primary invalidity bounds: {e}"
+                ));
             });
     doc.insert(
         "invalidityBounds".to_string(),

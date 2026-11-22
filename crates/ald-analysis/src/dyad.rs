@@ -7,7 +7,7 @@
 use crate::ledger::{
     brier, score_ordinary_fit, select_ordinary_predictor, OrdinaryRecord, PredictorId,
 };
-use crate::{summarize, student_t_quantile, AnalysisError};
+use crate::{student_t_quantile, summarize, AnalysisError};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -57,7 +57,10 @@ pub struct DyadResult {
 
 pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResult, AnalysisError> {
     if folds.test.is_empty() {
-        return Err(AnalysisError::Domain(format!("role {} has no test rows", folds.role)));
+        return Err(AnalysisError::Domain(format!(
+            "role {} has no test rows",
+            folds.role
+        )));
     }
     let sel = select_ordinary_predictor(
         inventory,
@@ -124,7 +127,9 @@ pub fn analyze_dyad(
     inventory: &[String],
 ) -> Result<DyadResult, AnalysisError> {
     if roles.len() != 2 {
-        return Err(AnalysisError::Domain(format!("dyad {dyad} needs exactly two role folds")));
+        return Err(AnalysisError::Domain(format!(
+            "dyad {dyad} needs exactly two role folds"
+        )));
     }
     let mut ids: Vec<&str> = roles.iter().map(|r| r.role.as_str()).collect();
     ids.sort();
@@ -133,8 +138,10 @@ pub fn analyze_dyad(
             "dyad {dyad} folds do not cover both receiver roles"
         )));
     }
-    let results: Vec<RoleResult> =
-        roles.iter().map(|f| analyze_role(f, inventory)).collect::<Result<_, _>>()?;
+    let results: Vec<RoleResult> = roles
+        .iter()
+        .map(|f| analyze_role(f, inventory))
+        .collect::<Result<_, _>>()?;
     Ok(DyadResult {
         dyad: dyad.to_string(),
         roles: results.clone(),
@@ -162,12 +169,18 @@ pub fn cohort_interval(
     coverage: f64,
 ) -> Result<CohortInterval, AnalysisError> {
     if !(coverage > 0.0 && coverage < 1.0) {
-        return Err(AnalysisError::Domain("coverage must be strictly between 0 and 1".to_string()));
+        return Err(AnalysisError::Domain(
+            "coverage must be strictly between 0 and 1".to_string(),
+        ));
     }
     let s = summarize(primaries)?;
     // INVARIANT: summarize errors on empty input, so s.n > 0 always holds;
     // the else branch is unreachable dead code kept for structural symmetry.
-    let base_se = if s.n > 0 { s.sd / (s.n as f64).sqrt() } else { f64::NAN };
+    let base_se = if s.n > 0 {
+        s.sd / (s.n as f64).sqrt()
+    } else {
+        f64::NAN
+    };
     if s.n < 2 {
         return Ok(CohortInterval {
             cohort: cohort.to_string(),
@@ -181,7 +194,9 @@ pub fn cohort_interval(
             degenerate: Some(format!("n={}: no variance estimate", s.n)),
         });
     }
-    if !(s.sd > 0.0) {
+    // NaN-safe degenerate guard (never `<=`: NaN sd must stay on the
+    // degenerate path). No unwrap: panic-free by construction.
+    if s.sd.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
         return Ok(CohortInterval {
             cohort: cohort.to_string(),
             n: s.n,
@@ -255,8 +270,7 @@ mod tests {
 
     #[test]
     fn analyze_role_rejects_non_finite_native_distribution() {
-        let folds =
-            folds_with_test_distributions(vec![0.25, 0.25, f64::NAN, 0.25], vec![0.25; 4]);
+        let folds = folds_with_test_distributions(vec![0.25, 0.25, f64::NAN, 0.25], vec![0.25; 4]);
         let err = analyze_role(&folds, &inv()).unwrap_err().to_string();
         assert!(err.contains("non-finite"), "unexpected error: {err}");
     }

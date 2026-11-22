@@ -41,13 +41,26 @@ pub struct RuntimeEnvironment {
     pub anchor_key_file: Option<String>,
 }
 
-fn parse_port(source: &HashMap<String, String>, name: &str, default: u16) -> Result<u16, ConfigError> {
+fn parse_port(
+    source: &HashMap<String, String>,
+    name: &str,
+    default: u16,
+) -> Result<u16, ConfigError> {
     match source.get(name) {
         None => Ok(default),
         Some(v) if v.is_empty() => Ok(default),
-        Some(v) => v.parse::<u16>().map_err(|_| {
-            ConfigError::Invalid(format!("{name} must be a positive integer"))
-        }).and_then(|p| if p == 0 { Err(ConfigError::Invalid(format!("{name} must be a positive integer"))) } else { Ok(p) }),
+        Some(v) => v
+            .parse::<u16>()
+            .map_err(|_| ConfigError::Invalid(format!("{name} must be a positive integer")))
+            .and_then(|p| {
+                if p == 0 {
+                    Err(ConfigError::Invalid(format!(
+                        "{name} must be a positive integer"
+                    )))
+                } else {
+                    Ok(p)
+                }
+            }),
     }
 }
 
@@ -78,7 +91,11 @@ pub fn load_runtime_environment(
             )));
         }
     };
-    let log_level = match source.get("ALD_LOG_LEVEL").map(String::as_str).unwrap_or("info") {
+    let log_level = match source
+        .get("ALD_LOG_LEVEL")
+        .map(String::as_str)
+        .unwrap_or("info")
+    {
         "debug" => LogLevel::Debug,
         "info" => LogLevel::Info,
         "warn" => LogLevel::Warn,

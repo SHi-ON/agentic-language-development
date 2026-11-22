@@ -349,7 +349,10 @@ fn journal_chains_two_appends() {
     let dir = scratch_dir("journal-chain");
     let journal = dir.join("journal.jsonl");
     let j = journal.to_str().unwrap();
-    for line in [r#"{"kind":"attempted"}"#, r#"{"kind":"terminal","state":"valid"}"#] {
+    for line in [
+        r#"{"kind":"attempted"}"#,
+        r#"{"kind":"terminal","state":"valid"}"#,
+    ] {
         let out = ala()
             .args(["journal", "--journal", j, "--line", line])
             .output()

@@ -69,7 +69,9 @@ mod tests {
 
     #[test]
     fn prototype_disclaims_isolation() {
-        assert!(IsolationMode::Prototype.claim_boundary().contains("does not support"));
+        assert!(IsolationMode::Prototype
+            .claim_boundary()
+            .contains("does not support"));
     }
 
     #[test]

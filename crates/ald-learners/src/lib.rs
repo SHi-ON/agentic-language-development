@@ -472,11 +472,14 @@ impl AgentPolicy {
     ///
     /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
     pub fn sender_logits(&self, type_idx: usize) -> Result<&[f64], LearnerError> {
-        self.sender_logits.get(type_idx).map(Vec::as_slice).ok_or_else(|| {
-            LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (TYPES = {TYPES})"
-            ))
-        })
+        self.sender_logits
+            .get(type_idx)
+            .map(Vec::as_slice)
+            .ok_or_else(|| {
+                LearnerError::Domain(format!(
+                    "sender type index {type_idx} out of range (TYPES = {TYPES})"
+                ))
+            })
     }
 
     /// Observation count backing one sender type's baseline.
@@ -485,11 +488,14 @@ impl AgentPolicy {
     ///
     /// Returns [`LearnerError::Domain`] when `type_idx` is out of range.
     pub fn sender_baseline_count(&self, type_idx: usize) -> Result<u64, LearnerError> {
-        self.sender_baseline_counts.get(type_idx).copied().ok_or_else(|| {
-            LearnerError::Domain(format!(
-                "sender type index {type_idx} out of range (TYPES = {TYPES})"
-            ))
-        })
+        self.sender_baseline_counts
+            .get(type_idx)
+            .copied()
+            .ok_or_else(|| {
+                LearnerError::Domain(format!(
+                    "sender type index {type_idx} out of range (TYPES = {TYPES})"
+                ))
+            })
     }
 
     /// Restore a policy persisted with [`AgentPolicy::to_bytes`].
@@ -497,15 +503,9 @@ impl AgentPolicy {
         let policy: Self =
             serde_json::from_slice(bytes).map_err(|e| LearnerError::Domain(e.to_string()))?;
         let sender_ok = policy.sender_logits.len() == TYPES
-            && policy
-                .sender_logits
-                .iter()
-                .all(|row| row.len() == TOKENS);
+            && policy.sender_logits.iter().all(|row| row.len() == TOKENS);
         let receiver_ok = policy.receiver_logits.len() == TOKENS
-            && policy
-                .receiver_logits
-                .iter()
-                .all(|row| row.len() == TYPES);
+            && policy.receiver_logits.iter().all(|row| row.len() == TYPES);
         let finite = policy
             .sender_logits
             .iter()
@@ -598,7 +598,10 @@ mod tests {
             a.receiver_type_posterior(None).unwrap(),
             [1.0 / TYPES as f64; TYPES]
         );
-        assert_eq!(a.receiver_position_posterior(None, &cands).unwrap(), [0.25; 4]);
+        assert_eq!(
+            a.receiver_position_posterior(None, &cands).unwrap(),
+            [0.25; 4]
+        );
         let before = a.to_bytes();
         a.update_receiver(None, &cands, 0, 1.0).unwrap();
         a.update_receiver(None, &cands, 2, 0.0).unwrap();
@@ -606,7 +609,8 @@ mod tests {
 
         // Non-finite rewards are ignored on both sides.
         a.update_sender(0, 0, f64::NAN).unwrap();
-        a.update_receiver(Some(3), &cands, 0, f64::INFINITY).unwrap();
+        a.update_receiver(Some(3), &cands, 0, f64::INFINITY)
+            .unwrap();
         assert_eq!(a.to_bytes(), before);
     }
 
@@ -632,7 +636,9 @@ mod tests {
                 let choice = receiver.sample_position(tok, &cands, &mut rng).unwrap();
                 let reward = if choice == pos { 1.0 } else { 0.0 };
                 sender.update_sender(ty, k, reward).unwrap();
-                receiver.update_receiver(tok, &cands, choice, reward).unwrap();
+                receiver
+                    .update_receiver(tok, &cands, choice, reward)
+                    .unwrap();
                 trace.push((k, choice));
             }
             (trace, agents[0].to_bytes(), agents[1].to_bytes())
@@ -678,7 +684,9 @@ mod tests {
             let choice = receiver.sample_position(tok, &cands, &mut rng).unwrap();
             let reward = if choice == pos { 1.0 } else { 0.0 };
             sender.update_sender(ty, k, reward).unwrap();
-            receiver.update_receiver(tok, &cands, choice, reward).unwrap();
+            receiver
+                .update_receiver(tok, &cands, choice, reward)
+                .unwrap();
         }
         // Deterministic scoring pass (probe eval): token still sampled and
         // dropped w.p. 1/8; Brier of the receiver position posterior.
@@ -756,8 +764,12 @@ mod tests {
             for ty in 0..TYPES {
                 assert!(a.sender_logits(ty).unwrap()[k..].iter().all(|v| *v == 0.0));
             }
-            assert!(a.sender_probs(3).unwrap()[..k].iter().any(|v| *v != 1.0 / k as f64));
-            let total: u64 = (0..TYPES).map(|ty| a.sender_baseline_count(ty).unwrap()).sum();
+            assert!(a.sender_probs(3).unwrap()[..k]
+                .iter()
+                .any(|v| *v != 1.0 / k as f64));
+            let total: u64 = (0..TYPES)
+                .map(|ty| a.sender_baseline_count(ty).unwrap())
+                .sum();
             assert_eq!(
                 total, 300,
                 "every sender update must advance exactly one baseline count"
@@ -819,12 +831,20 @@ mod tests {
     #[test]
     fn receiver_position_posterior_rejects_bad_candidate() {
         let a = AgentPolicy::new();
-        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, TYPES]).is_err());
-        assert!(a.receiver_position_posterior(Some(TOKENS), &[0, 1, 2, 3]).is_err());
-        assert!(a.receiver_position_posterior(Some(0), &[0, 1, 2, 3]).is_ok());
+        assert!(a
+            .receiver_position_posterior(Some(0), &[0, 1, 2, TYPES])
+            .is_err());
+        assert!(a
+            .receiver_position_posterior(Some(TOKENS), &[0, 1, 2, 3])
+            .is_err());
+        assert!(a
+            .receiver_position_posterior(Some(0), &[0, 1, 2, 3])
+            .is_ok());
         let mut rng = ald_hashing::SeededPrng::new("x");
         assert!(a.sample_token(TYPES, &mut rng).is_err());
-        assert!(a.sample_position(Some(0), &[0, 1, 2, TYPES], &mut rng).is_err());
+        assert!(a
+            .sample_position(Some(0), &[0, 1, 2, TYPES], &mut rng)
+            .is_err());
     }
 
     #[test]
@@ -833,7 +853,9 @@ mod tests {
         let cands = [0, 1, 2, 3];
         assert!(a.update_receiver(Some(TOKENS), &cands, 0, 1.0).is_err());
         assert!(a.update_receiver(Some(0), &cands, 4, 1.0).is_err());
-        assert!(a.update_receiver(Some(0), &[0, 1, 2, TYPES], 3, 1.0).is_err());
+        assert!(a
+            .update_receiver(Some(0), &[0, 1, 2, TYPES], 3, 1.0)
+            .is_err());
         assert!(a.update_receiver(Some(0), &cands, 0, 1.0).is_ok());
     }
 }

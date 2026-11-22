@@ -49,7 +49,12 @@ pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierEr
             events += n;
         }
     }
-    Ok(VerificationReport { verifier_version: VERIFIER_VERSION.to_string(), streams_checked: streams, events_checked: events, ok: true })
+    Ok(VerificationReport {
+        verifier_version: VERIFIER_VERSION.to_string(),
+        streams_checked: streams,
+        events_checked: events,
+        ok: true,
+    })
 }
 
 /// Verify a Merkle inclusion proof against its root.

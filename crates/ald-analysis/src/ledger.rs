@@ -74,7 +74,10 @@ pub fn brier(probabilities: &[f64], action: usize) -> f64 {
         .sum()
 }
 
-fn token_index(token: &Option<String>, inventory: &[String]) -> Result<Option<usize>, AnalysisError> {
+fn token_index(
+    token: &Option<String>,
+    inventory: &[String],
+) -> Result<Option<usize>, AnalysisError> {
     match token {
         None => Ok(None),
         Some(t) => inventory
@@ -82,7 +85,9 @@ fn token_index(token: &Option<String>, inventory: &[String]) -> Result<Option<us
             .position(|x| x == t)
             .map(Some)
             .ok_or_else(|| {
-                AnalysisError::Domain("ordinary record uses a token outside the frozen inventory".to_string())
+                AnalysisError::Domain(
+                    "ordinary record uses a token outside the frozen inventory".to_string(),
+                )
             }),
     }
 }
@@ -93,14 +98,18 @@ fn assert_inventory(inventory: &[String]) -> Result<(), AnalysisError> {
         inventory.iter().all(|t| s.insert(t.clone()))
     };
     if inventory.len() != TOKENS || !distinct {
-        return Err(AnalysisError::Domain("LV01 requires 32 distinct inventory tokens".to_string()));
+        return Err(AnalysisError::Domain(
+            "LV01 requires 32 distinct inventory tokens".to_string(),
+        ));
     }
     Ok(())
 }
 
 fn assert_record(r: &OrdinaryRecord, inventory: &[String]) -> Result<(), AnalysisError> {
     if r.case_id.is_empty() || (r.receiver_role != "agent-0" && r.receiver_role != "agent-1") {
-        return Err(AnalysisError::Domain("ordinary record identity is invalid".to_string()));
+        return Err(AnalysisError::Domain(
+            "ordinary record identity is invalid".to_string(),
+        ));
     }
     let types_distinct = {
         let mut s = std::collections::HashSet::new();
@@ -110,10 +119,14 @@ fn assert_record(r: &OrdinaryRecord, inventory: &[String]) -> Result<(), Analysi
         || !types_distinct
         || r.candidate_type_codes.iter().any(|t| *t as usize >= TYPES)
     {
-        return Err(AnalysisError::Domain("ordinary record candidate types are invalid".to_string()));
+        return Err(AnalysisError::Domain(
+            "ordinary record candidate types are invalid".to_string(),
+        ));
     }
     if r.actual_selected_candidate_index >= CANDIDATES {
-        return Err(AnalysisError::Domain("ordinary record action position is invalid".to_string()));
+        return Err(AnalysisError::Domain(
+            "ordinary record action position is invalid".to_string(),
+        ));
     }
     let _ = token_index(&r.delivered_token, inventory)?;
     Ok(())
@@ -150,13 +163,17 @@ pub fn score_ordinary_fit(
     match fit {
         OrdinaryFit::Uniform => {
             if id != PredictorId::Uniform {
-                return Err(AnalysisError::Domain("uniform ordinary fit is inconsistent".to_string()));
+                return Err(AnalysisError::Domain(
+                    "uniform ordinary fit is inconsistent".to_string(),
+                ));
             }
             Ok(vec![1.0 / CANDIDATES as f64; CANDIDATES])
         }
         OrdinaryFit::Softmax { weights } => {
             if weights.len() != COEFFICIENTS {
-                return Err(AnalysisError::Domain("softmax ordinary fit has invalid weights".to_string()));
+                return Err(AnalysisError::Domain(
+                    "softmax ordinary fit has invalid weights".to_string(),
+                ));
             }
             let logits: Vec<f64> = (0..CANDIDATES)
                 .map(|pos| {
@@ -167,20 +184,35 @@ pub fn score_ordinary_fit(
                 .collect();
             Ok(softmax(&logits))
         }
-        OrdinaryFit::Count { marginal, by_token, by_token_type } => {
+        OrdinaryFit::Count {
+            marginal,
+            by_token,
+            by_token_type,
+        } => {
             if marginal.len() != CANDIDATES {
-                return Err(AnalysisError::Domain("count ordinary fit is inconsistent".to_string()));
+                return Err(AnalysisError::Domain(
+                    "count ordinary fit is inconsistent".to_string(),
+                ));
             }
             let key = token.clone().unwrap_or_else(|| "<disabled>".to_string());
             match id {
                 PredictorId::ValidationMajority => Ok(normalize(marginal)),
                 PredictorId::TranscriptOnly => Ok(normalize(
-                    by_token.get(&key).map(Vec::as_slice).unwrap_or(&[1.0; CANDIDATES]),
+                    by_token
+                        .get(&key)
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[1.0; CANDIDATES]),
                 )),
                 _ => {
-                    let counts = by_token_type.get(&key).map(Vec::as_slice).unwrap_or(&[1.0; TYPES]);
+                    let counts = by_token_type
+                        .get(&key)
+                        .map(Vec::as_slice)
+                        .unwrap_or(&[1.0; TYPES]);
                     Ok(normalize(
-                        &type_codes.iter().map(|t| counts[*t as usize]).collect::<Vec<_>>(),
+                        &type_codes
+                            .iter()
+                            .map(|t| counts[*t as usize])
+                            .collect::<Vec<_>>(),
                     ))
                 }
             }
@@ -188,18 +220,19 @@ pub fn score_ordinary_fit(
     }
 }
 
-fn count_model(
-    id: PredictorId,
-    rows: &[OrdinaryRecord],
-    inventory: &[String],
-) -> Result<OrdinaryFit, AnalysisError> {
+fn count_model(id: PredictorId, rows: &[OrdinaryRecord]) -> Result<OrdinaryFit, AnalysisError> {
     let mut marginal = vec![1.0; CANDIDATES];
     let mut by_token: std::collections::HashMap<String, Vec<f64>> = Default::default();
     let mut by_token_type: std::collections::HashMap<String, Vec<f64>> = Default::default();
     for row in rows {
         marginal[row.actual_selected_candidate_index] += 1.0;
-        let key = row.delivered_token.clone().unwrap_or_else(|| "<disabled>".to_string());
-        let tc = by_token.entry(key.clone()).or_insert_with(|| vec![1.0; CANDIDATES]);
+        let key = row
+            .delivered_token
+            .clone()
+            .unwrap_or_else(|| "<disabled>".to_string());
+        let tc = by_token
+            .entry(key.clone())
+            .or_insert_with(|| vec![1.0; CANDIDATES]);
         tc[row.actual_selected_candidate_index] += 1.0;
         let tt = by_token_type.entry(key).or_insert_with(|| vec![1.0; TYPES]);
         tt[row.candidate_type_codes[row.actual_selected_candidate_index] as usize] += 1.0;
@@ -207,7 +240,11 @@ fn count_model(
     if id == PredictorId::Uniform {
         return Ok(OrdinaryFit::Uniform);
     }
-    Ok(OrdinaryFit::Count { marginal, by_token, by_token_type })
+    Ok(OrdinaryFit::Count {
+        marginal,
+        by_token,
+        by_token_type,
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -227,7 +264,9 @@ pub fn select_ordinary_predictor(
 ) -> Result<Selection, AnalysisError> {
     assert_inventory(inventory)?;
     if training.is_empty() && validation_fit.is_empty() {
-        return Err(AnalysisError::EmptySample("ordinary record rows must not be empty".to_string()));
+        return Err(AnalysisError::EmptySample(
+            "ordinary record rows must not be empty".to_string(),
+        ));
     }
     if validation_selection.is_empty() {
         return Err(AnalysisError::EmptySample(
@@ -235,10 +274,16 @@ pub fn select_ordinary_predictor(
         ));
     }
     let mut ids = std::collections::HashSet::new();
-    for r in training.iter().chain(validation_fit).chain(validation_selection) {
+    for r in training
+        .iter()
+        .chain(validation_fit)
+        .chain(validation_selection)
+    {
         assert_record(r, inventory)?;
         if !ids.insert(r.case_id.clone()) {
-            return Err(AnalysisError::Domain("ordinary predictor folds must be disjoint".to_string()));
+            return Err(AnalysisError::Domain(
+                "ordinary predictor folds must be disjoint".to_string(),
+            ));
         }
     }
     let role = training
@@ -246,13 +291,18 @@ pub fn select_ordinary_predictor(
         .or(validation_fit.first())
         .map(|r| r.receiver_role.clone())
         .unwrap_or_else(|| "agent-0".to_string());
-    for r in training.iter().chain(validation_fit).chain(validation_selection) {
+    for r in training
+        .iter()
+        .chain(validation_fit)
+        .chain(validation_selection)
+    {
         if r.receiver_role != role {
-            return Err(AnalysisError::Domain("ordinary predictors must be fit per receiver role".to_string()));
+            return Err(AnalysisError::Domain(
+                "ordinary predictors must be fit per receiver role".to_string(),
+            ));
         }
     }
-    let combined: Vec<OrdinaryRecord> =
-        training.iter().chain(validation_fit).cloned().collect();
+    let combined: Vec<OrdinaryRecord> = training.iter().chain(validation_fit).cloned().collect();
 
     // Candidate scores on the selection window.
     let mut scores: [(PredictorId, f64); 5] = PREDICTOR_IDS.map(|id| (id, 0.0));
@@ -262,7 +312,7 @@ pub fn select_ordinary_predictor(
             PredictorId::ValidationMajority => validation_fit,
             _ => &combined,
         };
-        let fit = build_fit(id, fit_rows, inventory)?;
+        let fit = build_fit(id, fit_rows)?;
         let s = score_fit(id, &fit, validation_selection, inventory)?;
         if !s.is_finite() {
             return Err(AnalysisError::Domain(format!(
@@ -279,18 +329,21 @@ pub fn select_ordinary_predictor(
             best_score = *s;
         }
     }
-    let refit_rows: Vec<OrdinaryRecord> =
-        combined.iter().chain(validation_selection).cloned().collect();
+    let refit_rows: Vec<OrdinaryRecord> = combined
+        .iter()
+        .chain(validation_selection)
+        .cloned()
+        .collect();
     let refit = refit_pair(best, &role, &refit_rows, inventory)?;
-    Ok(Selection { selected: best, validation_brier_by_predictor: scores, refit })
+    Ok(Selection {
+        selected: best,
+        validation_brier_by_predictor: scores,
+        refit,
+    })
 }
 
-fn build_fit(
-    id: PredictorId,
-    rows: &[OrdinaryRecord],
-    inventory: &[String],
-) -> Result<OrdinaryFit, AnalysisError> {
-    count_model(id, rows, inventory)
+fn build_fit(id: PredictorId, rows: &[OrdinaryRecord]) -> Result<OrdinaryFit, AnalysisError> {
+    count_model(id, rows)
 }
 
 fn refit_pair(
@@ -302,7 +355,7 @@ fn refit_pair(
     if id == PredictorId::OrdinaryRecordSoftmax {
         return softmax_fit(_role, rows, inventory);
     }
-    count_model(id, rows, inventory)
+    count_model(id, rows)
 }
 
 fn score_fit(
@@ -314,7 +367,13 @@ fn score_fit(
     let mut total = 0.0;
     for row in rows {
         total += brier(
-            &score_ordinary_fit(id, fit, &row.candidate_type_codes, &row.delivered_token, inventory)?,
+            &score_ordinary_fit(
+                id,
+                fit,
+                &row.candidate_type_codes,
+                &row.delivered_token,
+                inventory,
+            )?,
             row.actual_selected_candidate_index,
         );
     }
@@ -333,17 +392,30 @@ fn softmax_fit(
         for row in rows {
             let logits: Vec<f64> = (0..CANDIDATES)
                 .map(|pos| {
-                    feature_indices(&row.candidate_type_codes, &row.delivered_token, pos, inventory)
-                        .map(|idx| idx.iter().map(|&i| weights[i]).sum())
-                        .unwrap_or(0.0)
+                    feature_indices(
+                        &row.candidate_type_codes,
+                        &row.delivered_token,
+                        pos,
+                        inventory,
+                    )
+                    .map(|idx| idx.iter().map(|&i| weights[i]).sum())
+                    .unwrap_or(0.0)
                 })
                 .collect();
             let probs = softmax(&logits);
-            for pos in 0..CANDIDATES {
-                let err = probs[pos] - if pos == row.actual_selected_candidate_index { 1.0 } else { 0.0 };
-                if let Ok(idx) =
-                    feature_indices(&row.candidate_type_codes, &row.delivered_token, pos, inventory)
-                {
+            for (pos, prob) in probs.iter().enumerate() {
+                let err = *prob
+                    - if pos == row.actual_selected_candidate_index {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                if let Ok(idx) = feature_indices(
+                    &row.candidate_type_codes,
+                    &row.delivered_token,
+                    pos,
+                    inventory,
+                ) {
                     for i in idx {
                         gradient[i] += err;
                     }
@@ -359,10 +431,7 @@ fn softmax_fit(
     Ok(OrdinaryFit::Softmax { weights })
 }
 
-pub fn score_prediction_native_brier(
-    native_distribution: &[f64],
-    actual_index: usize,
-) -> f64 {
+pub fn score_prediction_native_brier(native_distribution: &[f64], actual_index: usize) -> f64 {
     brier(native_distribution, actual_index)
 }
 
@@ -399,18 +468,15 @@ mod tests {
 
     #[test]
     fn selection_picks_majority() {
-        let fit_rows: Vec<OrdinaryRecord> =
-            (0..20).map(|i| row(&format!("f{i}"), 0)).collect();
-        let sel_rows: Vec<OrdinaryRecord> =
-            (0..10).map(|i| row(&format!("s{i}"), 0)).collect();
+        let fit_rows: Vec<OrdinaryRecord> = (0..20).map(|i| row(&format!("f{i}"), 0)).collect();
+        let sel_rows: Vec<OrdinaryRecord> = (0..10).map(|i| row(&format!("s{i}"), 0)).collect();
         let sel = select_ordinary_predictor(&inv(), &[], &fit_rows, &sel_rows).unwrap();
         assert_eq!(sel.selected, PredictorId::ValidationMajority);
     }
 
     #[test]
     fn selection_rejects_empty_selection_window() {
-        let fit_rows: Vec<OrdinaryRecord> =
-            (0..20).map(|i| row(&format!("f{i}"), 0)).collect();
+        let fit_rows: Vec<OrdinaryRecord> = (0..20).map(|i| row(&format!("f{i}"), 0)).collect();
         let err = select_ordinary_predictor(&inv(), &[], &fit_rows, &[])
             .unwrap_err()
             .to_string();

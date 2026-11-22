@@ -19,6 +19,7 @@ name = "ald-analysis"
 version = "0.1.0"
 dependencies = [
  "ald-hashing",
+ "ald-types",
  "hex",
  "serde",
  "serde_json",
@@ -159,7 +160,6 @@ dependencies = [
 name = "ald-learners"
 version = "0.1.0"
 dependencies = [
- "ald-analysis",
  "ald-hashing",
  "ald-types",
  "hex",
@@ -229,7 +229,6 @@ dependencies = [
 name = "ald-scenario"
 version = "0.1.0"
 dependencies = [
- "ald-analysis",
  "ald-hashing",
  "ald-types",
  "hex",

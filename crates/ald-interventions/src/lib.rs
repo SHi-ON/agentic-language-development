@@ -28,9 +28,11 @@ pub struct InterventionEvent {
 }
 
 pub fn intervention_entry_hash(event: &InterventionEvent) -> Result<String, InterventionError> {
-    let v = serde_json::to_value(event)
-        .map_err(|e| InterventionError::Domain(e.to_string()))?;
-    Ok(hash_canonical(ald_types::hash_domains::INTERVENTION_EVENT, &v)?)
+    let v = serde_json::to_value(event).map_err(|e| InterventionError::Domain(e.to_string()))?;
+    Ok(hash_canonical(
+        ald_types::hash_domains::INTERVENTION_EVENT,
+        &v,
+    )?)
 }
 
 /// Apply a control-branch substitution to a normal distribution.
@@ -45,7 +47,9 @@ pub fn substitute_branch(
         "disabled" => Ok(vec![0.25, 0.25, 0.25, 0.25]),
         "constant" => Ok(vec![1.0, 0.0, 0.0, 0.0]),
         "random" => {
-            let k = seed_stream.next_int(4).map_err(|e| InterventionError::Domain(e.to_string()))?;
+            let k = seed_stream
+                .next_int(4)
+                .map_err(|e| InterventionError::Domain(e.to_string()))?;
             let mut out = vec![0.0; 4];
             out[k as usize] = 1.0;
             Ok(out)
@@ -81,8 +85,7 @@ mod tests {
     #[test]
     fn shuffled_preserves_mass() {
         let mut rng = ald_hashing::SeededPrng::new("s");
-        let out =
-            substitute_branch("shuffled", &[0.1, 0.2, 0.3, 0.4], 0.5, &mut rng).unwrap();
+        let out = substitute_branch("shuffled", &[0.1, 0.2, 0.3, 0.4], 0.5, &mut rng).unwrap();
         assert!((out.iter().sum::<f64>() - 1.0).abs() < 1e-12);
     }
 }
