@@ -124,6 +124,15 @@ named error instead of falling back silently.
 
 ## Toolchain
 
-Rust only. Build with `cargo build --workspace`, test with
+Pinned toolchain: `1.99.1` via `rust-toolchain.toml` (exact patch pin:
+byte-identical evidence bodies per `docs/reproduction.md` require a fixed
+compiler). Build with `cargo build --workspace`, test with
 `cargo test --workspace`. The workspace lints with Clippy pedantic
 at `warn` (`Cargo.toml`, `[workspace.lints.clippy]`).
+
+MSRV: `rust-version = "1.87"` on every crate. Floor justification:
+locked `thiserror 2.0.21` declares `rust-version = "1.77"`, and
+`u64::is_multiple_of` (used in `ald-merkle`, stabilized in 1.87) sets the
+floor above it. Verify with `cargo +1.87.0 check --workspace --all-targets`
+and reproduce the `docs/reproduction.md` byte-identical dyad diff on the
+pinned toolchain.
