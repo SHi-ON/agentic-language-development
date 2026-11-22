@@ -1,0 +1,22 @@
+# CITATION.cff — cite this software (Emergent Signaling Dyad workspace).
+# PENDING-OWNER: the author block below is a placeholder. The owner must
+# replace it with the confirmed author list (family-names, given-names,
+# affiliations, ORCIDs) once authorship is decided. No author names are
+# asserted here; the GitHub owner login is SHi-ON.
+cff-version: 1.2.0
+title: "Agentic Language Development: Emergent Signaling Dyad (Rust workspace)"
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-names: "[OWNER]"
+    given-names: "[author list pending owner decision]"
+version: 0.1.0
+date-released: 2026-11-22
+url: "https://github.com/SHi-ON/agentic-language-development"
+repository-code: "https://github.com/SHi-ON/agentic-language-development"
+keywords:
+  - emergent communication
+  - signaling games
+  - reinforcement learning
+  - reproducibility
+license: MIT

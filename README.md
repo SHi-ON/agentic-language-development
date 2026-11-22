@@ -1,5 +1,13 @@
 # Agentic Language Development
 
+[![cargo](https://github.com/SHi-ON/agentic-language-development/actions/workflows/cargo.yml/badge.svg?branch=main)](https://github.com/SHi-ON/agentic-language-development/actions/workflows/cargo.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Fork of [Ethical-Tech-CoLab/agentic-language-development](https://github.com/Ethical-Tech-CoLab/agentic-language-development):
+this fork's `main` carries the pure-Rust Emergent Signaling Dyad.
+Sibling manuscript repository (private):
+[agentic-language-development-paper](https://github.com/SHi-ON/agentic-language-development-paper).
+
 A pure-Rust workspace that implements exactly one method: the
 **Emergent Signaling Dyad**. Two symmetric agents with no built-in
 shared vocabulary learn to communicate in a synthetic referential
