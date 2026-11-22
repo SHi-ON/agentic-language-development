@@ -1,5 +1,13 @@
 # Agentic Language Development
 
+[![cargo](https://github.com/SHi-ON/agentic-language-development/actions/workflows/cargo.yml/badge.svg?branch=main)](https://github.com/SHi-ON/agentic-language-development/actions/workflows/cargo.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+Fork of [Ethical-Tech-CoLab/agentic-language-development](https://github.com/Ethical-Tech-CoLab/agentic-language-development):
+this fork's `main` carries the pure-Rust Emergent Signaling Dyad.
+Sibling manuscript repository (private):
+[agentic-language-development-paper](https://github.com/SHi-ON/agentic-language-development-paper).
+
 A pure-Rust workspace that implements exactly one method: the
 **Emergent Signaling Dyad**. Two symmetric agents with no built-in
 shared vocabulary learn to communicate in a synthetic referential
@@ -40,12 +48,12 @@ episode per direction per step:
 4. Both agents receive the same shared reward: 1 if the receiver
    chose the target's position, else 0. This shared success signal
    is the only learning signal in the system.
-5. The sender updates by REINFORCE (learning rate 1.0, per-type
-   running-mean baseline) on its sampled token — including when the
-   token was dropped. The receiver updates by REINFORCE (learning
-   rate 1.0, per-token running-mean baseline) toward the type of the
-   candidate it actually chose — never toward the true type. A
-   dropped token is a receiver no-op.
+5. The sender updates by reward-modulated softmax — REINFORCE
+   (learning rate 1.0, per-type running-mean baseline) on its sampled
+   token — including when the token was dropped. The receiver updates
+   the same way (learning rate 1.0, per-token running-mean baseline)
+   toward the type of the candidate it actually chose — never toward
+   the true type. A dropped token is a receiver no-op.
 
 At test, both policies are frozen. For each test case of a role, the
 opposite agent acts as sender through the same 1/8 channel, and the
@@ -66,11 +74,19 @@ Emergence is covered by an integration test,
 `crates/ald-learners`: after 3,000 alternating episodes (1,500 per
 direction) under its fixed seed it measures Brier advantage 0.5353
 over uniform and receiver sharpness 0.8414, from an exactly uniform
-start.
+start (values verified 2026-11-22 on `main`; regenerate with
+`cargo test -p ald-learners --test agent_policy
+agent_policies_co_train_unsupervised_like_probe_v4 -- --nocapture`).
 
 ## Build and test
 
+Local builds use one documented target directory, the checkout's
+`env/cargo-target` (never the default `target/`): every executed
+campaign binary was built there, and the directory is git-ignored but
+documented so fresh clones reproduce the layout.
+
 ```sh
+export CARGO_TARGET_DIR="$PWD/env/cargo-target"
 cargo build --workspace
 cargo test --workspace
 ```
@@ -152,10 +168,27 @@ per-dyad primaries, control contrasts, and cohort intervals.
   canonical hashing, seeded PRNG, hash-chained SQLite event streams,
   checkpoints, independent verification.
 - `crates/ald-config` — supporting contract (runtime environment).
-- `protocols/` — frozen machine-readable study and manifest files.
+- `protocols/` — frozen machine-readable study and manifest files
+  (`ala-lv-execution-manifest.v2.json` is canonical; v1 is retained
+  frozen — see `protocols/README.md`).
 - `docs/architecture.md` — crate map and the four phases of a run.
 - `docs/reproduction.md` — exact reproduction procedure.
+- `docs/historical/` — quarantined pre-Rust records (learner
+  contracts, TS-era gates); nothing there is read by any live path.
+- `scripts/` — operator tooling: fleet setup, watchdog, dyad
+  archiving, numpy/scipy validators, fixture regeneration.
+- `reports/research/statistical-validation.tsv` — tracked,
+  test-checked statistics receipt (regenerable; see
+  `scripts/validate-statistics.py`).
+- `.github/workflows/cargo.yml` — required CI: build, test, fmt,
+  clippy, MSRV, marker grep.
 - `CONFIGURATION.md` — CLI and environment configuration surface.
+- `rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock` — pinned
+  toolchain (1.99.1), workspace, and lockfile.
+- `pyproject.toml`, `uv.lock` — Python sidecar pins (numpy/scipy
+  validators only).
+- `.env.example` — sample runtime environment (mirrors the
+  `ald-config` contract).
 
 ## Scope
 

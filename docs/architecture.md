@@ -3,9 +3,12 @@
 The workspace implements one method, the **Emergent Signaling Dyad**
 (see `../README.md`): two symmetric agents (`agent-0`, `agent-1`),
 each with a sender policy and a receiver policy, jointly trained per
-dyad by REINFORCE on a shared success reward and frozen at test.
-Everything below exists to run that dyad deterministically and to
-score and verify its evidence.
+dyad by reward-modulated softmax — REINFORCE
+(`lr * advantage * (one_hot(target) - softmax(row))` with a
+running-mean baseline) — on a shared success reward and frozen at
+test. That is the one update rule in this tree; later sections use
+"REINFORCE" as its short name. Everything below exists to run that
+dyad deterministically and to score and verify its evidence.
 
 ## Crate map
 

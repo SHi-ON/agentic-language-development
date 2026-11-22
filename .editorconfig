@@ -1,5 +1,11 @@
 root = true
 
+# Rust sources are formatted by rustfmt (4-space indent); rustfmt wins
+# over the 2-space default below. Keep this section in sync with
+# `cargo fmt` defaults (no rustfmt.toml in tree).
+[*.rs]
+indent_size = 4
+
 [*]
 charset = utf-8
 end_of_line = lf

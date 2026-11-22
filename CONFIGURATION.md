@@ -28,12 +28,16 @@ to overwrite an existing `--out` file. `run` also rejects any repeated
 flag with exit code 2 (a duplicated `--drop-probability` would otherwise
 silently run the wrong ablation).
 
-The manifest (`protocols/ala-lv-execution-manifest.v2.json`) must
-carry `manifestVersion: "ala-lv-execution-manifest/v1"`,
+The canonical manifest is `protocols/ala-lv-execution-manifest.v2.json`
+(see `protocols/README.md` for why v1 is retained frozen). It must
+carry `manifestVersion: "ala-lv-execution-manifest/v1"` (the envelope
+schema version — v1 in both frozen files, not the protocol version),
 `studyId: "ALA-LV"`, and a `workload` block with positive
 `trainingCases`, `validationFitCases`, `validationSelectionCases`,
 and `withinSupportTestCases`, each evenly divisible across the two
-roles. Study cohorts `A` and `B` additionally require
+roles. The protocol version is carried by `seedPolicy.root`
+(`ala-ledger-value-v1` vs `-v2`) and selected by `--protocol-version`.
+Study cohorts `A` and `B` additionally require
 `<evidence-root>/admission.json` with a GO decision; other cohorts
 run without admission. `--index` must fit a zero-padded 4-digit slot
 (0–9999).
@@ -52,9 +56,9 @@ and held-out generation in `crates/ald-scenario/src/lib.rs`
 | Flag | Default | Semantics |
 |---|---|---|
 | `--training-interactions-per-direction N` | manifest per-role training count (1500) | Exactly `N` episodes per direction. The persisted folds keep the manifest counts; `N` below the fold trains on the fold's deterministic prefix, `N` above it extends the same seed stream with fresh draws (never duplication). Validation/test folds and eval seed streams are untouched. The sidecar records `N` and `2N`. |
-| `--learning-mode joint\|none\|receiver-only` | `joint` | `joint` is the legacy path (both sides REINFORCE). `none` freezes every logit, baseline, and count while consuming the identical sampling draws. `receiver-only` freezes the sender (exactly uniform) while the receiver learns. The mode gates only the update calls. |
+| `--learning-mode joint\|none\|receiver-only` | `joint` | `joint` is the legacy path (both sides reward-modulated softmax, i.e. REINFORCE). `none` freezes every logit, baseline, and count while consuming the identical sampling draws. `receiver-only` freezes the sender (exactly uniform) while the receiver learns. The mode gates only the update calls. |
 | `--drop-probability NUM/DEN` | `1/8` | Exact rational channel-drop probability in `[0,1]`, identical in training and test. The drop test is bit-exact integer arithmetic (`m·DEN < NUM·2⁵³` on the 53-bit draw), so thirds and other non-dyadic values are exact; endpoints `0/1` and `1/1` still consume one channel draw per interaction. `1/8` agrees with the legacy float comparison for every draw. |
-| `--active-sender-tokens K` | `32` | Constrains sender sampling, softmax normalization, and REINFORCE updates to the first `K` tokens (`K` in `{8, 16, 32}`); probabilities outside are exact `0.0` and logits outside stay exactly `0.0`. Persisted tables keep the 32-token shape; `K` is recorded in the policy `metadata`. |
+| `--active-sender-tokens K` | `32` | Constrains sender sampling, softmax normalization, and reward-modulated-softmax (REINFORCE) updates to the first `K` tokens (`K` in `{8, 16, 32}`); probabilities outside are exact `0.0` and logits outside stay exactly `0.0`. Persisted tables keep the 32-token shape; `K` is recorded in the policy `metadata`. |
 | `--held-out-types 12,13,14,15` | empty | Excludes the listed types (distinct codes below 16, at least 4 permitted types left) from all candidate sets — and therefore all targets — in every pre-test fold in both directions, via deterministic per-case replacement fills. Test folds always cover all 16 types. The sidecar persists the per-split per-type exposure census. |
 
 Gating and artifacts:
@@ -131,6 +135,19 @@ byte-identical evidence bodies per `docs/reproduction.md` require a fixed
 compiler). Build with `cargo build --workspace`, test with
 `cargo test --workspace`. The workspace lints with Clippy pedantic
 at `warn` (`Cargo.toml`, `[workspace.lints.clippy]`).
+
+Target directory (single value, P1-REPRO-10): local and campaign
+builds use `CARGO_TARGET_DIR="$PWD/env/cargo-target"`, the checkout's
+`env/cargo-target` (never the default `target/`). CI runners are
+ephemeral and keep the cargo default. `env/` is git-ignored (see
+`.gitignore`) but its location is part of the documented layout:
+fresh clones export the same variable and land artifacts where the
+campaign records say they are. The executed
+campaign binaries that once lived only in this cache are archived
+outside the checkout (release `4963c506…` bytes plus the `f29377f1…`
+digest record; paper `SEEDS.md` §3 and `results/esd/inputs-manifest.json`
+`binaryProvenanceNote`, fork tags `esd-v5-fb76186`/`esd-ablation-ab2c2a7`),
+so retiring the cache loses no executed binary.
 
 MSRV: `rust-version = "1.87"` on every crate. Floor justification:
 locked `thiserror 2.0.21` declares `rust-version = "1.77"`, and

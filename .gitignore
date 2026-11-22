@@ -1,22 +1,26 @@
-node_modules/
-.venv/
-dist/
-coverage/
-.artifacts/
-*.tsbuildinfo
-.env
-.env.*
-!.env.example
-/evidence/
+# Rust build outputs: the default target/ plus the documented campaign cache
+# (CONFIGURATION.md Toolchain; CARGO_TARGET_DIR=$PWD/env/cargo-target).
+/target/
+/env/
+
+# Dyad evidence roots written by docs/reproduction.md (./evidence,
+# ./evidence-2, ./evidence-dev, ...).
+/evidence*/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+
+# Regenerable reports. NOTE: reports/research/statistical-validation.tsv is
+# tracked (tested receipt); this rule does not untrack it.
+/reports/
+
+# Python sidecar (uv-managed) and local-only scratch.
+.venv/
+.env
+.env.*
+!.env.example
 /plans/
 **/tickets/
 /artifacts/
-.vitest/
+.artifacts/
 worksheets/**/__pycache__/
-# P0-PRES-02 minimal safety: ignore cargo-target cache + rust target (full rewrite deferred)
-/env/
-/target/
-
