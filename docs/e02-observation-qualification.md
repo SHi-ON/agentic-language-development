@@ -188,7 +188,7 @@ these observations, and no multilingual or future-image guarantee is claimed.
 
 ## Development commands
 
-Use the pinned toolchain (Node.js >=24.20 <25 via MacPorts, pnpm 12.3.4) to build dependencies. Never overwrite a
+Use the pinned toolchain (Node.js >=26.13.0 <27 via MacPorts, pnpm 12.9.1) to build dependencies. Never overwrite a
 previous output directory or promote these commands' outputs to registered results.
 
 ```text

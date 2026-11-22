@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { access, readFile } from 'node:fs/promises';
+import { createServer, type AddressInfo } from 'node:net';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   RecordingLedgerClient,
@@ -24,6 +25,7 @@ import {
   createLoopbackChannelPair,
   decodeFrameLine,
   encodeFrames,
+  nodePermissionArgs,
 } from '../src/index.js';
 
 describe('fixed-size canonical framing', () => {
@@ -115,8 +117,32 @@ describe('fixed-size canonical framing', () => {
   });
 });
 
+describe('Node 26 permission arguments', () => {
+  it('grants filesystem reads and no other Node 26 allow capability', () => {
+    const args = nodePermissionArgs({
+      allowFsRead: ['/workspace/dist', '/workspace/package.json'],
+    });
+
+    expect(args).toEqual([
+      '--permission',
+      '--allow-fs-read=/workspace/dist',
+      '--allow-fs-read=/workspace/package.json',
+    ]);
+    expect(args.filter((arg) => arg.startsWith('--allow-'))).toEqual([
+      '--allow-fs-read=/workspace/dist',
+      '--allow-fs-read=/workspace/package.json',
+    ]);
+    expect(nodePermissionArgs({ permissionModel: false })).toEqual([]);
+  });
+});
+
 describe('separate-process learner host', () => {
   it('runs the ordinary learner contract in two distinct child processes', async () => {
+    const networkTarget = createServer((socket) => socket.end());
+    await new Promise<void>((resolve) => {
+      networkTarget.listen(0, '127.0.0.1', resolve);
+    });
+    const networkAddress = networkTarget.address() as AddressInfo;
     const factory = createIsolatedAdapterFactory({
       track: 'no-learning',
       timing: 'immediate',
@@ -138,14 +164,23 @@ describe('separate-process learner host', () => {
 
       const probe = await factory.adapters[0]?.probeIsolation({
         readPath: new URL('../../../SPECIFICATION.md', import.meta.url).pathname,
+        connect: {
+          host: '127.0.0.1',
+          port: networkAddress.port,
+          timeoutMs: 300,
+        },
       });
       expect(probe?.permissionModel).toBe(true);
       expect(probe?.fsRead).toBe('denied');
       expect(probe?.clipboard).toBe('denied');
       expect(probe?.childProcess).toBe('denied');
       expect(probe?.worker).toBe('denied');
+      expect(probe?.network).toBe('denied');
     } finally {
       await factory.dispose();
+      await new Promise<void>((resolve) => {
+        networkTarget.close(() => resolve());
+      });
     }
   }, 20_000);
 });

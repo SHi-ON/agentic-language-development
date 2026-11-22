@@ -42,7 +42,7 @@ of the v1 campaign.
 Everything runs locally; neither this fork nor the paper repository
 has CI (no `.github/` workflows in either tree).
 
-- Node 24.x (`.node-version`), pnpm 12.3.4 (`engines`), uv-managed
+- Node 26.x (`.node-version`: `26.13.0`), pnpm 12.9.1 (`engines`), uv-managed
   Python (paper repo `pyproject.toml` + `uv.lock`, stdlib-only
   scripts; no R/Rscript).
 - Paper PDFs build locally via the paper repo in the pinned

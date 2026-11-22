@@ -52,7 +52,7 @@ authoritative for round numbering; tag messages are sealed history.
 Before pushing a new `pin/*` tag, run:
 
 ```sh
-corepack pnpm@12.3.4 exec tsx scripts/check-pin-tags.ts
+pnpm exec tsx scripts/check-pin-tags.ts
 ```
 
 The check fails on any `pin/*` tag that is neither named

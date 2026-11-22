@@ -2,6 +2,7 @@
   "name": "agentic-language-development",
   "version": "0.1.552",
   "private": true,
+  "packageManager": "pnpm@12.9.1",
   "description": "Research infrastructure for grounded, auditable emergent agent communication",
   "type": "module",
   "scripts": {
@@ -42,7 +43,7 @@
     "@ald/types": "workspace:*",
     "@ald/verifier": "workspace:*",
     "@napi-rs/canvas": "1.0.10",
-    "@types/node": "24.9.2",
+    "@types/node": "26.6.6",
     "esbuild": "0.28.2",
     "eslint": "10.12.0",
     "marked": "18.0.14",
@@ -55,8 +56,8 @@
     "yaml": "2.9.1"
   },
   "engines": {
-    "node": ">=24.20.0 <25",
-    "pnpm": "12.3.4"
+    "node": ">=26.13.0 <27",
+    "pnpm": "12.9.1"
   },
   "dependencies": {}
 }

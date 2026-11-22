@@ -415,7 +415,7 @@ transaction boundary in a disposable fixture, not the selected deployment.
 
 - Linux or macOS with Docker Engine/Colima running;
 - Docker Compose v2 available as `docker compose`;
-- Node.js >=24.20 <25 (MacPorts) and pnpm 12.3.4; and
+- Node.js >=26.13.0 <27 (MacPorts) and pnpm 12.9.1; and
 - a clean checkout with dependencies installed by `pnpm install --frozen-lockfile`.
 
 No Base key, RPC URL, or secret is needed for this isolation qualification.

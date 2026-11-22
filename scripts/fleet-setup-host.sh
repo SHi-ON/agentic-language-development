@@ -16,7 +16,7 @@
 # the A7 driver; this script never modifies it beyond checkout.
 set -euo pipefail
 
-NODE_VERSION="24.22.0"
+NODE_VERSION="26.13.0"
 PNPM_VERSION="12.9.1"
 
 ALIAS=""; FORK=""; REF=""; PAPER=""; PAPER_REF=""; WORKDIR=""; SKIP_CHECK="no"
@@ -62,7 +62,6 @@ else
   ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/node" "$HOME/.local/bin/node"
   ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npm" "$HOME/.local/bin/npm"
   ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/npx" "$HOME/.local/bin/npx"
-  ln -sf "$HOME/.local/node-v${NODE_VERSION}-linux-${NODE_ARCH}/bin/corepack" "$HOME/.local/bin/corepack"
   echo "installed: $(node --version) at $(command -v node)"
 fi
 [ "$(node --version)" = "v${NODE_VERSION}" ]

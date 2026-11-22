@@ -5,9 +5,12 @@
  * What the launch actually denies, and how:
  *
  * - `--permission` with **no** `--allow-child-process`, `--allow-worker`,
- *   `--allow-wasi`, `--allow-addons`, `--allow-inspector` and **no**
+ *   `--allow-wasi`, `--allow-addons`, `--allow-inspector`, `--allow-net`,
+ *   `--allow-ffi`, `--allow-fs-vfs`, `--allow-openssl-store`, and **no**
  *   `--allow-fs-write` at all: the host cannot spawn a process, start a
- *   worker, load a native addon, open an inspector, or write a single file.
+ *   worker, load a native addon, open an inspector, use Node's network,
+ *   FFI, virtual-filesystem, or OpenSSL-store capabilities, or write a
+ *   single file.
  * - `--allow-fs-read` naming *only* the module graph the host needs: this
  *   package's `bin`/`dist`, the workspace packages' `dist` directories,
  *   `package.json` manifests, pnpm package-local dependency links, and the
@@ -28,12 +31,12 @@
  *   `stderr: 'count'` is available for operators who want a fault *count*
  *   without content; it counts bytes and lines and stores neither.
  *
- * What this transport does **not** do: it does not close the network. Node's
- * permission model has no network dimension, so a hosted adapter can still
- * open a socket. Denying the Baby-to-Baby route is the container transport's
- * job (`deploy/mode-r/docker-compose.yml`, internal networks) and the README
- * states that boundary explicitly rather than implying process isolation
- * covers it.
+ * Node 26's permission model includes a network dimension. Because the
+ * launch does not pass `--allow-net`, a hosted adapter cannot open a Node
+ * network socket from this transport. The container topology remains an
+ * independent boundary (`deploy/mode-r/docker-compose.yml`, internal
+ * networks); this runtime check is not presented as a formally verified
+ * isolation proof.
  */
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -109,7 +112,7 @@ export interface NodePermissionOptions {
 /**
  * Node CLI flags for a locked-down host.
  *
- * Every `--allow-*` flag Node 24 offers is listed in the comment above; the
+ * Every `--allow-*` flag Node 26 offers is listed in the comment above; the
  * ones that are absent here are absent on purpose, and a test asserts that
  * this function never emits them.
  */

@@ -94,7 +94,7 @@ dyad_gib() {
 }
 
 journal() {
-  npx tsx "$JOURNAL_APPEND" --evidence-root "$EVIDENCE_ROOT" --cohort "$COHORT" \
+  pnpm exec tsx "$JOURNAL_APPEND" --evidence-root "$EVIDENCE_ROOT" --cohort "$COHORT" \
     --kind "$KIND" --index "$INDEX" --state "$1" --reason "$2" --wall-milliseconds "$3" >&2 || \
     log "JOURNAL APPEND FAILED (state=$1)"
 }

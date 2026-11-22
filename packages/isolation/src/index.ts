@@ -20,9 +20,9 @@
  * enforces), ALD-040 transport half (normalized envelope, constant-shape
  * errors, fixed timing on the host protocol).
  *
- * What this package does **not** claim: the process transport does not deny
- * network access (Node's permission model has no network dimension), and no
- * transport here is a formally verified isolation proof. The container
+ * What this package does **not** claim: although the Node 26 process
+ * transport withholds `--allow-net`, no transport here is a formally
+ * verified isolation proof. The container
  * topology in `deploy/mode-r/` is the SPEC §5.2 shape; `README.md` maps every
  * §10.3 threat-model item to the transport that actually covers it, and says
  * which ones neither covers.

@@ -5,7 +5,7 @@ without modifying original evidence or implying an agent-language finding.
 
 ## Before the review
 
-Use the repository's pinned toolchain (Node.js >=24.20 <25 via MacPorts, pnpm 12.3.4). Do not start E02,
+Use the repository's pinned toolchain (Node.js >=26.13.0 <27 via MacPorts, pnpm 12.9.1). Do not start E02,
 provision credentials, or perform a public-chain action. Confirm the working tree and
 the three presentation documents:
 

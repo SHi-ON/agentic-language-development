@@ -7,13 +7,13 @@ stored directly in environment variables or repository files.
 
 ## Toolchain
 
-Node.js is pinned at `24.21.0` (see `.node-version`; `package.json`
-`engines` requires pnpm `12.3.4`). Newer runtimes break the pinned
-native modules: Node 26 reports `better-sqlite3` as compiled against a
-different `NODE_MODULE_VERSION` and fails the checkpoint/service
-suites that are green under Node 24. Run the test suites with Node
-`24.21.0` (e.g. `PATH=/usr/bin:$PATH` where that is the pinned
-interpreter).
+Node.js is pinned at `26.13.0` (see `.node-version`; `package.json`
+`engines` allows Node `>=26.13.0 <27` and requires pnpm `12.9.1`, also
+recorded in `packageManager`). Install dependencies with
+`pnpm install --frozen-lockfile`. Do not reuse a `node_modules` tree
+installed under another Node major: native modules such as
+`better-sqlite3` are compiled for one `NODE_MODULE_VERSION` (Node
+`26.13.0` reports `147`).
 
 ## Variables
 
