@@ -269,7 +269,10 @@ mod tests {
         // Acklam errs ~1.6e-9 here, hence 1e-8).
         assert!((normal_quantile(0.975).unwrap() - 1.959_963_984_540_054).abs() < 1e-8);
         assert!((student_t_quantile(0.975, 10).unwrap() - 2.228_138_851_986_274).abs() < 1e-9);
-        assert!((student_t_cdf(2.228_138_851_964, 10.0).unwrap() - 0.974_999_999_999_055_8).abs() < 1e-9);
+        assert!(
+            (student_t_cdf(2.228_138_851_964, 10.0).unwrap() - 0.974_999_999_999_055_8).abs()
+                < 1e-9
+        );
     }
 
     #[test]
