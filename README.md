@@ -40,12 +40,12 @@ episode per direction per step:
 4. Both agents receive the same shared reward: 1 if the receiver
    chose the target's position, else 0. This shared success signal
    is the only learning signal in the system.
-5. The sender updates by REINFORCE (learning rate 1.0, per-type
-   running-mean baseline) on its sampled token — including when the
-   token was dropped. The receiver updates by REINFORCE (learning
-   rate 1.0, per-token running-mean baseline) toward the type of the
-   candidate it actually chose — never toward the true type. A
-   dropped token is a receiver no-op.
+5. The sender updates by reward-modulated softmax — REINFORCE
+   (learning rate 1.0, per-type running-mean baseline) on its sampled
+   token — including when the token was dropped. The receiver updates
+   the same way (learning rate 1.0, per-token running-mean baseline)
+   toward the type of the candidate it actually chose — never toward
+   the true type. A dropped token is a receiver no-op.
 
 At test, both policies are frozen. For each test case of a role, the
 opposite agent acts as sender through the same 1/8 channel, and the
@@ -66,7 +66,9 @@ Emergence is covered by an integration test,
 `crates/ald-learners`: after 3,000 alternating episodes (1,500 per
 direction) under its fixed seed it measures Brier advantage 0.5353
 over uniform and receiver sharpness 0.8414, from an exactly uniform
-start.
+start (values verified 2026-11-22 on `main`; regenerate with
+`cargo test -p ald-learners --test agent_policy
+agent_policies_co_train_unsupervised_like_probe_v4 -- --nocapture`).
 
 ## Build and test
 

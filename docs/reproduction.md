@@ -17,7 +17,10 @@ The emergence claim is pinned by
 `crates/ald-learners`: 3,000 alternating training episodes (1,500 per
 direction) from exact-uniform initial policies, asserting Brier
 advantage over uniform above 0.4 and receiver sharpness above 0.8
-(measured 0.5353 and 0.8414 under the test's fixed seed).
+(measured 0.5353 and 0.8414 under the test's fixed seed, verified
+2026-11-22 on `main`; regenerate with `cargo test -p ald-learners
+--test agent_policy agent_policies_co_train_unsupervised_like_probe_v4
+-- --nocapture`).
 
 ## Run one dyad
 
