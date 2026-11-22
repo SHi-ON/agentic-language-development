@@ -303,6 +303,11 @@ fn manifest_accepts_v1_and_v2() {
     assert!(out.status.success(), "default manifest must succeed");
     let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
     assert_eq!(doc["protocolVersion"], 2);
+    // Default output names the canonical file (P2-CLEAN-FORK-04).
+    assert_eq!(
+        doc["manifest"].as_str().unwrap(),
+        "protocols/ala-lv-execution-manifest.v2.json"
+    );
 }
 
 #[test]
