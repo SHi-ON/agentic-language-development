@@ -158,10 +158,27 @@ per-dyad primaries, control contrasts, and cohort intervals.
   canonical hashing, seeded PRNG, hash-chained SQLite event streams,
   checkpoints, independent verification.
 - `crates/ald-config` — supporting contract (runtime environment).
-- `protocols/` — frozen machine-readable study and manifest files.
+- `protocols/` — frozen machine-readable study and manifest files
+  (`ala-lv-execution-manifest.v2.json` is canonical; v1 is retained
+  frozen).
 - `docs/architecture.md` — crate map and the four phases of a run.
 - `docs/reproduction.md` — exact reproduction procedure.
+- `docs/historical/` — quarantined pre-Rust records (learner
+  contracts, TS-era gates); nothing there is read by any live path.
+- `scripts/` — operator tooling: fleet setup, watchdog, dyad
+  archiving, numpy/scipy validators, fixture regeneration.
+- `reports/research/statistical-validation.tsv` — tracked,
+  test-checked statistics receipt (regenerable; see
+  `scripts/validate-statistics.py`).
+- `.github/workflows/cargo.yml` — required CI: build, test, fmt,
+  clippy, MSRV, marker grep.
 - `CONFIGURATION.md` — CLI and environment configuration surface.
+- `rust-toolchain.toml`, `Cargo.toml`, `Cargo.lock` — pinned
+  toolchain (1.99.1), workspace, and lockfile.
+- `pyproject.toml`, `uv.lock` — Python sidecar pins (numpy/scipy
+  validators only).
+- `.env.example` — sample runtime environment (mirrors the
+  `ald-config` contract).
 
 ## Scope
 
