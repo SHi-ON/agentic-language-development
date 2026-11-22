@@ -106,3 +106,5 @@ the paper repo (`make reproduce`) without rerunning training. The
 public source archive at its frozen commits is available for
 inspection only: fresh ALA-LV study training is unavailable and
 unauthorized under the P5 NO-GO and the spent development allowance.
+
+<!-- m1c P0-FORK-22 merge-path probe: comment-only, no functional change -->
