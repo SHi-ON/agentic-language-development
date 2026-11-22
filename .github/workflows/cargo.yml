@@ -4,6 +4,7 @@ on:
     branches: [main, v3-rust-core]
   pull_request:
     branches: [main, v3-rust-core]
+  workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
