@@ -21,6 +21,10 @@ advantage over uniform above 0.4 and receiver sharpness above 0.8
 
 ## Run one dyad
 
+The canonical manifest is `protocols/ala-lv-execution-manifest.v2.json`
+(`ala manifest` with no flags resolves to it; v1 is retained frozen —
+see `protocols/README.md`).
+
 ```sh
 cargo run -p ald-cli -- run \
   --manifest protocols/ala-lv-execution-manifest.v2.json \

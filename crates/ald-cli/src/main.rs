@@ -651,12 +651,27 @@ fn cmd_manifest(args: &[String]) {
         eprintln!("ala manifest: protocol file {rel} is not valid JSON: {e}");
         std::process::exit(2);
     });
-    // LIMIT (P0-FORK-02): existence + parse + studyId only. Both frozen
-    // files declare manifestVersion ala-lv-execution-manifest/v1, so no
-    // version-string-vs-v consistency check is possible here; that belongs
-    // to P2-CLEAN-FORK-04 (do not "fix" the frozen bytes in M1).
     if proto.get("studyId").and_then(|s| s.as_str()) != Some("ALA-LV") {
         eprintln!("ala manifest: protocol file {rel} is not an ALA-LV manifest");
+        std::process::exit(2);
+    }
+    // manifestVersion names the envelope schema (v1 in both frozen files),
+    // not the protocol version; the protocol version is carried by
+    // seedPolicy.root. Both files are campaign-frozen (v2 bytes pinned by
+    // sha ba6a0d08 and every receipt's manifest_sha256), so the fix is
+    // validation here, never byte edits (P2-CLEAN-FORK-04).
+    if proto.get("manifestVersion").and_then(|s| s.as_str()) != Some("ala-lv-execution-manifest/v1")
+    {
+        eprintln!(
+            "ala manifest: protocol file {rel} has an unexpected manifestVersion (want ala-lv-execution-manifest/v1)"
+        );
+        std::process::exit(2);
+    }
+    let want_root = format!("ala-ledger-value-v{v}");
+    if proto.pointer("/seedPolicy/root").and_then(|s| s.as_str()) != Some(want_root.as_str()) {
+        eprintln!(
+            "ala manifest: protocol file {rel} seedPolicy.root does not match --protocol-version {v} (want {want_root})"
+        );
         std::process::exit(2);
     }
     let doc = serde_json::json!({

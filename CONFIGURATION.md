@@ -28,12 +28,16 @@ to overwrite an existing `--out` file. `run` also rejects any repeated
 flag with exit code 2 (a duplicated `--drop-probability` would otherwise
 silently run the wrong ablation).
 
-The manifest (`protocols/ala-lv-execution-manifest.v2.json`) must
-carry `manifestVersion: "ala-lv-execution-manifest/v1"`,
+The canonical manifest is `protocols/ala-lv-execution-manifest.v2.json`
+(see `protocols/README.md` for why v1 is retained frozen). It must
+carry `manifestVersion: "ala-lv-execution-manifest/v1"` (the envelope
+schema version — v1 in both frozen files, not the protocol version),
 `studyId: "ALA-LV"`, and a `workload` block with positive
 `trainingCases`, `validationFitCases`, `validationSelectionCases`,
 and `withinSupportTestCases`, each evenly divisible across the two
-roles. Study cohorts `A` and `B` additionally require
+roles. The protocol version is carried by `seedPolicy.root`
+(`ala-ledger-value-v1` vs `-v2`) and selected by `--protocol-version`.
+Study cohorts `A` and `B` additionally require
 `<evidence-root>/admission.json` with a GO decision; other cohorts
 run without admission. `--index` must fit a zero-padded 4-digit slot
 (0–9999).

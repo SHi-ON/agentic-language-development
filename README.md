@@ -160,7 +160,7 @@ per-dyad primaries, control contrasts, and cohort intervals.
 - `crates/ald-config` — supporting contract (runtime environment).
 - `protocols/` — frozen machine-readable study and manifest files
   (`ala-lv-execution-manifest.v2.json` is canonical; v1 is retained
-  frozen).
+  frozen — see `protocols/README.md`).
 - `docs/architecture.md` — crate map and the four phases of a run.
 - `docs/reproduction.md` — exact reproduction procedure.
 - `docs/historical/` — quarantined pre-Rust records (learner
