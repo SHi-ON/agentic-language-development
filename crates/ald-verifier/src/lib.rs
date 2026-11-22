@@ -31,6 +31,10 @@ pub struct VerificationReport {
 }
 
 /// Verify every stream's chain in an evidence database.
+///
+/// # Errors
+///
+/// Returns an error when any stream chain fails to verify, or SQLite fails.
 pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierError> {
     let mut events = 0u64;
     let mut streams = 0u64;
@@ -58,6 +62,10 @@ pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierEr
 }
 
 /// Verify a Merkle inclusion proof against its root.
+///
+/// # Errors
+///
+/// Returns an error when the proof carries malformed hashes.
 pub fn verify_inclusion_proof(proof: &ald_merkle::InclusionProof) -> Result<bool, VerifierError> {
     Ok(verify_inclusion(proof, 0)?)
 }

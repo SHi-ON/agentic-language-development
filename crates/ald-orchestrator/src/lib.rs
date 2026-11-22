@@ -4,6 +4,9 @@
 //! wiring used by the ALA path. The runner executes one full dyad
 //! deterministically from the frozen
 //! manifest and writes the evidence database, journal lines, and receipt.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_hashing::derive_seed_hex;
 use serde::{Deserialize, Serialize};
@@ -63,6 +66,10 @@ pub struct AlaSeedInput {
 }
 
 /// Derive one ALA seed: root/study/cohort/kind/index/purpose/role[/partition/case/branch].
+///
+/// # Errors
+///
+/// Returns an error when a required field is empty or NUL-bearing, the slot index is not zero-padded, or the seed root is unknown.
 pub fn derive_ala_seed(input: &AlaSeedInput) -> Result<String, OrchestratorError> {
     for (name, value) in [
         ("cohort", &input.cohort),
@@ -127,7 +134,10 @@ pub struct StudyCounts {
     pub validation_selection_cases: u64,
     pub within_support_test_cases: u64,
 }
-
+///
+/// # Errors
+///
+/// Returns an error for invalid JSON, or missing/non-positive partition counts.
 pub fn study_counts_from_protocol(text: &str) -> Result<StudyCounts, OrchestratorError> {
     let v: serde_json::Value =
         serde_json::from_str(text).map_err(|e| OrchestratorError::Domain(e.to_string()))?;
@@ -159,6 +169,10 @@ pub struct CollectionWorkload {
 }
 
 /// Prototype workload: study totals split evenly across the two roles.
+///
+/// # Errors
+///
+/// Returns an error when a total is odd (roles split evenly).
 pub fn prototype_workload(counts: &StudyCounts) -> Result<CollectionWorkload, OrchestratorError> {
     for (name, value) in [
         ("trainingCases", counts.training_cases),
@@ -257,6 +271,10 @@ pub struct ResolvedDevelopment {
 
 /// Parse `--training-interactions-per-direction N`: a positive integer.
 /// Rejects zero, non-numeric input, and anything else without fallback.
+///
+/// # Errors
+///
+/// Returns an error for zero, non-numeric, or otherwise malformed input.
 pub fn parse_training_interactions(s: &str) -> Result<u64, OrchestratorError> {
     let n: u64 = s.parse().map_err(|_| {
         OrchestratorError::Domain(format!(
@@ -272,6 +290,10 @@ pub fn parse_training_interactions(s: &str) -> Result<u64, OrchestratorError> {
 }
 
 /// Parse `--learning-mode joint|none|receiver-only` exactly.
+///
+/// # Errors
+///
+/// Returns an error for anything but `joint|none|receiver-only`.
 pub fn parse_learning_mode(s: &str) -> Result<LearningMode, OrchestratorError> {
     match s {
         "joint" => Ok(LearningMode::Joint),
@@ -286,6 +308,10 @@ pub fn parse_learning_mode(s: &str) -> Result<LearningMode, OrchestratorError> {
 /// Parse `--drop-probability NUM/DEN`: an exact rational in `[0, 1]`.
 /// Both parts must be bare non-negative integers with `DEN >= 1` and
 /// `NUM <= DEN`; malformed or out-of-range input is rejected outright.
+///
+/// # Errors
+///
+/// Returns an error for malformed or out-of-range rationals.
 pub fn parse_drop_probability(s: &str) -> Result<DropProbability, OrchestratorError> {
     let bad = || {
         OrchestratorError::Domain(format!(
@@ -308,6 +334,10 @@ pub fn parse_drop_probability(s: &str) -> Result<DropProbability, OrchestratorEr
 }
 
 /// Parse `--active-sender-tokens K`: exactly 8, 16, or 32.
+///
+/// # Errors
+///
+/// Returns an error for anything but 8, 16, or 32.
 pub fn parse_active_sender_tokens(s: &str) -> Result<u32, OrchestratorError> {
     let k: u32 = s.parse().map_err(|_| {
         OrchestratorError::Domain(format!(
@@ -325,6 +355,10 @@ pub fn parse_active_sender_tokens(s: &str) -> Result<u32, OrchestratorError> {
 /// Parse `--held-out-types`, e.g. `12,13,14,15`: distinct type codes below
 /// 16 leaving at least 4 permitted types. The empty string selects the empty
 /// set. Duplicates, out-of-range codes, and empty entries are rejected.
+///
+/// # Errors
+///
+/// Returns an error for duplicates, out-of-range codes, empty entries, or fewer than 4 remaining types.
 pub fn parse_held_out_types(s: &str) -> Result<Vec<u32>, OrchestratorError> {
     let bad = |why: &str| {
         OrchestratorError::Domain(format!(
@@ -361,6 +395,10 @@ pub fn parse_held_out_types(s: &str) -> Result<Vec<u32>, OrchestratorError> {
 /// is the manifest's per-role training count (the default interactions per
 /// direction). Every malformed or out-of-range value is an error; nothing
 /// falls back silently.
+///
+/// # Errors
+///
+/// Returns an error when a requested value is malformed or out of range.
 pub fn resolve_development_options(
     requested: &DevelopmentOptions,
     manifest_per_role_training: u64,
@@ -432,6 +470,7 @@ pub fn resolve_development_options(
 /// True when a resolved configuration equals the frozen defaults (so the run
 /// takes the legacy path byte-identically: no sidecar, no slot suffix, no
 /// extra receipt/journal fields).
+#[must_use]
 pub fn resolved_is_default(
     resolved: &ResolvedDevelopment,
     manifest_per_role_training: u64,
@@ -447,6 +486,10 @@ pub fn resolved_is_default(
 /// Binding hash over a resolved development configuration (canonical JSON
 /// under [`DEVELOPMENT_CONFIG_DOMAIN`]). Non-default runs carry this hash in
 /// the receipt, the journal lines, and the `development-config.json` sidecar.
+///
+/// # Errors
+///
+/// Returns an error when the config cannot be serialized or canonicalized.
 pub fn development_config_hash(
     resolved: &ResolvedDevelopment,
 ) -> Result<String, OrchestratorError> {
@@ -456,6 +499,7 @@ pub fn development_config_hash(
 }
 
 /// Short config id (8 hex chars) suffixing non-default run roots.
+#[must_use]
 pub fn development_config_short_id(hash: &str) -> String {
     hash.chars().skip(7).take(8).collect()
 }
@@ -466,6 +510,7 @@ pub fn development_config_short_id(hash: &str) -> String {
 /// draw, i.e. exactly `m / 2^53` for an integer `m`, so scaling by `2^53` is
 /// exact and the comparison `m*den < num*2^53` is bit-exact. At `(1, 8)` this
 /// agrees with the legacy `u < 1.0 / 8.0` comparison for every `u`.
+#[must_use]
 pub fn drop_draw_less_than(u: f64, numerator: u64, denominator: u64) -> bool {
     const SCALE: f64 = 9_007_199_254_740_992.0; // 2^53
     const SCALE_U128: u128 = 9_007_199_254_740_992;
@@ -529,6 +574,10 @@ pub struct DyadReceipt {
 /// protocol by hash); the frozen per-partition case totals live in its
 /// `workload` block. Refuses anything that is not valid JSON, does not
 /// carry the frozen manifest version / study id, or lacks positive counts.
+///
+/// # Errors
+///
+/// Returns an error for invalid JSON, a wrong manifest version/study id, or non-positive counts.
 pub fn execution_counts_from_manifest(text: &str) -> Result<StudyCounts, OrchestratorError> {
     let v: serde_json::Value = serde_json::from_str(text)
         .map_err(|e| OrchestratorError::Domain(format!("ALA manifest: invalid JSON: {e}")))?;
@@ -621,6 +670,10 @@ const JOURNAL_CHAIN_FIELDS: [&str; 3] = ["seq", "previousHash", "entryHash"];
 /// Note: `kind`/`state` values are NOT restricted here. `run_dyad` writes
 /// `attempted`/`terminal` entries; operator tooling (e.g. the watchdog)
 /// appends `aborted`/`note` states through the same chain.
+///
+/// # Errors
+///
+/// Returns an error naming the first corrupt line (bad JSON, missing chain field, `seq` gap/replay, broken link, or `entryHash` mismatch), or when the file is unreadable.
 pub fn verify_journal_chain(journal_path: &str) -> Result<(u64, String), OrchestratorError> {
     let mut expected_seq = 0u64;
     let mut prev = ald_types::GENESIS_HASH.to_string();
@@ -689,6 +742,10 @@ pub fn verify_journal_chain(journal_path: &str) -> Result<(u64, String), Orchest
 /// chain [`journal_append`] uses. Chain fields (`seq`, `previousHash`,
 /// `entryHash`) are assigned here; a body that already carries them is
 /// rejected so callers cannot fork verification.
+///
+/// # Errors
+///
+/// Returns an error when the body carries chain fields, the existing chain is corrupt, or the file is unwritable.
 pub fn journal_append_entry(
     journal_path: &str,
     body: serde_json::Map<String, serde_json::Value>,
@@ -955,6 +1012,11 @@ fn journal_slot_identity(
 /// `--cohort development`, write to a config-suffixed run root, refuse to
 /// overwrite an existing root, and bind the config hash into the receipt,
 /// the journal lines, and a `development-config.json` sidecar.
+///
+/// # Errors
+///
+/// Returns an error for invalid manifests, inventories, or admission, for IO failures, or for non-finite results; rejected runs leave no partial artifacts.
+#[allow(clippy::too_many_lines)] // straight-line run pipeline; P0-FORK-11 splits modules, not this function.
 pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, OrchestratorError> {
     let started = std::time::Instant::now();
     if req.cohort.is_empty() || req.kind.is_empty() || req.evidence_root.is_empty() {
@@ -1058,7 +1120,7 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
         &pad,
         &requested,
         &resolved,
-        &dev_hash,
+        dev_hash.as_ref(),
     ) {
         Ok(ok) => ok,
         Err(e) => {
@@ -1117,6 +1179,7 @@ pub fn run_dyad(req: &DyadRequest, inventory: &[String]) -> Result<DyadReceipt, 
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_lines)] // straight-line dyad pipeline; P0-FORK-11 splits modules, not this function.
 fn run_dyad_inner(
     req: &DyadRequest,
     inventory: &[String],
@@ -1128,7 +1191,7 @@ fn run_dyad_inner(
     pad: &str,
     requested: &DevelopmentOptions,
     resolved: &ResolvedDevelopment,
-    dev_hash: &Option<String>,
+    dev_hash: Option<&String>,
 ) -> Result<DyadInner, OrchestratorError> {
     use ald_analysis::analyze_dyad;
     use ald_analysis::dyad::{RoleFolds, TestRow};
@@ -1416,8 +1479,7 @@ fn run_dyad_inner(
                 "deliveredToken".to_string(),
                 delivered_token
                     .clone()
-                    .map(serde_json::Value::String)
-                    .unwrap_or(serde_json::Value::Null),
+                    .map_or(serde_json::Value::Null, serde_json::Value::String),
             );
             ev.insert(
                 "nativeMissing".to_string(),
@@ -1595,6 +1657,7 @@ fn run_dyad_inner(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::Digest as _;
 
     #[test]
     fn seed_layout_matches_ts() {
@@ -1831,6 +1894,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // fixture-driven end-to-end assertions.
+    #[allow(clippy::float_cmp)] // replay one-hot is constructed exact; == 1.0 checks that.
     fn integration_full_dev_dyad_verifies() {
         // Frozen workload totals: 1500 training + 120/120/120 per role.
         let dir = fresh_temp_dir("full");
@@ -1853,7 +1918,6 @@ mod tests {
         let receipt = run_dyad(&req, &inventory).unwrap();
 
         // Honest receipt: measured counts, real manifest hash, measured cost.
-        use sha2::Digest as _;
         let mut h = sha2::Sha256::new();
         h.update(manifest_text.as_bytes());
         let expect_sha = format!("sha256:{}", hex::encode(h.finalize()));
@@ -2050,13 +2114,13 @@ mod tests {
             ] {
                 assert!(fit_keys.contains_key(k), "fold record missing {k}");
             }
-            let test = folds["test"].as_array().unwrap();
-            assert_eq!(test.len(), 120);
+            let test_rows = folds["test"].as_array().unwrap();
+            assert_eq!(test_rows.len(), 120);
             let branch_text =
                 std::fs::read_to_string(slot.join(format!("branch-probabilities-{role}.json")))
                     .unwrap();
             let branch_cases: Vec<serde_json::Value> = serde_json::from_str(&branch_text).unwrap();
-            for (row, probs) in test.iter().zip(branch_cases.iter()) {
+            for (row, probs) in test_rows.iter().zip(branch_cases.iter()) {
                 let keys = row.as_object().unwrap();
                 assert_eq!(keys.len(), 7);
                 for k in [
@@ -2256,6 +2320,19 @@ mod tests {
 
     #[test]
     fn artifact_consolidation_under_50_files() {
+        fn count_files(path: &std::path::Path) -> usize {
+            let mut n = 0;
+            for entry in std::fs::read_dir(path).unwrap() {
+                let entry = entry.unwrap();
+                let file_type = entry.file_type().unwrap();
+                if file_type.is_dir() {
+                    n += count_files(&entry.path());
+                } else if file_type.is_file() {
+                    n += 1;
+                }
+            }
+            n
+        }
         // A full frozen-workload dyad must stay consolidated: v2 wrote
         // ~163k files/dyad (per-case artifacts); v3 writes a handful of
         // per-role files. Fails closed if per-case writes ever recur.
@@ -2275,19 +2352,6 @@ mod tests {
         };
         run_dyad(&req, &test_inventory()).unwrap();
 
-        fn count_files(path: &std::path::Path) -> usize {
-            let mut n = 0;
-            for entry in std::fs::read_dir(path).unwrap() {
-                let entry = entry.unwrap();
-                let file_type = entry.file_type().unwrap();
-                if file_type.is_dir() {
-                    n += count_files(&entry.path());
-                } else if file_type.is_file() {
-                    n += 1;
-                }
-            }
-            n
-        }
         let total = count_files(&evidence_root);
         assert!(
             total < 50,
@@ -2428,6 +2492,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // tabular parse/resolve matrix.
     fn dev_parse_and_resolve_matrix() {
         // Valid parses.
         assert_eq!(parse_training_interactions("1").unwrap(), 1);
@@ -2505,7 +2570,7 @@ mod tests {
             }
         );
         assert_eq!(d.active_sender_tokens, 32);
-        assert!(d.held_out_types.is_empty());
+        assert_eq!(d.held_out_types, [] as [u32; 0]);
         assert!(resolved_is_default(&d, 1500));
         assert!(!resolved_is_default(&d, 8));
         let non = resolve_development_options(
@@ -2561,6 +2626,7 @@ mod tests {
 
     #[test]
     fn dev_drop_draw_is_exact_rational() {
+        const SCALE: f64 = 9_007_199_254_740_992.0;
         // Endpoints decide without ambiguity (one draw is still consumed by
         // the caller in every case).
         assert!(!drop_draw_less_than(0.0, 0, 1));
@@ -2569,7 +2635,6 @@ mod tests {
         assert!(drop_draw_less_than(0.999_999, 1, 1));
         // (1,8) agrees with the legacy float comparison for EVERY draw,
         // including the exact boundary m = 2^50.
-        const SCALE: f64 = 9_007_199_254_740_992.0;
         for m in [
             0u64,
             1,
@@ -2754,6 +2819,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // fixture-driven end-to-end assertions.
     fn dev_learning_mode_none_freezes_and_zero_primary() {
         // Small workload, index 2: ordinary selection is uniform on both
         // roles (probed on the legacy path), so frozen-uniform natives give
@@ -2954,6 +3020,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)] // tabular endpoint/rational matrix.
     fn dev_drop_probability_endpoints_and_rational() {
         let inventory = test_inventory();
         // 0/1: nothing is ever dropped, in training or at test.
@@ -2982,7 +3049,7 @@ mod tests {
                     .unwrap(),
             )
             .unwrap();
-            assert!(!probs.is_empty());
+            assert_ne!(probs, [] as [serde_json::Value; 0]);
             for case in &probs {
                 assert!(case["deliveredToken"].is_string(), "0/1 must never drop");
                 assert_eq!(case["nativeMissing"], serde_json::json!(false));

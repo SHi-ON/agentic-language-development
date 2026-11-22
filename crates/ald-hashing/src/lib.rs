@@ -3,6 +3,9 @@
 //!
 //! JCS is implemented directly (sorted keys, minimal escaping) so the
 //! crate has no non-audited canonicalization dependency.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_types::SIGNATURE_FIELDS;
 use serde_json::Value;
@@ -20,6 +23,10 @@ pub const HASH_PREFIX: &str = "sha256:";
 /// Serialize to RFC 8785 canonical JSON. Rejects values JSON cannot
 /// represent (undefined/NaN/Infinity have no Rust equivalents; reject
 /// non-finite f64, and require objects/arrays only).
+///
+/// # Errors
+///
+/// Returns an error when the value holds a non-finite number.
 pub fn canonical_json(value: &Value) -> Result<String, HashingError> {
     assert_canonical_value(value, "")?;
     let mut out = String::new();
@@ -60,6 +67,7 @@ fn assert_canonical_value(value: &Value, path: &str) -> Result<(), HashingError>
 }
 
 fn write_canonical(value: &Value, out: &mut String) {
+    use std::fmt::Write as _;
     match value {
         Value::Null => out.push_str("null"),
         Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
@@ -76,7 +84,7 @@ fn write_canonical(value: &Value, out: &mut String) {
                     '\u{0C}' => out.push_str("\\f"),
                     '\u{0D}' => out.push_str("\\r"),
                     c if (c as u32) < 0x20 => {
-                        out.push_str(&format!("\\u{:04x}", c as u32));
+                        let _ = write!(out, "\\u{:04x}", c as u32);
                     }
                     c => out.push(c),
                 }
@@ -126,12 +134,16 @@ pub fn encode_hash(digest: &[u8; 32]) -> String {
     format!("{HASH_PREFIX}{}", hex::encode(digest))
 }
 
+#[must_use]
 pub fn is_sha256_hash(value: &str) -> bool {
     value.len() == 7 + 64
         && value.starts_with(HASH_PREFIX)
         && value[7..].chars().all(|c| c.is_ascii_hexdigit())
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the text is not `sha256:<64 hex>`.
 pub fn decode_hash(hash: &str) -> Result<[u8; 32], HashingError> {
     if !is_sha256_hash(hash) {
         return Err(HashingError::Unrepresentable(format!(
@@ -159,10 +171,15 @@ pub fn domain_hash(domain: &str, payload: &[&[u8]]) -> String {
 }
 
 /// Domain-separated hash of the canonical form of `value`.
+///
+/// # Errors
+///
+/// Returns an error when the value cannot be represented as canonical JSON.
 pub fn hash_canonical(domain: &str, value: &Value) -> Result<String, HashingError> {
     Ok(domain_hash(domain, &[canonical_json(value)?.as_bytes()]))
 }
 
+#[must_use]
 pub fn omit_signature_fields(
     event: &serde_json::Map<String, Value>,
 ) -> serde_json::Map<String, Value> {
@@ -175,6 +192,10 @@ pub fn omit_signature_fields(
 
 /// Recompute an entry hash: canonicalize minus signature fields under the
 /// stream domain.
+///
+/// # Errors
+///
+/// Returns an error when the event cannot be represented as canonical JSON.
 pub fn compute_entry_hash(
     stream: ald_types::EventStream,
     event: &serde_json::Map<String, Value>,
@@ -274,7 +295,10 @@ impl SeededPrng {
         let low = f64::from(self.next_u32() >> 6);
         (high * 67_108_864.0 + low) / 9_007_199_254_740_992.0
     }
-
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `max_exclusive` is zero.
     pub fn next_int(&mut self, max_exclusive: u32) -> Result<u32, HashingError> {
         if max_exclusive == 0 {
             return Err(HashingError::Unrepresentable(
@@ -286,6 +310,7 @@ impl SeededPrng {
         loop {
             let v = u64::from(self.next_u32());
             if v < limit {
+                // v < limit <= 2^32, so the remainder fits u32 exactly.
                 return Ok((v % u64::from(max_exclusive)) as u32);
             }
         }
@@ -352,9 +377,9 @@ mod tests {
         // Reference oracle values for seed "x": three uint32s, then
         // next_float, then next_int(700).
         let mut rng = SeededPrng::new("x");
-        assert_eq!(rng.next_u32(), 3255788481);
-        assert_eq!(rng.next_u32(), 3306436351);
-        assert_eq!(rng.next_u32(), 1446772966);
+        assert_eq!(rng.next_u32(), 3_255_788_481);
+        assert_eq!(rng.next_u32(), 3_306_436_351);
+        assert_eq!(rng.next_u32(), 1_446_772_966);
         assert_eq!(format!("{:.17}", rng.next_float()), "0.42330249837794243");
         assert_eq!(rng.next_int(700).unwrap(), 495);
     }
@@ -405,7 +430,7 @@ mod tests {
         }
         let mut rng = SeededPrng::new("float-bits-sweep-v1");
         for _ in 0..20_000 {
-            let bits = ((rng.next_u32() as u64) << 32) | (rng.next_u32() as u64);
+            let bits = (u64::from(rng.next_u32()) << 32) | u64::from(rng.next_u32());
             if f64::from_bits(bits).is_finite() {
                 bits_cases.push(bits);
             }
@@ -426,7 +451,7 @@ mod tests {
         // first float, next_int(10000).
         let mut rng =
             SeededPrng::new("a136f247e0b12755021e5027a4e7b5f41d3b630e418a609c2d30cfd995df357a");
-        assert_eq!(rng.next_u32(), 1574471825);
+        assert_eq!(rng.next_u32(), 1_574_471_825);
         assert_eq!(format!("{:.17}", rng.next_float()), "0.28304296965537734");
         assert_eq!(rng.next_int(10000).unwrap(), 8006);
     }

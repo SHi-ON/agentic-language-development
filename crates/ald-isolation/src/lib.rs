@@ -79,6 +79,6 @@ mod tests {
         let mut t = PrototypeTransport::new();
         t.send_a_to_b(vec![1]);
         assert_eq!(t.a_to_b.len(), 1);
-        assert!(t.b_to_a.is_empty());
+        assert_eq!(t.b_to_a, [] as [std::vec::Vec<u8>; 0]);
     }
 }

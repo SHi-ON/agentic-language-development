@@ -367,6 +367,7 @@ fn cmd_select(dyads: &[String], cohort: &str, out: &str) {
 /// the cohort t-interval plus bootstrap sensitivity interval. The locked
 /// selection is re-verified role by role: scoring refuses to proceed when the
 /// recomputed winner disagrees with the locked record.
+#[allow(clippy::too_many_lines)] // straight-line scoring pipeline; splitting would obscure the stage order.
 fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
     // Parse numbers BEFORE the overwrite guard so a malformed flag reports
     // exit 2 even when the out-path already exists.
@@ -410,9 +411,9 @@ fn cmd_score(args: &[String], dyads: &[String], cohort: &str, out: &str) {
             })
     };
 
-    let mut seen = std::collections::HashSet::new();
+    let mut seen_dyads = std::collections::HashSet::new();
     for d in dyads {
-        if !seen.insert(dyad_id(d)) {
+        if !seen_dyads.insert(dyad_id(d)) {
             fail(&format!(
                 "ala analyze score: duplicate dyad directory name {d}"
             ));

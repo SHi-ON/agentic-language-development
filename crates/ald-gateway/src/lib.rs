@@ -24,6 +24,10 @@ pub struct Delivery {
 
 /// Route a case to its receiver; control branches carry the same token as
 /// normal (substitution happens at scoring, never at delivery).
+///
+/// # Errors
+///
+/// Returns an error for an unknown receiver role or branch.
 pub fn route(
     case_id: &str,
     role: &str,

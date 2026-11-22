@@ -3,6 +3,9 @@
 //! V3 test rows retain per-branch native distributions so control
 //! contrasts are paired
 //! Brier differences on the same scale as the primary.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use crate::ledger::{
     brier, score_ordinary_fit, select_ordinary_predictor, OrdinaryRecord, PredictorId,
@@ -54,7 +57,10 @@ pub struct DyadResult {
     pub roles: Vec<RoleResult>,
     pub primary: f64,
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the test set is empty, selection fails, a test row carries the wrong role, or a distribution is non-finite or misshapen.
 pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResult, AnalysisError> {
     if folds.test.is_empty() {
         return Err(AnalysisError::Domain(format!(
@@ -121,6 +127,11 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
     })
 }
 
+///
+/// # Errors
+///
+/// Returns an error unless exactly the two receiver-role folds are present, or when a role analysis fails.
+#[allow(clippy::manual_midpoint)] // (a+b)/2 is byte-identical by design; see below.
 pub fn analyze_dyad(
     dyad: &str,
     roles: &[RoleFolds],
@@ -132,7 +143,7 @@ pub fn analyze_dyad(
         )));
     }
     let mut ids: Vec<&str> = roles.iter().map(|r| r.role.as_str()).collect();
-    ids.sort();
+    ids.sort_unstable();
     if ids != ["agent-0", "agent-1"] {
         return Err(AnalysisError::Domain(format!(
             "dyad {dyad} folds do not cover both receiver roles"
@@ -145,6 +156,8 @@ pub fn analyze_dyad(
     Ok(DyadResult {
         dyad: dyad.to_string(),
         roles: results.clone(),
+        // Byte-identical arithmetic: keep (a+b)/2, not f64::midpoint (which
+        // can differ by 1 ulp and would change persisted primaries).
         primary: (results[0].difference + results[1].difference) / 2.0,
     })
 }
@@ -163,6 +176,10 @@ pub struct CohortInterval {
 }
 
 /// Two-sided Student-t interval across dyad primaries.
+///
+/// # Errors
+///
+/// Returns an error when coverage is outside (0, 1), or the primaries are empty or non-finite.
 pub fn cohort_interval(
     cohort: &str,
     primaries: &[f64],
@@ -249,15 +266,15 @@ mod tests {
         }
     }
 
-    fn folds_with_test_distributions(native: Vec<f64>, replay: Vec<f64>) -> RoleFolds {
+    fn folds_with_test_distributions(native: &[f64], replay: &[f64]) -> RoleFolds {
         let mk = |case: &str| TestRow {
             record: record(case),
-            native_distribution: native.clone(),
-            replay_distribution: replay.clone(),
+            native_distribution: native.to_vec(),
+            replay_distribution: replay.to_vec(),
             target_index: 0,
             native_missing: false,
-            branch_distributions: Default::default(),
-            branch_success: Default::default(),
+            branch_distributions: std::collections::HashMap::new(),
+            branch_success: std::collections::HashMap::new(),
         };
         RoleFolds {
             role: "agent-0".to_string(),
@@ -270,14 +287,14 @@ mod tests {
 
     #[test]
     fn analyze_role_rejects_non_finite_native_distribution() {
-        let folds = folds_with_test_distributions(vec![0.25, 0.25, f64::NAN, 0.25], vec![0.25; 4]);
+        let folds = folds_with_test_distributions(&[0.25, 0.25, f64::NAN, 0.25], &[0.25; 4]);
         let err = analyze_role(&folds, &inv()).unwrap_err().to_string();
         assert!(err.contains("non-finite"), "unexpected error: {err}");
     }
 
     #[test]
     fn analyze_role_accepts_finite_distributions() {
-        let folds = folds_with_test_distributions(vec![0.25; 4], vec![1.0, 0.0, 0.0, 0.0]);
+        let folds = folds_with_test_distributions(&[0.25; 4], &[1.0, 0.0, 0.0, 0.0]);
         assert!(analyze_role(&folds, &inv()).is_ok());
     }
 }

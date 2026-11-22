@@ -23,3 +23,6 @@ ald-analysis = { path = "../ald-analysis" }
 ald-orchestrator = { path = "../ald-orchestrator" }
 ald-evidence = { path = "../ald-evidence" }
 ald-verifier = { path = "../ald-verifier" }
+
+[lints]
+workspace = true

@@ -4,7 +4,10 @@
 use std::path::PathBuf;
 use std::process::Command;
 
-const LOCKED_MEANS: [(&str, f64); 2] = [("A", 0.12497749132421103), ("B", 0.12302667184362459)];
+const LOCKED_MEANS: [(&str, f64); 2] = [
+    ("A", 0.124_977_491_324_211_03),
+    ("B", 0.123_026_671_843_624_59),
+];
 
 fn ala() -> Command {
     Command::new(env!("CARGO_BIN_EXE_ala"))

@@ -9,6 +9,9 @@
 //! Determinism conventions (shared with the orchestrator): floats that enter
 //! persisted artifacts go through [`stable_f64`] so bytes are
 //! byte-identical across runs.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_types::signaling::{TOKENS, TYPES};
 use serde::{Deserialize, Serialize};
@@ -46,7 +49,7 @@ fn stable_f64(v: f64) -> f64 {
 }
 
 fn softmax(logits: &[f64]) -> Vec<f64> {
-    let max = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let max = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let mut out = Vec::with_capacity(logits.len());
     let mut sum = 0.0;
     for &l in logits {
@@ -54,7 +57,7 @@ fn softmax(logits: &[f64]) -> Vec<f64> {
         out.push(e);
         sum += e;
     }
-    for p in out.iter_mut() {
+    for p in &mut out {
         *p /= sum;
     }
     out
@@ -169,6 +172,10 @@ impl AgentPolicy {
     /// tables keep the full 32-token shape, and `k` is recorded in metadata.
     /// The CLI/orchestrator restrict `k` to 8/16/32; this constructor accepts
     /// any `1..=TOKENS` and rejects anything else without fallback.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `k` is outside `1..=TOKENS`.
     pub fn with_active_sender_tokens(k: usize) -> Result<Self, LearnerError> {
         if !(1..=TOKENS).contains(&k) {
             return Err(LearnerError::Domain(format!(
@@ -458,6 +465,12 @@ impl AgentPolicy {
     ///
     /// Field order is fixed and logits serialize in row-major order, so the
     /// same policy always yields identical bytes.
+    ///
+    /// # Panics
+    ///
+    /// Only if serializing the policy fails, which cannot happen for these
+    /// field types (`serde_json` renders non-finite floats as null rather
+    /// than erroring); the `expect` documents that invariant.
     #[must_use]
     pub fn to_bytes(&self) -> Vec<u8> {
         // SAFETY: serializing this struct cannot fail — all fields are
@@ -499,6 +512,10 @@ impl AgentPolicy {
     }
 
     /// Restore a policy persisted with [`AgentPolicy::to_bytes`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the bytes are not valid policy JSON, or fail shape, finiteness, or metadata checks.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, LearnerError> {
         let policy: Self =
             serde_json::from_slice(bytes).map_err(|e| LearnerError::Domain(e.to_string()))?;
@@ -731,6 +748,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::float_cmp)] // exact != proves movement away from exact-uniform init.
     fn active_sender_tokens_constrain_support_normalization_and_update() {
         for k in [8usize, 16] {
             let mut a = AgentPolicy::with_active_sender_tokens(k).unwrap();
@@ -759,7 +777,8 @@ mod tests {
                 let t = a.sample_token(ty, &mut rng).unwrap();
                 // Mixed rewards: a constant reward would zero the advantage
                 // and move nothing.
-                a.update_sender(ty, t, f64::from((i % 2) as u8)).unwrap();
+                a.update_sender(ty, t, f64::from(u8::from(i % 2 == 1)))
+                    .unwrap();
             }
             for ty in 0..TYPES {
                 assert!(a.sender_logits(ty).unwrap()[k..].iter().all(|v| *v == 0.0));

@@ -10,6 +10,9 @@
 //! floats do not survive store -> parse -> rehash bit-exactly for all
 //! doubles. Bodies written before this encoding keep decimal floats and
 //! continue to verify; the two forms never mix within one event.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_hashing::{compute_entry_hash, float_bits_value, HashingError};
 use ald_types::EventStream;
@@ -43,6 +46,10 @@ pub struct StoredEvent {
 }
 
 /// Open (creating parent dirs and schema) the evidence database.
+///
+/// # Errors
+///
+/// Returns an error when parent directories cannot be created, or SQLite fails to open or initialize.
 pub fn open(path: &str) -> Result<Connection, EvidenceError> {
     if let Some(parent) = std::path::Path::new(path).parent() {
         if !parent.as_os_str().is_empty() {
@@ -95,6 +102,10 @@ fn next_seq(conn: &Connection, stream: &str) -> Result<u64, EvidenceError> {
 ///
 /// Floats are bit-encoded before hashing and storing (see module docs),
 /// so the stored text re-parses to the exact hashed values.
+///
+/// # Errors
+///
+/// Returns an error when the body cannot be hashed, or SQLite fails to insert.
 pub fn append_event(
     conn: &Connection,
     stream: EventStream,
@@ -117,7 +128,7 @@ pub fn append_event(
     let body = serde_json::Value::Object(unsigned);
     conn.execute(
         "INSERT INTO events(stream, sequence, entry_hash, previous_hash, body) VALUES(?1,?2,?3,?4,?5)",
-        params![stream_name, seq as i64, entry_hash, prev, body.to_string()],
+        params![stream_name, seq.cast_signed(), entry_hash, prev, body.to_string()],
     )?;
     Ok(StoredEvent {
         sequence: seq,
@@ -129,6 +140,10 @@ pub fn append_event(
 }
 
 /// Read a full stream in sequence order.
+///
+/// # Errors
+///
+/// Returns an error when SQLite fails to prepare, read, or decode a row.
 pub fn read_stream(
     conn: &Connection,
     stream: EventStream,
@@ -139,7 +154,7 @@ pub fn read_stream(
     let rows = stmt.query_map(params![stream.as_str()], |r| {
         let body_text: String = r.get(3)?;
         Ok(StoredEvent {
-            sequence: r.get::<_, i64>(0)? as u64,
+            sequence: r.get::<_, i64>(0)?.cast_unsigned(),
             stream: stream.as_str().to_string(),
             entry_hash: r.get(1)?,
             previous_hash: r.get(2)?,
@@ -151,6 +166,10 @@ pub fn read_stream(
 }
 
 /// Verify a stream's hash chain from genesis.
+///
+/// # Errors
+///
+/// Returns an error when the chain is broken (sequence, link, or hash mismatch), or SQLite fails.
 pub fn verify_stream(conn: &Connection, stream: EventStream) -> Result<u64, EvidenceError> {
     let events = read_stream(conn, stream)?;
     let mut prev = ald_types::GENESIS_HASH.to_string();
@@ -169,7 +188,7 @@ pub fn verify_stream(conn: &Connection, stream: EventStream) -> Result<u64, Evid
                 e.sequence
             )));
         }
-        prev = e.entry_hash.clone();
+        prev.clone_from(&e.entry_hash);
     }
     Ok(events.len() as u64)
 }

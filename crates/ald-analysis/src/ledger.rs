@@ -9,6 +9,9 @@
 //! The batch-gradient fit above is a scoring-time refit of one diagnostic
 //! predictor. It is not the agents' learning rule: the emergent policies
 //! learn only through per-episode REINFORCE updates in `ald-learners`.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use crate::AnalysisError;
 use ald_types::signaling::{CANDIDATES, TOKENS, TYPES};
@@ -60,12 +63,13 @@ pub enum OrdinaryFit {
 }
 
 fn softmax(logits: &[f64]) -> Vec<f64> {
-    let max = logits.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let max = logits.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     let ex: Vec<f64> = logits.iter().map(|v| (v - max).exp()).collect();
     let total: f64 = ex.iter().sum();
     ex.iter().map(|v| v / total).collect()
 }
 
+#[must_use]
 pub fn brier(probabilities: &[f64], action: usize) -> f64 {
     probabilities
         .iter()
@@ -75,7 +79,7 @@ pub fn brier(probabilities: &[f64], action: usize) -> f64 {
 }
 
 fn token_index(
-    token: &Option<String>,
+    token: Option<&String>,
     inventory: &[String],
 ) -> Result<Option<usize>, AnalysisError> {
     match token {
@@ -128,13 +132,13 @@ fn assert_record(r: &OrdinaryRecord, inventory: &[String]) -> Result<(), Analysi
             "ordinary record action position is invalid".to_string(),
         ));
     }
-    let _ = token_index(&r.delivered_token, inventory)?;
+    let _ = token_index(r.delivered_token.as_ref(), inventory)?;
     Ok(())
 }
 
 fn feature_indices(
     type_codes: &[u32],
-    token: &Option<String>,
+    token: Option<&String>,
     position: usize,
     inventory: &[String],
 ) -> Result<Vec<usize>, AnalysisError> {
@@ -149,6 +153,10 @@ fn feature_indices(
 }
 
 /// Pure scorer shared by fitted predictors and the commitment auditor.
+///
+/// # Errors
+///
+/// Returns an error when the fit shape disagrees with the predictor id, or a token falls outside the frozen inventory.
 pub fn score_ordinary_fit(
     id: PredictorId,
     fit: &OrdinaryFit,
@@ -177,9 +185,8 @@ pub fn score_ordinary_fit(
             }
             let logits: Vec<f64> = (0..CANDIDATES)
                 .map(|pos| {
-                    feature_indices(type_codes, token, pos, inventory)
-                        .map(|idx| idx.iter().map(|&i| weights[i]).sum())
-                        .unwrap_or(0.0)
+                    feature_indices(type_codes, token.as_ref(), pos, inventory)
+                        .map_or(0.0, |idx| idx.iter().map(|&i| weights[i]).sum())
                 })
                 .collect();
             Ok(softmax(&logits))
@@ -200,14 +207,12 @@ pub fn score_ordinary_fit(
                 PredictorId::TranscriptOnly => Ok(normalize(
                     by_token
                         .get(&key)
-                        .map(Vec::as_slice)
-                        .unwrap_or(&[1.0; CANDIDATES]),
+                        .map_or(&[1.0; CANDIDATES][..], Vec::as_slice),
                 )),
                 _ => {
                     let counts = by_token_type
                         .get(&key)
-                        .map(Vec::as_slice)
-                        .unwrap_or(&[1.0; TYPES]);
+                        .map_or(&[1.0; TYPES][..], Vec::as_slice);
                     Ok(normalize(
                         &type_codes
                             .iter()
@@ -220,10 +225,12 @@ pub fn score_ordinary_fit(
     }
 }
 
-fn count_model(id: PredictorId, rows: &[OrdinaryRecord]) -> Result<OrdinaryFit, AnalysisError> {
+fn count_model(id: PredictorId, rows: &[OrdinaryRecord]) -> OrdinaryFit {
     let mut marginal = vec![1.0; CANDIDATES];
-    let mut by_token: std::collections::HashMap<String, Vec<f64>> = Default::default();
-    let mut by_token_type: std::collections::HashMap<String, Vec<f64>> = Default::default();
+    let mut by_token: std::collections::HashMap<String, Vec<f64>> =
+        std::collections::HashMap::new();
+    let mut by_token_type: std::collections::HashMap<String, Vec<f64>> =
+        std::collections::HashMap::new();
     for row in rows {
         marginal[row.actual_selected_candidate_index] += 1.0;
         let key = row
@@ -238,13 +245,13 @@ fn count_model(id: PredictorId, rows: &[OrdinaryRecord]) -> Result<OrdinaryFit, 
         tt[row.candidate_type_codes[row.actual_selected_candidate_index] as usize] += 1.0;
     }
     if id == PredictorId::Uniform {
-        return Ok(OrdinaryFit::Uniform);
+        return OrdinaryFit::Uniform;
     }
-    Ok(OrdinaryFit::Count {
+    OrdinaryFit::Count {
         marginal,
         by_token,
         by_token_type,
-    })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -256,6 +263,10 @@ pub struct Selection {
 
 /// Fit/choose ordinary predictors on allowed windows; refit winner on
 /// combined folds. Folds must be disjoint and single-role.
+///
+/// # Errors
+///
+/// Returns an error when the inventory is invalid, all fit windows are empty, the selection window is empty, folds overlap or mix roles, or a score is non-finite.
 pub fn select_ordinary_predictor(
     inventory: &[String],
     training: &[OrdinaryRecord],
@@ -289,8 +300,7 @@ pub fn select_ordinary_predictor(
     let role = training
         .first()
         .or(validation_fit.first())
-        .map(|r| r.receiver_role.clone())
-        .unwrap_or_else(|| "agent-0".to_string());
+        .map_or_else(|| "agent-0".to_string(), |r| r.receiver_role.clone());
     for r in training
         .iter()
         .chain(validation_fit)
@@ -312,7 +322,7 @@ pub fn select_ordinary_predictor(
             PredictorId::ValidationMajority => validation_fit,
             _ => &combined,
         };
-        let fit = build_fit(id, fit_rows)?;
+        let fit = build_fit(id, fit_rows);
         let s = score_fit(id, &fit, validation_selection, inventory)?;
         if !s.is_finite() {
             return Err(AnalysisError::Domain(format!(
@@ -334,7 +344,7 @@ pub fn select_ordinary_predictor(
         .chain(validation_selection)
         .cloned()
         .collect();
-    let refit = refit_pair(best, &role, &refit_rows, inventory)?;
+    let refit = refit_pair(best, &role, &refit_rows, inventory);
     Ok(Selection {
         selected: best,
         validation_brier_by_predictor: scores,
@@ -342,18 +352,18 @@ pub fn select_ordinary_predictor(
     })
 }
 
-fn build_fit(id: PredictorId, rows: &[OrdinaryRecord]) -> Result<OrdinaryFit, AnalysisError> {
+fn build_fit(id: PredictorId, rows: &[OrdinaryRecord]) -> OrdinaryFit {
     count_model(id, rows)
 }
 
 fn refit_pair(
     id: PredictorId,
-    _role: &str,
+    role: &str,
     rows: &[OrdinaryRecord],
     inventory: &[String],
-) -> Result<OrdinaryFit, AnalysisError> {
+) -> OrdinaryFit {
     if id == PredictorId::OrdinaryRecordSoftmax {
-        return softmax_fit(_role, rows, inventory);
+        return softmax_fit(role, rows, inventory);
     }
     count_model(id, rows)
 }
@@ -380,11 +390,7 @@ fn score_fit(
     Ok(total / rows.len() as f64)
 }
 
-fn softmax_fit(
-    _role: &str,
-    rows: &[OrdinaryRecord],
-    inventory: &[String],
-) -> Result<OrdinaryFit, AnalysisError> {
+fn softmax_fit(_role: &str, rows: &[OrdinaryRecord], inventory: &[String]) -> OrdinaryFit {
     let mut weights = vec![0.0; COEFFICIENTS];
     let mut gradient = vec![0.0; COEFFICIENTS];
     for _ in 0..2000 {
@@ -394,12 +400,11 @@ fn softmax_fit(
                 .map(|pos| {
                     feature_indices(
                         &row.candidate_type_codes,
-                        &row.delivered_token,
+                        row.delivered_token.as_ref(),
                         pos,
                         inventory,
                     )
-                    .map(|idx| idx.iter().map(|&i| weights[i]).sum())
-                    .unwrap_or(0.0)
+                    .map_or(0.0, |idx| idx.iter().map(|&i| weights[i]).sum())
                 })
                 .collect();
             let probs = softmax(&logits);
@@ -412,7 +417,7 @@ fn softmax_fit(
                     };
                 if let Ok(idx) = feature_indices(
                     &row.candidate_type_codes,
-                    &row.delivered_token,
+                    row.delivered_token.as_ref(),
                     pos,
                     inventory,
                 ) {
@@ -428,9 +433,10 @@ fn softmax_fit(
             *w -= 0.05 * (gradient[i] / n + reg);
         }
     }
-    Ok(OrdinaryFit::Softmax { weights })
+    OrdinaryFit::Softmax { weights }
 }
 
+#[must_use]
 pub fn score_prediction_native_brier(native_distribution: &[f64], actual_index: usize) -> f64 {
     brier(native_distribution, actual_index)
 }

@@ -4,6 +4,9 @@
 //! Estimation: each case's normal-branch and control-branch full
 //! distributions give a paired Brier difference on the same scale as the
 //! primary, instead of a 0/1 turn-success difference.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use crate::ledger::brier;
 use crate::{student_t_quantile, summarize, AnalysisError};
@@ -38,6 +41,10 @@ pub struct BranchCase {
 /// V3 paired-Brier contrast: mean over cases of
 /// Brier(control) - Brier(normal), per control, equal-averaged over roles.
 /// Positive favors normal. Same scale as the dyad primary.
+///
+/// # Errors
+///
+/// Returns an error when no cases are given, a role has no cases, case ids are empty or duplicated, or a case lacks a control distribution.
 pub fn brier_control_contrasts(
     dyad: &str,
     cases: &[BranchCase],
@@ -90,6 +97,10 @@ fn contrast_id(control: &str) -> String {
 }
 
 /// V2 binary-success contrast (kept for comparability with sealed v2 reports).
+///
+/// # Errors
+///
+/// Returns an error when no cases are given, a role has no cases, or a case lacks a control success outcome.
 pub fn success_control_contrasts(
     dyad: &str,
     cases: &[BranchCase],
@@ -137,7 +148,11 @@ pub struct ControlBound {
     pub degenerate: Option<String>,
 }
 
-/// Simultaneous one-sided t lower bounds at alpha = FAMILY_ALPHA/FAMILY_SIZE.
+/// Simultaneous one-sided t lower bounds at alpha = `FAMILY_ALPHA/FAMILY_SIZE`.
+///
+/// # Errors
+///
+/// Returns an error for an unknown contrast id, or when the sample is empty or non-finite.
 pub fn simultaneous_bounds(
     contrast: &str,
     per_dyad: &[f64],
@@ -193,6 +208,10 @@ pub struct Fidelity {
 /// between the native distribution and the exact replay distribution.
 /// (Protocol `fidelity.measure`: mean squared distance of native to exact
 /// replay probabilities.)
+///
+/// # Errors
+///
+/// Returns an error when the native/replay lists are unpaired, empty, or hold mismatched lengths.
 pub fn fidelity(native: &[Vec<f64>], replay: &[Vec<f64>]) -> Result<Fidelity, AnalysisError> {
     if native.len() != replay.len() {
         return Err(AnalysisError::LengthMismatch(format!(
@@ -238,6 +257,10 @@ pub struct InvalidityBounds {
 }
 
 /// Worst-admissible bounds: missing/invalid dyads take the extremes.
+///
+/// # Errors
+///
+/// Returns an error when `attempted_n` is zero, below the valid count, or a value is non-finite.
 pub fn invalidity_bounds(
     valid_values: &[f64],
     attempted_n: usize,

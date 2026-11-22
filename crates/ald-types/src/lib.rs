@@ -117,7 +117,7 @@ impl AgentRole {
     }
 }
 
-/// Minimal RunConfig subset governing deterministic ALA replay.
+/// Minimal `RunConfig` subset governing deterministic ALA replay.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunConfig {

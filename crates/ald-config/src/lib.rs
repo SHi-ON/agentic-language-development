@@ -42,7 +42,7 @@ pub struct RuntimeEnvironment {
 }
 
 fn parse_port(
-    source: &HashMap<String, String>,
+    source: &HashMap<String, String, impl std::hash::BuildHasher>,
     name: &str,
     default: u16,
 ) -> Result<u16, ConfigError> {
@@ -63,9 +63,12 @@ fn parse_port(
             }),
     }
 }
-
+///
+/// # Errors
+///
+/// Returns an error when a value is malformed, or a direct secret value is supplied instead of a `*_FILE` path.
 pub fn load_runtime_environment(
-    source: &HashMap<String, String>,
+    source: &HashMap<String, String, impl std::hash::BuildHasher>,
 ) -> Result<RuntimeEnvironment, ConfigError> {
     for forbidden in [
         "ALD_RUN_SIGNER_SEEDS_JSON",
@@ -80,8 +83,7 @@ pub fn load_runtime_environment(
     }
     let deployment_mode = match source
         .get("ALD_DEPLOYMENT_MODE")
-        .map(String::as_str)
-        .unwrap_or("prototype")
+        .map_or("prototype", String::as_str)
     {
         "prototype" => DeploymentMode::Prototype,
         "research-grade" => DeploymentMode::ResearchGrade,
@@ -91,11 +93,7 @@ pub fn load_runtime_environment(
             )));
         }
     };
-    let log_level = match source
-        .get("ALD_LOG_LEVEL")
-        .map(String::as_str)
-        .unwrap_or("info")
-    {
+    let log_level = match source.get("ALD_LOG_LEVEL").map_or("info", String::as_str) {
         "debug" => LogLevel::Debug,
         "info" => LogLevel::Info,
         "warn" => LogLevel::Warn,

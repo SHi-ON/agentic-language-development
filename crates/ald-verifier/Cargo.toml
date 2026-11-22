@@ -18,3 +18,6 @@ ald-analysis = { path = "../ald-analysis" }
 ald-evidence = { path = "../ald-evidence" }
 ald-merkle = { path = "../ald-merkle" }
 rusqlite = { workspace = true }
+
+[lints]
+workspace = true

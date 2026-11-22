@@ -1,4 +1,7 @@
 //! Descriptive statistics, Wilson intervals, bootstrap, t-tests.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use crate::special::normal_quantile;
 use crate::AnalysisError;
@@ -43,6 +46,11 @@ fn assert_level(level: f64, name: &str) -> Result<(), AnalysisError> {
 
 /// Sample summary with unbiased (n-1) variance; variance/sd are NaN at n=1;
 /// exact 0.0 variance for point masses.
+///
+/// # Errors
+///
+/// Returns an error when the sample is empty or non-finite.
+#[allow(clippy::float_cmp)] // min == max is the exact point-mass test.
 pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
     assert_sample(values, "values")?;
     let n = values.len();
@@ -94,12 +102,19 @@ pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
         max,
     })
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the sample is empty or non-finite.
 pub fn mean(values: &[f64]) -> Result<f64, AnalysisError> {
     Ok(summarize(values)?.mean)
 }
 
 /// Type-7 empirical quantile over an ascending slice.
+///
+/// # Errors
+///
+/// Returns an error when the slice is empty or non-finite, or the probability is outside [0, 1].
 pub fn quantile_sorted(sorted: &[f64], probability: f64) -> Result<f64, AnalysisError> {
     assert_sample(sorted, "sorted")?;
     if !(0.0..=1.0).contains(&probability) {
@@ -128,6 +143,10 @@ pub struct WilsonInterval {
 }
 
 /// Wilson score interval, bounds clamped to [0, 1].
+///
+/// # Errors
+///
+/// Returns an error when `n` is zero, `successes` exceeds `n`, or confidence is outside (0, 1).
 pub fn wilson_interval(
     successes: u64,
     n: u64,
@@ -147,17 +166,17 @@ pub fn wilson_interval(
     let p = successes as f64 / n as f64;
     let z = normal_quantile(1.0 - (1.0 - confidence) / 2.0)?;
     let z2 = z * z;
-    let n = n as f64;
-    let denom = 1.0 + z2 / n;
-    let center = (p + z2 / (2.0 * n)) / denom;
-    let half = z / denom * (p * (1.0 - p) / n + z2 / (4.0 * n * n)).sqrt();
+    let nf = n as f64;
+    let denom = 1.0 + z2 / nf;
+    let center = (p + z2 / (2.0 * nf)) / denom;
+    let half = z / denom * (p * (1.0 - p) / nf + z2 / (4.0 * nf * nf)).sqrt();
     Ok(WilsonInterval {
         lower: (center - half).max(0.0),
         upper: (center + half).min(1.0),
         center,
         level: confidence,
         successes,
-        n: n as u64,
+        n,
         proportion: p,
     })
 }
@@ -173,7 +192,11 @@ pub struct BootstrapCi {
     pub seed: String,
 }
 
-/// Bootstrap replicate means in draw order; single SeededPrng stream.
+/// Bootstrap replicate means in draw order; single `SeededPrng` stream.
+///
+/// # Errors
+///
+/// Returns an error when values are empty or non-finite, the seed is empty, or iterations is zero.
 pub fn bootstrap_mean_replicates(
     values: &[f64],
     seed: &str,
@@ -205,7 +228,10 @@ pub fn bootstrap_mean_replicates(
     }
     Ok(out)
 }
-
+///
+/// # Errors
+///
+/// Returns an error when replicates are empty or non-finite, or the level is outside (0, 1).
 pub fn percentile_interval(
     replicates: &[f64],
     level: f64,
@@ -215,7 +241,7 @@ pub fn percentile_interval(
     let mut sorted = replicates.to_vec();
     // total_cmp: identical order on the finite inputs assert_sample enforces,
     // and panic-free by construction if a non-finite value ever slips through.
-    sorted.sort_by(|a, b| a.total_cmp(b));
+    sorted.sort_by(f64::total_cmp);
     let tail = (1.0 - level) / 2.0;
     Ok(ConfidenceInterval {
         lower: quantile_sorted(&sorted, tail)?,
@@ -223,7 +249,10 @@ pub fn percentile_interval(
         level,
     })
 }
-
+///
+/// # Errors
+///
+/// Returns an error when values are empty or non-finite, the seed is empty, iterations is zero, or confidence is outside (0, 1).
 pub fn bootstrap_mean_ci(
     values: &[f64],
     seed: &str,
@@ -253,6 +282,10 @@ pub struct OneSampleT {
 }
 
 /// One-sample t interval; `None` bounds when n < 2 or variance is zero.
+///
+/// # Errors
+///
+/// Returns an error when values are empty or non-finite, or coverage is outside (0, 1).
 pub fn one_sample_t(values: &[f64], coverage: f64) -> Result<OneSampleT, AnalysisError> {
     assert_level(coverage, "coverage")?;
     let s = summarize(values)?;
@@ -278,6 +311,10 @@ pub fn one_sample_t(values: &[f64], coverage: f64) -> Result<OneSampleT, Analysi
 }
 
 /// Holm-Bonferroni step-down: returns rejection flags in input order.
+///
+/// # Errors
+///
+/// Returns an error when alpha is outside (0, 1), or a p-value is non-finite or outside [0, 1].
 pub fn holm_bonferroni(p_values: &[f64], alpha: f64) -> Result<Vec<bool>, AnalysisError> {
     if !(alpha > 0.0 && alpha < 1.0) {
         return Err(AnalysisError::Domain("alpha must be in (0, 1)".to_string()));
@@ -333,8 +370,8 @@ mod tests {
     fn bootstrap_matches_ts_oracle() {
         // Reference values for [0.1,0.2,0.3], seed 's', 100 reps, 0.95.
         let r = bootstrap_mean_ci(&[0.1, 0.2, 0.3], "s", 100, 0.95).unwrap();
-        assert!((r.estimate - 0.20000000000000004).abs() < 1e-15);
-        assert!((r.lower - 0.11583333333333343).abs() < 1e-12);
+        assert!((r.estimate - 0.200_000_000_000_000_04).abs() < 1e-15);
+        assert!((r.lower - 0.115_833_333_333_333_43).abs() < 1e-12);
         assert!((r.upper - 0.3).abs() < 1e-12);
         assert_eq!(r.iterations, 100);
     }

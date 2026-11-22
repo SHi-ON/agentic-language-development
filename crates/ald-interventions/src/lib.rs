@@ -4,6 +4,9 @@
 //! with entry hashes, and the four control-branch substitutions
 //! (disabled / constant / random / shuffled) applied to a normal
 //! distribution.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_hashing::{hash_canonical, HashingError};
 use serde::{Deserialize, Serialize};
@@ -26,7 +29,10 @@ pub struct InterventionEvent {
     pub branch: String,
     pub created_at: String,
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the event cannot be serialized or canonicalized.
 pub fn intervention_entry_hash(event: &InterventionEvent) -> Result<String, InterventionError> {
     let v = serde_json::to_value(event).map_err(|e| InterventionError::Domain(e.to_string()))?;
     Ok(hash_canonical(
@@ -36,6 +42,10 @@ pub fn intervention_entry_hash(event: &InterventionEvent) -> Result<String, Inte
 }
 
 /// Apply a control-branch substitution to a normal distribution.
+///
+/// # Errors
+///
+/// Returns an error for an unknown branch.
 pub fn substitute_branch(
     branch: &str,
     normal: &[f64],

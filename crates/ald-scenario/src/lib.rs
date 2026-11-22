@@ -2,6 +2,9 @@
 //! transcript production, and paired-branch execution plans.
 //!
 //! The `ReferentialScenarioEngine` surface plus the LV01 branch plan.
+#![allow(clippy::cast_precision_loss)] // small counts/indices; exact for realistic inputs
+#![allow(clippy::cast_possible_truncation)] // small counts/indices; bounded by construction
+#![allow(clippy::cast_sign_loss)] // non-negative by construction (validated ranges, draws in [0, 1))
 
 use ald_hashing::SeededPrng;
 use ald_types::signaling::{CANDIDATES, TYPES};
@@ -27,6 +30,7 @@ pub struct Lv01Case {
 }
 
 /// Deterministic LV01 case generator: `seeded stream per (runSeed, slot)`.
+#[must_use]
 pub fn generate_cases(
     seed: &str,
     slot: u64,
@@ -39,7 +43,7 @@ pub fn generate_cases(
     for i in 0..count {
         let mut codes = [0u32; 4];
         let mut used = [false; TYPES];
-        for c in codes.iter_mut() {
+        for c in &mut codes {
             loop {
                 let t = rng.next_int(TYPES as u32).unwrap_or(0) as usize;
                 if !used[t] {
@@ -81,6 +85,7 @@ pub fn generate_cases(
 /// (i.e. `held_out.len() <= TYPES - CANDIDATES` after dedup); with fewer,
 /// distinctness is unfillable and the fill loop never terminates. The
 /// orchestrator validates this before calling.
+#[must_use]
 pub fn generate_cases_excluding(
     seed: &str,
     slot: u64,
@@ -100,12 +105,12 @@ pub fn generate_cases_excluding(
         }
         let mut fill_rng = SeededPrng::new(seed).derive(&format!("heldout-fill/{}", case.case_id));
         let mut used = [false; TYPES];
-        for c in case.candidate_type_codes.iter() {
+        for c in &case.candidate_type_codes {
             if !held(*c) {
                 used[*c as usize] = true;
             }
         }
-        for c in case.candidate_type_codes.iter_mut() {
+        for c in &mut case.candidate_type_codes {
             if held(*c) {
                 loop {
                     let t = fill_rng.next_int(TYPES as u32).unwrap_or(0);
@@ -133,6 +138,7 @@ pub struct PairedCasePlan {
     pub draw_bits_hex: String,
 }
 
+#[must_use]
 pub fn plan_paired_case(seed: &str, case_id: &str) -> PairedCasePlan {
     let mut rng = SeededPrng::new(seed).derive(&format!("lv01-draw/{case_id}"));
     let u = rng.next_float();

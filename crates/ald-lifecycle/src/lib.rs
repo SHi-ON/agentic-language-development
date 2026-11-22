@@ -31,7 +31,10 @@ pub enum LifecycleEvent {
     Anchor,
     Verify,
 }
-
+///
+/// # Errors
+///
+/// Returns an error for any transition outside the linear happy path.
 pub fn transition(state: RunState, event: LifecycleEvent) -> Result<RunState, LifecycleError> {
     match (state, event) {
         (RunState::Registered, LifecycleEvent::BeginExecution) => Ok(RunState::Executing),

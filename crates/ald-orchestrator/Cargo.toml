@@ -21,3 +21,6 @@ ald-learners = { path = "../ald-learners" }
 ald-checkpoint = { path = "../ald-checkpoint" }
 rusqlite = { workspace = true }
 ald-interventions = { path = "../ald-interventions" }
+
+[lints]
+workspace = true

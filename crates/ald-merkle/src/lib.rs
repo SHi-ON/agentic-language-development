@@ -7,6 +7,7 @@
 use ald_hashing::{decode_hash, domain_hash, encode_hash, HashingError};
 use ald_types::hash_domains;
 use serde::{Deserialize, Serialize};
+use sha2::Digest as _;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -18,24 +19,28 @@ pub enum MerkleError {
     #[error("invalid proof")]
     Proof,
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the entry hash is malformed.
 pub fn leaf_hash(sequence: u64, entry_hash: &str) -> Result<String, MerkleError> {
     let entry = decode_hash(entry_hash)?;
     let seq = sequence.to_be_bytes();
     let mut h = sha2::Sha256::new();
-    use sha2::Digest as _;
     h.update(hash_domains::MERKLE_LEAF.as_bytes());
     h.update([0u8]);
     h.update(seq);
     h.update(entry);
     Ok(encode_hash(&h.finalize().into()))
 }
-
+///
+/// # Errors
+///
+/// Returns an error when either hash is malformed.
 pub fn node_hash(left: &str, right: &str) -> Result<String, MerkleError> {
     let l = decode_hash(left)?;
     let r = decode_hash(right)?;
     let mut h = sha2::Sha256::new();
-    use sha2::Digest as _;
     h.update(hash_domains::MERKLE_NODE.as_bytes());
     h.update([1u8]);
     h.update(l);
@@ -72,7 +77,10 @@ pub struct InclusionProof {
     pub siblings: Vec<String>,
     pub root: String,
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the leaf, a sibling, or the root is malformed.
 pub fn verify_inclusion(proof: &InclusionProof, mut index: u64) -> Result<bool, MerkleError> {
     let mut acc = decode_hash(&proof.leaf).map_err(MerkleError::Hash)?;
     for sib in &proof.siblings {
@@ -83,7 +91,6 @@ pub fn verify_inclusion(proof: &InclusionProof, mut index: u64) -> Result<bool, 
             (s, acc)
         };
         let mut h = sha2::Sha256::new();
-        use sha2::Digest as _;
         h.update(hash_domains::MERKLE_NODE.as_bytes());
         h.update([1u8]);
         h.update(l);

@@ -217,7 +217,7 @@ fn run_explicit_defaults_take_the_legacy_path() {
         "--active-sender-tokens".to_string(),
         "32".to_string(),
         "--held-out-types".to_string(),
-        "".to_string(),
+        String::new(),
     ]);
     let out = ala().args(&args).output().unwrap();
     assert!(

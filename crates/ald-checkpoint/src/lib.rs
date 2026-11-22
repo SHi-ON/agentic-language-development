@@ -33,7 +33,10 @@ pub struct CheckpointManifest {
     pub unsigned: UnsignedCheckpointManifest,
     pub checkpoint_hash: String,
 }
-
+///
+/// # Errors
+///
+/// Returns an error when the manifest cannot be represented as canonical JSON.
 pub fn checkpoint_hash(unsigned: &UnsignedCheckpointManifest) -> Result<String, HashingError> {
     let value =
         serde_json::to_value(unsigned).map_err(|e| HashingError::Unrepresentable(e.to_string()))?;

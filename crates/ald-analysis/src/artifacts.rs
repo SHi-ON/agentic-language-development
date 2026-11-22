@@ -38,6 +38,10 @@ pub struct CaseProbabilities {
 
 /// Convert persisted per-case probabilities into contrast cases: the
 /// `normal` branch against every control branch.
+///
+/// # Errors
+///
+/// Returns an error when a case lacks a `normal` branch or any control branch.
 pub fn branch_cases(
     dyad: &str,
     role: &str,
