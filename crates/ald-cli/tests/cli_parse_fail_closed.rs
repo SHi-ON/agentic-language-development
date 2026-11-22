@@ -306,6 +306,41 @@ fn manifest_accepts_v1_and_v2() {
 }
 
 #[test]
+fn run_rejects_malformed_runtime_environment() {
+    let dir = scratch_dir("run-env");
+    let manifest = small_manifest(&dir);
+    let root = dir.join("evidence");
+    let args = base_run_args(&manifest, &root);
+    let out = ala()
+        .args(&args)
+        .env("ALD_DTSF_PORT", "not-a-port")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("runtime environment"),
+        "stderr must name the environment, got: {stderr}"
+    );
+    assert!(!root.exists(), "rejected run must not write");
+}
+
+#[test]
+fn run_rejects_direct_secret_values() {
+    let dir = scratch_dir("run-secret");
+    let manifest = small_manifest(&dir);
+    let root = dir.join("evidence");
+    let args = base_run_args(&manifest, &root);
+    let out = ala()
+        .args(&args)
+        .env("ALD_ANCHOR_KEY", "direct-secret-value")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(!root.exists(), "rejected run must not write");
+}
+
+#[test]
 fn journal_rejects_non_json_line() {
     let dir = scratch_dir("journal-nonjson");
     let journal = dir.join("journal.jsonl");

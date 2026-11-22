@@ -91,6 +91,14 @@ fn cmd_run(args: &[String]) {
     ];
     reject_stray_args(args, "run", RUN_FLAGS);
     reject_duplicate_flags(args, "run", RUN_FLAGS);
+    // Validate the process environment against the embedder contract before
+    // anything else: malformed values or direct secret values fail closed
+    // here. The run itself still takes only explicit flags.
+    let process_env: std::collections::HashMap<String, String> = std::env::vars().collect();
+    let _runtime_env = ald_config::load_runtime_environment(&process_env).unwrap_or_else(|e| {
+        eprintln!("ala run: invalid runtime environment: {e}");
+        std::process::exit(2);
+    });
     let development = parse_development_options(args);
     let index: u32 = match arg(args, "--index") {
         None => usage(),

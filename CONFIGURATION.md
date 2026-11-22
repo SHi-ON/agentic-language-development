@@ -85,8 +85,10 @@ Gating and artifacts:
 ## Runtime environment (`ald-config`)
 
 `crates/ald-config` provides `load_runtime_environment`, the
-environment contract for hosts that embed the workspace crates
-(`ala` itself does not read the process environment). Variables are
+environment contract for hosts that embed the workspace crates.
+`ala run` validates the process environment against this contract at
+startup (malformed values or direct secret values exit 2 before any
+write); the run itself still takes only explicit flags. Variables are
 read from a caller-supplied map; defaults apply when a variable is
 absent or empty.
 

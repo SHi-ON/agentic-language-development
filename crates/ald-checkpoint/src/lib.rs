@@ -33,7 +33,7 @@ pub struct CheckpointManifest {
     pub unsigned: UnsignedCheckpointManifest,
     pub checkpoint_hash: String,
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when the manifest cannot be represented as canonical JSON.

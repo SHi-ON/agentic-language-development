@@ -25,15 +25,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ald-anchor"
-version = "0.1.0"
-dependencies = [
- "ald-hashing",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "ald-checkpoint"
 version = "0.1.0"
 dependencies = [
@@ -48,6 +39,7 @@ name = "ald-cli"
 version = "0.1.0"
 dependencies = [
  "ald-analysis",
+ "ald-config",
  "ald-evidence",
  "ald-hashing",
  "ald-orchestrator",
@@ -76,14 +68,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ald-gateway"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "ald-hashing"
 version = "0.1.0"
 dependencies = [
@@ -106,18 +90,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ald-isolation"
-version = "0.1.0"
-dependencies = [
- "serde",
- "thiserror",
-]
-
-[[package]]
-name = "ald-leakage"
-version = "0.1.0"
-
-[[package]]
 name = "ald-learners"
 version = "0.1.0"
 dependencies = [
@@ -125,14 +97,6 @@ dependencies = [
  "ald-types",
  "serde",
  "serde_json",
- "thiserror",
-]
-
-[[package]]
-name = "ald-lifecycle"
-version = "0.1.0"
-dependencies = [
- "serde",
  "thiserror",
 ]
 
@@ -145,13 +109,6 @@ dependencies = [
  "serde",
  "sha2",
  "thiserror",
-]
-
-[[package]]
-name = "ald-ops"
-version = "0.1.0"
-dependencies = [
- "ald-hashing",
 ]
 
 [[package]]
@@ -196,11 +153,13 @@ dependencies = [
 name = "ald-verifier"
 version = "0.1.0"
 dependencies = [
+ "ald-checkpoint",
  "ald-evidence",
  "ald-merkle",
  "ald-types",
  "rusqlite",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

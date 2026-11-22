@@ -57,7 +57,7 @@ pub struct DyadResult {
     pub roles: Vec<RoleResult>,
     pub primary: f64,
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when the test set is empty, selection fails, a test row carries the wrong role, or a distribution is non-finite or misshapen.
@@ -127,7 +127,6 @@ pub fn analyze_role(folds: &RoleFolds, inventory: &[String]) -> Result<RoleResul
     })
 }
 
-///
 /// # Errors
 ///
 /// Returns an error unless exactly the two receiver-role folds are present, or when a role analysis fails.

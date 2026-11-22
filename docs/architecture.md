@@ -16,15 +16,13 @@ score and verify its evidence.
 | `ald-cli` | The `ala` binary: `run`, `analyze select|score`, `verify`, `manifest`, `journal`. |
 | `ald-scenario` | Deterministic case generation: 4 distinct candidate type codes and a target index per case; the five branch labels (`normal`, `disabled`, `constant`, `random`, `shuffled`). |
 | `ald-interventions` | Control-branch substitutions applied to a native distribution. |
-| `ald-gateway` | Delivery routing of a token to the receiver role; names the substitution point. |
 | `ald-analysis` | Ordinary-record predictors (uniform, validation-majority, transcript-only, task-history, ordinary-record-softmax), validation selection, dyad primaries, paired control contrasts, simultaneous bounds, invalidity bounds, cohort t-interval and bootstrap. |
 | `ald-evidence` | SQLite evidence store: hash-chained event streams (`entryHash = SHA-256(domain || 0x00 || canonical event)`), append and chain verification. |
 | `ald-verifier` | Independent verification of an evidence database: stream chains, checkpoint hashes, Merkle inclusion proofs. |
 | `ald-hashing` | RFC 8785 canonical JSON, SHA-256 domain hashing, seed derivation, and `SeededPrng` (SHA-256 counter mode) used for every random draw. |
-| `ald-merkle`, `ald-checkpoint`, `ald-anchor` | RFC 6962 trees and proofs; checkpoint manifests binding every stream of a run; simulated-chain anchor receipts. |
+| `ald-merkle`, `ald-checkpoint` | RFC 6962 trees and proofs; checkpoint manifests binding every stream of a run. |
 | `ald-types` | Shared hash domains, stream contracts, and study types. |
 | `ald-config` | Runtime environment loading (`load_runtime_environment`); see `../CONFIGURATION.md`. |
-| `ald-isolation`, `ald-leakage`, `ald-lifecycle`, `ald-ops` | Isolation-mode contracts, the semantic-leakage probe rule, the run lifecycle state machine, operator failure digests and retention. |
 
 ## The four phases of one dyad run
 

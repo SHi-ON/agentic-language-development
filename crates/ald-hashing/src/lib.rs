@@ -140,7 +140,7 @@ pub fn is_sha256_hash(value: &str) -> bool {
         && value.starts_with(HASH_PREFIX)
         && value[7..].chars().all(|c| c.is_ascii_hexdigit())
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when the text is not `sha256:<64 hex>`.

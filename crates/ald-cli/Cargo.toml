@@ -17,6 +17,7 @@ ald-analysis = { path = "../ald-analysis" }
 ald-orchestrator = { path = "../ald-orchestrator" }
 ald-evidence = { path = "../ald-evidence" }
 ald-verifier = { path = "../ald-verifier" }
+ald-config = { path = "../ald-config" }
 
 [lints]
 workspace = true

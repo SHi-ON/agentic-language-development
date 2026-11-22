@@ -34,7 +34,9 @@ pub struct VerificationReport {
 ///
 /// # Errors
 ///
-/// Returns an error when any stream chain fails to verify, or SQLite fails.
+/// Returns an error when any stream chain fails to verify, when a stored
+/// checkpoint body is not a valid unsigned manifest or its hash mismatches,
+/// or when SQLite fails.
 pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierError> {
     let mut events = 0u64;
     let mut streams = 0u64;
@@ -51,6 +53,24 @@ pub fn verify_bundle(conn: &Connection) -> Result<VerificationReport, VerifierEr
         if n > 0 {
             streams += 1;
             events += n;
+        }
+    }
+    for cp in ald_evidence::read_checkpoints(conn)? {
+        let unsigned: ald_checkpoint::UnsignedCheckpointManifest = serde_json::from_str(&cp.body)
+            .map_err(|e| {
+            VerifierError::Failed(format!(
+                "checkpoint {} body is not a valid unsigned manifest: {e}",
+                cp.sequence
+            ))
+        })?;
+        let recomputed = ald_checkpoint::checkpoint_hash(&unsigned).map_err(|e| {
+            VerifierError::Failed(format!("checkpoint {} unhashable: {e}", cp.sequence))
+        })?;
+        if recomputed != cp.checkpoint_hash {
+            return Err(VerifierError::Failed(format!(
+                "checkpoint {} hash mismatch",
+                cp.sequence
+            )));
         }
     }
     Ok(VerificationReport {
@@ -86,5 +106,53 @@ mod tests {
         let r = verify_bundle(&conn).unwrap();
         assert!(r.ok);
         assert_eq!(r.events_checked, 0);
+    }
+
+    fn test_manifest() -> ald_checkpoint::UnsignedCheckpointManifest {
+        ald_checkpoint::UnsignedCheckpointManifest {
+            run_id: "r".to_string(),
+            sequence: 0,
+            previous_checkpoint_hash: ald_types::GENESIS_HASH.to_string(),
+            trees: vec![],
+            created_at: "2026-01-01T00:00:00Z".to_string(),
+        }
+    }
+
+    #[test]
+    fn stored_checkpoint_reverified() {
+        let conn = ald_evidence::open(":memory:").unwrap();
+        let m = test_manifest();
+        let hash = ald_checkpoint::checkpoint_hash(&m).unwrap();
+        conn.execute(
+            "INSERT INTO checkpoints(sequence, body, checkpoint_hash) VALUES(?1,?2,?3)",
+            rusqlite::params![0, serde_json::to_string(&m).unwrap(), hash],
+        )
+        .unwrap();
+        assert!(verify_bundle(&conn).unwrap().ok);
+    }
+
+    #[test]
+    fn mutated_checkpoint_fails() {
+        let conn = ald_evidence::open(":memory:").unwrap();
+        let m = test_manifest();
+        let hash = ald_checkpoint::checkpoint_hash(&m).unwrap();
+        conn.execute(
+            "INSERT INTO checkpoints(sequence, body, checkpoint_hash) VALUES(?1,?2,?3)",
+            rusqlite::params![0, serde_json::to_string(&m).unwrap(), hash],
+        )
+        .unwrap();
+        conn.execute(
+            "UPDATE checkpoints SET body = ?1 WHERE sequence = 0",
+            rusqlite::params![
+                serde_json::to_string(&ald_checkpoint::UnsignedCheckpointManifest {
+                    run_id: "tampered".to_string(),
+                    ..m
+                })
+                .unwrap()
+            ],
+        )
+        .unwrap();
+        let err = verify_bundle(&conn).unwrap_err().to_string();
+        assert!(err.contains("checkpoint 0"), "unexpected error: {err}");
     }
 }

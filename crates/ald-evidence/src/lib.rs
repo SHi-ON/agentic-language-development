@@ -165,6 +165,35 @@ pub fn read_stream(
         .map_err(EvidenceError::from)
 }
 
+/// One stored checkpoint row: `body` is the JSON of an
+/// `ald_checkpoint::UnsignedCheckpointManifest` (parsed by the verifier,
+/// which owns the checkpoint contract), `checkpoint_hash` its claimed hash.
+#[derive(Debug, Clone)]
+pub struct StoredCheckpoint {
+    pub sequence: u64,
+    pub body: String,
+    pub checkpoint_hash: String,
+}
+
+/// Read all checkpoint rows in sequence order.
+///
+/// # Errors
+///
+/// Returns an error when SQLite fails to prepare, read, or decode a row.
+pub fn read_checkpoints(conn: &Connection) -> Result<Vec<StoredCheckpoint>, EvidenceError> {
+    let mut stmt = conn
+        .prepare("SELECT sequence, body, checkpoint_hash FROM checkpoints ORDER BY sequence ASC")?;
+    let rows = stmt.query_map([], |r| {
+        Ok(StoredCheckpoint {
+            sequence: r.get::<_, i64>(0)?.cast_unsigned(),
+            body: r.get(1)?,
+            checkpoint_hash: r.get(2)?,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(EvidenceError::from)
+}
+
 /// Verify a stream's hash chain from genesis.
 ///
 /// # Errors
@@ -217,6 +246,29 @@ mod tests {
         conn.execute("UPDATE events SET body = '{}' WHERE sequence = 0", [])
             .unwrap();
         assert!(verify_stream(&conn, EventStream::Channel).is_err());
+    }
+
+    #[test]
+    fn checkpoints_read_in_sequence_order() {
+        let conn = open(":memory:").unwrap();
+        assert!(read_checkpoints(&conn).unwrap().is_empty());
+        for seq in [1u64, 0] {
+            conn.execute(
+                "INSERT INTO checkpoints(sequence, body, checkpoint_hash) VALUES(?1,?2,?3)",
+                params![
+                    seq.cast_signed(),
+                    format!("{{\"s\":{seq}}}"),
+                    format!("h{seq}")
+                ],
+            )
+            .unwrap();
+        }
+        let rows = read_checkpoints(&conn).unwrap();
+        assert_eq!(
+            rows.iter().map(|r| r.sequence).collect::<Vec<_>>(),
+            vec![0, 1]
+        );
+        assert_eq!(rows[0].checkpoint_hash, "h0");
     }
 
     #[test]

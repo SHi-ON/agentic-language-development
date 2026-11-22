@@ -8,10 +8,12 @@ rust-version.workspace = true
 
 [dependencies]
 serde = { workspace = true }
+serde_json = { workspace = true }
 thiserror = { workspace = true }
 ald-types = { path = "../ald-types" }
 ald-evidence = { path = "../ald-evidence" }
 ald-merkle = { path = "../ald-merkle" }
+ald-checkpoint = { path = "../ald-checkpoint" }
 rusqlite = { workspace = true }
 
 [lints]

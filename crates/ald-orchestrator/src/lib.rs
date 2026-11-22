@@ -134,7 +134,7 @@ pub struct StudyCounts {
     pub validation_selection_cases: u64,
     pub within_support_test_cases: u64,
 }
-///
+
 /// # Errors
 ///
 /// Returns an error for invalid JSON, or missing/non-positive partition counts.

@@ -102,7 +102,7 @@ pub fn summarize(values: &[f64]) -> Result<DescriptiveSummary, AnalysisError> {
         max,
     })
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when the sample is empty or non-finite.
@@ -228,7 +228,7 @@ pub fn bootstrap_mean_replicates(
     }
     Ok(out)
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when replicates are empty or non-finite, or the level is outside (0, 1).
@@ -249,7 +249,7 @@ pub fn percentile_interval(
         level,
     })
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when values are empty or non-finite, the seed is empty, iterations is zero, or confidence is outside (0, 1).

@@ -29,7 +29,7 @@ pub struct InterventionEvent {
     pub branch: String,
     pub created_at: String,
 }
-///
+
 /// # Errors
 ///
 /// Returns an error when the event cannot be serialized or canonicalized.

@@ -140,18 +140,15 @@ per-dyad primaries, control contrasts, and cohort intervals.
 - `crates/ald-orchestrator` — `run_dyad`: seeds, workload, joint
   training, frozen test, evidence, journal, receipt.
 - `crates/ald-cli` — the `ala` command-line interface.
-- `crates/ald-scenario`, `ald-interventions`, `ald-gateway` — case
-  generation, control branches, delivery routing.
+- `crates/ald-scenario`, `ald-interventions` — case
+  generation, control branches.
 - `crates/ald-analysis` — ordinary predictors, dyad primaries,
   control contrasts, cohort intervals and bootstrap.
 - `crates/ald-evidence`, `ald-verifier`, `ald-hashing`, `ald-merkle`,
-  `ald-checkpoint`, `ald-anchor`, `ald-types` — the evidence spine:
+  `ald-checkpoint`, `ald-types` — the evidence spine:
   canonical hashing, seeded PRNG, hash-chained SQLite event streams,
-  checkpoints, simulated anchors, independent verification.
-- `crates/ald-config`, `ald-isolation`, `ald-leakage`,
-  `ald-lifecycle`, `ald-ops` — supporting contracts (runtime
-  environment, isolation modes, leakage probe rule, run lifecycle,
-  operator digests).
+  checkpoints, independent verification.
+- `crates/ald-config` — supporting contract (runtime environment).
 - `protocols/` — frozen machine-readable study and manifest files.
 - `docs/architecture.md` — crate map and the four phases of a run.
 - `docs/reproduction.md` — exact reproduction procedure.
