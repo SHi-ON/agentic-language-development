@@ -241,3 +241,82 @@ fn score_reports_bad_flag_even_when_out_exists() {
         "stderr must name the flag, got: {stderr}"
     );
 }
+
+#[test]
+fn manifest_rejects_non_numeric_version() {
+    let out = ala()
+        .args(["manifest", "--protocol-version", "x"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("--protocol-version"),
+        "stderr must name the flag, got: {stderr}"
+    );
+}
+
+#[test]
+fn manifest_rejects_version_99() {
+    let out = ala()
+        .args(["manifest", "--protocol-version", "99"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+    assert!(
+        out.stdout.is_empty(),
+        "rejected manifest must print nothing to stdout"
+    );
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("--protocol-version"),
+        "stderr must name the flag, got: {stderr}"
+    );
+}
+
+#[test]
+fn manifest_rejects_version_0() {
+    let out = ala()
+        .args(["manifest", "--protocol-version", "0"])
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(2));
+}
+
+#[test]
+fn manifest_accepts_v1_and_v2() {
+    for (flag, want) in [("1", 1), ("2", 2)] {
+        let out = ala()
+            .args(["manifest", "--protocol-version", flag])
+            .output()
+            .unwrap();
+        assert!(out.status.success(), "manifest v{flag} must succeed");
+        let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+        assert_eq!(doc["protocolVersion"], want);
+        assert!(doc["manifest"]
+            .as_str()
+            .unwrap()
+            .contains(&format!(".v{flag}.json")));
+    }
+    // Default is v2.
+    let out = ala().args(["manifest"]).output().unwrap();
+    assert!(out.status.success(), "default manifest must succeed");
+    let doc: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(doc["protocolVersion"], 2);
+}
+
+#[test]
+fn manifest_succeeds_from_any_working_directory() {
+    // The embedded-manifest fallback: no protocols/ dir under CWD, yet the
+    // shipped bytes still validate.
+    let dir = scratch_dir("manifest-cwd");
+    let out = ala()
+        .args(["manifest", "--protocol-version", "2"])
+        .current_dir(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "manifest must work outside the repo root"
+    );
+}

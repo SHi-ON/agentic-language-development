@@ -4,7 +4,6 @@
 //! `ala analyze select|score`, `ala verify`, `ala manifest`.
 
 use ald_hashing::{canonical_json, hash_canonical};
-use std::path::PathBuf;
 
 fn usage() -> ! {
     eprintln!("usage: ala <run|analyze|verify|manifest|journal> [args...]");
@@ -613,17 +612,51 @@ fn cmd_verify(args: &[String]) {
     }
 }
 
+/// Compile-time copy of the frozen protocol files, so `ala manifest`
+/// works from any working directory. The live `protocols/` file is
+/// preferred when present (see `cmd_manifest`).
+fn embedded_manifest(v: u32) -> &'static str {
+    match v {
+        1 => include_str!("../../../protocols/ala-lv-execution-manifest.v1.json"),
+        _ => include_str!("../../../protocols/ala-lv-execution-manifest.v2.json"),
+    }
+}
+
 fn cmd_manifest(args: &[String]) {
     let v = arg_u32_strict(args, "manifest", "--protocol-version", 2);
+    if v != 1 && v != 2 {
+        eprintln!("ala manifest: invalid value {v} for --protocol-version: expected 1 or 2");
+        usage();
+    }
+    let rel = format!("protocols/ala-lv-execution-manifest.v{v}.json");
+    // Prefer the live file when run from the repo root (corruption on disk
+    // must fail); otherwise validate the shipped bytes embedded at build.
+    let text = match std::fs::read_to_string(&rel) {
+        Ok(t) => t,
+        Err(_) => embedded_manifest(v).to_string(),
+    };
+    let proto: serde_json::Value = serde_json::from_str(&text).unwrap_or_else(|e| {
+        eprintln!("ala manifest: protocol file {rel} is not valid JSON: {e}");
+        std::process::exit(2);
+    });
+    // LIMIT (P0-FORK-02): existence + parse + studyId only. Both frozen
+    // files declare manifestVersion ala-lv-execution-manifest/v1, so no
+    // version-string-vs-v consistency check is possible here; that belongs
+    // to P2-CLEAN-FORK-04 (do not "fix" the frozen bytes in M1).
+    if proto.get("studyId").and_then(|s| s.as_str()) != Some("ALA-LV") {
+        eprintln!("ala manifest: protocol file {rel} is not an ALA-LV manifest");
+        std::process::exit(2);
+    }
     let doc = serde_json::json!({
         "protocolVersion": v,
-        "manifest": format!("protocols/ala-lv-execution-manifest.v{v}.json"),
+        "manifest": rel,
     });
+    // INVARIANT: serializing a String-keyed JSON value cannot fail; the
+    // from_str above parses what to_string just produced.
     let text = serde_json::to_string(&doc).unwrap();
     let canonical =
         canonical_json(&serde_json::from_str::<serde_json::Value>(&text).unwrap()).unwrap();
     println!("{canonical}");
-    let _ = PathBuf::from(".");
 }
 
 fn cmd_journal(args: &[String]) {
