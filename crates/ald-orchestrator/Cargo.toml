@@ -18,7 +18,6 @@ ald-analysis = { path = "../ald-analysis" }
 ald-evidence = { path = "../ald-evidence" }
 ald-scenario = { path = "../ald-scenario" }
 ald-learners = { path = "../ald-learners" }
-ald-checkpoint = { path = "../ald-checkpoint" }
 rusqlite = { workspace = true }
 ald-interventions = { path = "../ald-interventions" }
 

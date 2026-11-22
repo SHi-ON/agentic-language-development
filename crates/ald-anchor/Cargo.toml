@@ -8,12 +8,8 @@ rust-version.workspace = true
 
 [dependencies]
 serde = { workspace = true }
-serde_json = { workspace = true }
-sha2 = { workspace = true }
-hex = { workspace = true }
 thiserror = { workspace = true }
 ald-hashing = { path = "../ald-hashing" }
-ald-types = { path = "../ald-types" }
 
 [lints]
 workspace = true
