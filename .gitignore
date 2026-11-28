@@ -23,4 +23,4 @@
 **/tickets/
 /artifacts/
 .artifacts/
-worksheets/**/__pycache__/
+__pycache__/
